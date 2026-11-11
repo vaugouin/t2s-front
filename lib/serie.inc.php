@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");  
+include_once(__DIR__."/social-ids.inc.php");
 include_once(__DIR__."/work-properties-format.inc.php");
 include_once(__DIR__."/work-properties-sql.inc.php");
 include_once(__DIR__."/watch-country.inc.php");
@@ -34,6 +35,7 @@ if ($intdbavailable) {
 		if ($resultserie) {
 			if ($rstempserie=f_sqlresultfetcharray($resultserie)) {
 				$intseriefound=true;
+				$arrseriesocialids=f_socialidsfromrow($rstempserie);
 				$strserieidimdb=$rstempserie["ID_IMDB"];
 				$strserieoverview=$rstempserie['OVERVIEW'];
 				$strseriedatfirstair=$rstempserie['DAT_FIRST_AIR'];
@@ -827,6 +829,7 @@ if ($intdbavailable) {
 			}
 			echo "</p>";
 			echo f_wikipediaidline($struilang,$strserieidwikidata);
+			echo f_socialidshtml($arrseriesocialids ?? array(),f_socialidslabels());
 			//Hook entity.ids: identifier lines added by the plugins
 			echo f_pluginhtml("entity.ids",array("type"=>"serie","id"=>$lngserieid,"imdbid"=>$strserieidimdb,"wikidataid"=>$strserieidwikidata));
 			//Hook entity.afterids: lines added by the plugins under the identifiers

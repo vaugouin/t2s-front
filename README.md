@@ -194,6 +194,7 @@ php test/open-credits-format-test.php
 php test/plugins-test.php
 php test/private-mode-test.php
 php test/samples-format-test.php          # needs the mbstring extension
+php test/social-ids-test.php
 php test/t2s-representation-test.php      # needs node on the PATH for one check
 php test/vision-image-test.php            # needs node on the PATH for one check
 php test/wikipedia-md-render-test.php

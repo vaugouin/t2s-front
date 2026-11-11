@@ -242,6 +242,10 @@ $movie_strings = [
         'lib_person_id_tmdb' => 'ID TMDb',
         'lib_person_id_imdb' => 'ID IMDb',
         'lib_person_id_wikidata' => 'ID Wikidata',
+        'lib_social_ids' => 'Social networks',
+        'lib_social_ids_unread' => 'not read yet',
+        'lib_social_ids_none' => 'none on TMDb',
+        'lib_social_ids_read' => 'read on',
         
         // Person Wikidata
         'lib_person_type' => 'Type',
@@ -909,6 +913,10 @@ $movie_strings = [
         'lib_person_id_tmdb' => 'ID TMDb',
         'lib_person_id_imdb' => 'ID IMDb',
         'lib_person_id_wikidata' => 'ID Wikidata',
+        'lib_social_ids' => 'Réseaux sociaux',
+        'lib_social_ids_unread' => 'pas encore lus',
+        'lib_social_ids_none' => 'aucun sur TMDb',
+        'lib_social_ids_read' => 'lus le',
         
         // Person Wikidata
         'lib_person_type' => 'Type',

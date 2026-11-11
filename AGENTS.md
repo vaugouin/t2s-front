@@ -32,7 +32,7 @@ The repository is public. The database, its schema files, the crawlers, the API 
 - Includes are always written `__DIR__."/..."`. Do not introduce relative includes or an autoloader.
 - Paths in the pages assume the layout described in `README.md`: `../css/...` for the stylesheet, `/images/...` for shared images, `images/...` for the images in `html/app/images/`.
 
-Because `global-light.inc.php` opens a connection when it loads, **nothing inside it can be tested on its own**. A helper worth a test belongs in a side-effect-free file that can be `require`d alone (`private-mode`, `plugins`, `env`, `vision-image`, `samples-format`, `wikipedia-md`, `work-properties-*`, `movie-sections`, `t2s-representation`, `api-version`, `image-gallery`, `private-mode`). When you extract a helper, put it in such a file.
+Because `global-light.inc.php` opens a connection when it loads, **nothing inside it can be tested on its own**. A helper worth a test belongs in a side-effect-free file that can be `require`d alone (`private-mode`, `plugins`, `env`, `vision-image`, `samples-format`, `social-ids`, `wikipedia-md`, `work-properties-*`, `movie-sections`, `t2s-representation`, `api-version`, `image-gallery`, `private-mode`). When you extract a helper, put it in such a file.
 
 ## Code conventions
 

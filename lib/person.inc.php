@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/social-ids.inc.php");
 include_once(__DIR__."/movie-sections.inc.php");  
 
 if ($intdbavailable) {
@@ -29,6 +30,7 @@ if ($intdbavailable) {
 		if ($resultperson) {
 			if ($rstempperson=f_sqlresultfetcharray($resultperson)) {
 				$intpersonfound=true;
+				$arrpersonsocialids=f_socialidsfromrow($rstempperson);
 				$strpersonidimdb=$rstempperson["ID_IMDB"];
 				$strpersonbiography=$rstempperson['BIOGRAPHY'];
 				$strpersonbirthday=substr($rstempperson['BIRTHDAY'],0,10);
@@ -369,6 +371,7 @@ ORDER BY DISPLAY_ORDER, ID_ROW ";
 				}
 				echo "</p>";
 				echo f_wikipediaidline($struilang,$strpersonidwikidata);
+				echo f_socialidshtml($arrpersonsocialids ?? array(),f_socialidslabels());
 			//}
 			if ($strpersonbiography!="") {
 				echo f_moviesectionopen("biography","📝",get_movie_string('lib_person_biography'),1);

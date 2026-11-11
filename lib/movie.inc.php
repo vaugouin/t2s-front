@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");  
+include_once(__DIR__."/social-ids.inc.php");
 include_once(__DIR__."/work-properties-format.inc.php");
 include_once(__DIR__."/work-properties-sql.inc.php");
 include_once(__DIR__."/watch-country.inc.php");
@@ -34,6 +35,7 @@ if ($intdbavailable) {
 		if ($resultmovie) {
 			if ($rstempmovie=f_sqlresultfetcharray($resultmovie)) {
 				$intmoviefound=true;
+				$arrmoviesocialids=f_socialidsfromrow($rstempmovie);
 				$strmovieidimdb=$rstempmovie["ID_IMDB"];
 				$strmovieoverview=$rstempmovie['OVERVIEW'];
 				$strmoviedatrelease=$rstempmovie['DAT_RELEASE'];
@@ -951,6 +953,7 @@ if ($intdbavailable) {
 			}
 			echo "</p>";
 			echo f_wikipediaidline($struilang,$strmovieidwikidata);
+			echo f_socialidshtml($arrmoviesocialids ?? array(),f_socialidslabels());
 			//Hook entity.ids: identifier lines added by the plugins
 			echo f_pluginhtml("entity.ids",array("type"=>"movie","id"=>$lngmovieid,"imdbid"=>$strmovieidimdb,"wikidataid"=>$strmovieidwikidata));
 			//Filter page.url: a plugin that provides the page answers its URL; no link without one
