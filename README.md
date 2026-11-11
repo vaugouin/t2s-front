@@ -1,6 +1,6 @@
 # t2s-front
 
-PHP front-end for a movie, series and person database. The pages read a MariaDB database (tables `T_WC_*`, built from TMDb, IMDb, Wikidata and Wikipedia data by separate crawlers) and send natural-language questions to a Text2SQL API, which answers with rows that the front renders as cards, tables, rankings or timelines.
+PHP front-end for a movie, series and person database. The pages read a MariaDB database (tables `T_WC_*`, built from TMDb, IMDb, Wikidata and Wikipedia data by separate crawlers) and send natural-language questions to a Text2SQL API, which answers with rows that the front renders as cards, tables, rankings, timelines, comparisons or yes / no verdicts.
 
 The repository contains the front code only. It does not contain the database, its schema, the crawlers, the Text2SQL API, or any web server configuration.
 
@@ -8,7 +8,7 @@ Current version: see [VERSION](VERSION).
 
 ## What it does
 
-- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline or trend columns, depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server).
+- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card or a Yes / No verdict, depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server).
 - **Detail pages** for movies, series, seasons, episodes and persons, with collapsible sections (cast, crew, images, videos, external identifiers, Wikidata properties, Wikipedia sections, watch providers, release dates).
 - **Entity pages**: collections, companies, networks, genres, keywords, lists, awards, nominations, locations, movements, groups, source works, technical properties, topics, characters, jobs, languages.
 - **Image galleries** (`images.php`, `season-images.php`, `episode-images.php`).

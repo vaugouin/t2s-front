@@ -30,6 +30,13 @@
  * may follow, its caption and the sequence's say "the first N", then recount what is on screen
  * (f_t2srep_caption_live_js()), as voice-agent does.
  *
+ * Phase 2 lot B adds `compare-cards` (two to four entities side by side, the winner of each
+ * compared quantity marked, from summary_facts.winners), `fact-card` (one entity and the one
+ * value asked for, the homonyms listed below, from summary_facts.fact) and `verdict` (Yes or No,
+ * large, from summary_facts.verdict, the evidence drawn by the renderer of the next option: the
+ * cards of the search page for rows, the number card for a count, nothing for an empty result).
+ * All three are drawn here, each with its caption in f_t2srep_caption().
+ *
  * Side-effect free on purpose, so test/t2s-representation-test.php loads it alone: no database,
  * no global, no echo. The one lookup that needs global-light (the poster URL of an entity row,
  * for the poster ranking) is handed in as a callable by the page.
@@ -41,12 +48,12 @@ define('T2SREP_POSTER_RANKING_MAX', 12);
 function f_t2srep_known() {
 	//Purpose: The representations this front draws, in the contract's vocabulary
 	return array("entity-page", "card-grid", "value-cards", "sequence-strip", "timeline", "trend-columns",
-		"number-card", "stat-strip", "ranked-bars", "table");
+		"compare-cards", "fact-card", "verdict", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_module_reps() {
 	//Purpose: The representations drawn by this module; the others keep the card renderer
-	return array("timeline", "trend-columns", "number-card", "stat-strip", "ranked-bars", "table");
+	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_is_card_rep($strrep) {
@@ -651,6 +658,15 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 	if ($strrep=="trend-columns") {
 		return f_t2srep_render_trend_columns($arrrecords, $arrcolumns, $strlang, $arrfacts);
 	}
+	if ($strrep=="compare-cards") {
+		return f_t2srep_render_compare_cards($arrrecords, $arrcolumns, $strlang, $fnposter, $arrfacts);
+	}
+	if ($strrep=="fact-card") {
+		return f_t2srep_render_fact_card($arrrecords, $arrcolumns, $strlang, $fnposter, $arrfacts);
+	}
+	if ($strrep=="verdict") {
+		return f_t2srep_render_verdict($arrrecords, $arrcolumns, $strlang, $arrfacts, f_t2srep_verdict_evidence($jsontext2sql));
+	}
 	return f_t2srep_render_scalar_cards($arrrecords, $arrcolumns, $strlang);
 }
 
@@ -873,6 +889,18 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	$arrfacts=$jsontext2sql['summary_facts'];
 	$lngcount=isset($arrfacts['count']) && f_t2srep_is_number($arrfacts['count']) ? (int)$arrfacts['count'] : 0;
 	$strvaluecolumn=isset($arrfacts['value_column']) ? (string)$arrfacts['value_column'] : "";
+	//Phase 2 lot B: a fact stands on one row and a verdict on none, so they come before the
+	//two-row floor of the lists
+	$strrepb=isset($jsontext2sql['representation']) ? trim((string)$jsontext2sql['representation']) : "";
+	if ($strrepb=="compare-cards") {
+		return f_t2srep_caption_compare($jsontext2sql, $strlang);
+	}
+	if ($strrepb=="fact-card") {
+		return f_t2srep_caption_fact($jsontext2sql, $strlang);
+	}
+	if ($strrepb=="verdict") {
+		return f_t2srep_caption_verdict($jsontext2sql, $strlang);
+	}
 	if ($lngcount<2) {
 		return "";
 	}
@@ -1146,15 +1174,27 @@ function f_t2srep_timeline_groups($arrrecords, $strcolumn) {
 	return $arrgroups;
 }
 
+function f_t2srep_entity_media($arrrecord, $arrcolumns, $fnposter) {
+	//Purpose: The title, page and poster (or face) of an entity row: from the poster callable of
+	//			the page when it knows the row, else the label and the route of the id column
+	//Returns: array("title"=>..., "href"=>..., "url"=>...), "" for what is missing
+	$arrposter=is_callable($fnposter) ? $fnposter($arrrecord) : null;
+	return array(
+		"title"=>(is_array($arrposter) && isset($arrposter['title']) && $arrposter['title']!="") ? (string)$arrposter['title'] : f_t2srep_label_for_row($arrrecord, $arrcolumns),
+		"href"=>(is_array($arrposter) && isset($arrposter['href']) && $arrposter['href']!="") ? (string)$arrposter['href'] : f_t2srep_entity_href($arrrecord),
+		"url"=>(is_array($arrposter) && isset($arrposter['url'])) ? (string)$arrposter['url'] : "",
+	);
+}
+
 function f_t2srep_mark($arrrecord, $arrcolumns, $fnposter, $strclass, $lngyear=null) {
 	//Purpose: One entity of a timeline: its poster thumbnail (when it has one) and its title,
 	//			linked to its page as a card is. $lngyear, when given, is written as data-t2syear:
 	//			the script that appends the next pages (f_t2srep_timeline_more_js()) files the
 	//			mark under its year and the caption counts the span from it.
-	$arrposter=is_callable($fnposter) ? $fnposter($arrrecord) : null;
-	$strtitle=(is_array($arrposter) && isset($arrposter['title']) && $arrposter['title']!="") ? (string)$arrposter['title'] : f_t2srep_label_for_row($arrrecord, $arrcolumns);
-	$strhref=(is_array($arrposter) && isset($arrposter['href']) && $arrposter['href']!="") ? (string)$arrposter['href'] : f_t2srep_entity_href($arrrecord);
-	$strurl=(is_array($arrposter) && isset($arrposter['url'])) ? (string)$arrposter['url'] : "";
+	$arrmedia=f_t2srep_entity_media($arrrecord, $arrcolumns, $fnposter);
+	$strtitle=$arrmedia['title'];
+	$strhref=$arrmedia['href'];
+	$strurl=$arrmedia['url'];
 	$strinner=($strurl!="" ? "<img src=\"".f_t2srep_h($strurl)."\" alt=\"\" loading=\"lazy\">" : "<span class=\"t2sTimelineNoPoster\" aria-hidden=\"true\"></span>")
 		."<span class=\"t2sTimelineTitle\">".f_t2srep_h($strtitle)."</span>";
 	return "<li class=\"".$strclass."\"".($lngyear!==null ? " data-t2syear=\"".(int)$lngyear."\"" : "").">".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\" title=\"".f_t2srep_h($strtitle)."\">".$strinner."</a>" : $strinner)."</li>";
@@ -1538,4 +1578,486 @@ function f_t2srep_caption_trend($jsontext2sql, $strlang='en') {
 		}
 	}
 	return $strtext.".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phase 2 lot B: compare-cards, fact-card, verdict. The contract is the fastapi-text2sql README,
+ * section "Result representations: the contract for both fronts", and the facts are those of
+ * summary_facts (winners, fact, verdict and verdict_basis), never recomputed here when present.
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_format_date($value, $strlang='en') {
+	//Purpose: A date cell as a person reads it: "28 May 1958" / "28 mai 1958" ("1er mai" in French),
+	//			"May 1958" without a day, a year column ("1910", 1910) as its year; "" when blank or
+	//			zero, any other text as is
+	if ($value===null || is_bool($value) || is_array($value) || trim((string)$value)==="") {
+		return "";
+	}
+	$strvalue=trim((string)$value);
+	if (f_t2srep_is_number($strvalue)) {
+		$lngyear=(int)round((float)$strvalue);
+		return $lngyear!=0 ? (string)$lngyear : "";
+	}
+	if (!preg_match('/^(-?\d{1,4})-(\d{1,2})(?:-(\d{1,2}))?/', $strvalue, $arrmatch)) {
+		return $strvalue;
+	}
+	$lngyear=(int)$arrmatch[1];
+	$lngmonth=(int)$arrmatch[2];
+	$lngday=isset($arrmatch[3]) ? (int)$arrmatch[3] : 0;
+	if ($lngyear==0) {
+		return "";
+	}
+	if ($lngmonth<1 || $lngmonth>12) {
+		return (string)$lngyear;
+	}
+	$arrmonths=$strlang=="fr"
+		? array("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre")
+		: array("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December");
+	$strmonth=$arrmonths[$lngmonth-1];
+	if ($lngday<1) {
+		return $strmonth." ".$lngyear;
+	}
+	return ($strlang=="fr" && $lngday==1 ? "1er" : (string)$lngday)." ".$strmonth." ".$lngyear;
+}
+
+function f_t2srep_quantity_value($value, $strunit, $strrole='metric', $strlang='en') {
+	//Purpose: A compared or asked-for quantity, short: a date as f_t2srep_format_date(), a metric as
+	//			f_t2srep_format_value() ("3 h 14", "$2,923,706,026"); "" when missing (a 0 runtime too)
+	if ($strrole=="date") {
+		return f_t2srep_format_date($value, $strlang);
+	}
+	return f_t2srep_format_value($value, $strunit, $strrole, $strlang);
+}
+
+function f_t2srep_quantity_word($strname, $arrrecord=array(), $strlang='en') {
+	//Purpose: The name of a quantity for one row: f_t2srep_metric_word(), a film of a films-and-series
+	//			union carrying its release date as DAT_FIRST_AIR
+	$strwordname=(strtoupper((string)$strname)=="DAT_FIRST_AIR" && is_array($arrrecord) && isset($arrrecord['CONTENT_TYPE']) && $arrrecord['CONTENT_TYPE']=="movie") ? "DAT_RELEASE" : $strname;
+	return f_t2srep_metric_word($strwordname, $strlang);
+}
+
+function f_t2srep_is_date_part($strname) {
+	//Purpose: Tells whether a column is the month or the day of a date (BIRTH_MONTH, BIRTH_DAY), which
+	//			the API marks `focus` beside the year but no front compares or names on its own
+	return preg_match('/_(MONTH|DAY)$/', strtoupper((string)$strname))===1;
+}
+
+function f_t2srep_compare_quantities($arrcolumns, $arrfacts=array()) {
+	//Purpose: The quantities compare-cards puts under each card, at most two: one per entry of
+	//			summary_facts.winners, with its winner; with no winners (an older answer), the value
+	//			columns without a date part, and no winner
+	//Returns: array of array("name", "unit", "role", "winner"=>array|null)
+	$arrbyname=array();
+	foreach ($arrcolumns as $arrcol) {
+		if (is_array($arrcol) && isset($arrcol['name'])) {
+			$arrbyname[(string)$arrcol['name']]=$arrcol;
+		}
+	}
+	$arrquantities=array();
+	if (is_array($arrfacts) && isset($arrfacts['winners']) && is_array($arrfacts['winners'])) {
+		foreach ($arrfacts['winners'] as $arrwinner) {
+			if (!is_array($arrwinner) || !isset($arrwinner['column']) || trim((string)$arrwinner['column'])==="") {
+				continue;
+			}
+			$strname=(string)$arrwinner['column'];
+			$arrcol=isset($arrbyname[$strname]) ? $arrbyname[$strname] : array();
+			$strrole=(isset($arrwinner['role']) && $arrwinner['role']!==null) ? (string)$arrwinner['role'] : (isset($arrcol['role']) ? (string)$arrcol['role'] : "metric");
+			$strunit=(isset($arrwinner['unit']) && $arrwinner['unit']!==null) ? $arrwinner['unit'] : (isset($arrcol['unit']) ? $arrcol['unit'] : null);
+			$arrquantities[]=array("name"=>$strname, "unit"=>$strunit, "role"=>$strrole, "winner"=>$arrwinner);
+		}
+	}
+	if (count($arrquantities)==0) {
+		foreach (f_t2srep_value_columns($arrcolumns) as $arrvalue) {
+			if (!f_t2srep_is_date_part($arrvalue['name'])) {
+				$arrquantities[]=array("name"=>$arrvalue['name'], "unit"=>$arrvalue['unit'], "role"=>$arrvalue['role'], "winner"=>null);
+			}
+		}
+	}
+	return array_slice($arrquantities, 0, 2);
+}
+
+function f_t2srep_winner_index($arrwinner, $lngcount) {
+	//Purpose: The row a winner marks, or -1 on a tie, a date without direction or a bad index
+	if (!is_array($arrwinner) || !empty($arrwinner['tie']) || !isset($arrwinner['index']) || !f_t2srep_is_number($arrwinner['index'])) {
+		return -1;
+	}
+	$lngindex=(int)$arrwinner['index'];
+	return ($lngindex>=0 && $lngindex<$lngcount) ? $lngindex : -1;
+}
+
+function f_t2srep_winner_badge($strextreme, $strlang='en') {
+	//Purpose: The text of the badge on a winning value: the mark is a word, never a colour alone
+	$intfr=($strlang=="fr");
+	switch ((string)$strextreme) {
+	case "earliest":
+		return $intfr ? "En premier" : "First";
+	case "latest":
+		return $intfr ? "En dernier" : "Last";
+	case "min":
+		return $intfr ? "Le plus bas" : "Lowest";
+	default:
+		return $intfr ? "En tête" : "Leads";
+	}
+}
+
+function f_t2srep_compare_noun($arrrecords, $arrcolumns, $strlang='en') {
+	//Purpose: What compare-cards and the homonyms of a fact speak of: films and series are "titles"
+	//			(the contract's wording, a film compared with a series included), people are people
+	//Returns: array("plural", "singular", "gender")
+	$arrnoun=f_t2srep_noun($arrrecords, $arrcolumns, $strlang);
+	$intfr=($strlang=="fr");
+	if (in_array($arrnoun['plural'], array("films", "series", "titles", "séries", "titres"), true)) {
+		return array("plural"=>$intfr ? "titres" : "titles", "singular"=>$intfr ? "titre" : "title", "gender"=>"m");
+	}
+	if ($arrnoun['plural']=="people" || $arrnoun['plural']=="personnes") {
+		return array("plural"=>$arrnoun['plural'], "singular"=>$intfr ? "personne" : "person", "gender"=>"f");
+	}
+	return array("plural"=>$arrnoun['plural'], "singular"=>rtrim($arrnoun['plural'], "s"), "gender"=>$arrnoun['gender']);
+}
+
+function f_t2srep_compare_lead($arrrecords, $arrcolumns, $strlang='en') {
+	//Purpose: "Two titles side by side" / "Deux titres côte à côte", "Two people side by side"
+	$arrnoun=f_t2srep_compare_noun($arrrecords, $arrcolumns, $strlang);
+	$lngcount=min(4, count($arrrecords));
+	return f_t2srep_ucfirst(f_t2srep_count_word($lngcount, $strlang, $arrnoun['gender']))." ".$arrnoun['plural'].($strlang=="fr" ? " côte à côte" : " side by side");
+}
+
+function f_t2srep_render_compare_cards($arrrecords, $arrcolumns, $strlang='en', $fnposter=null, $arrfacts=array()) {
+	//Purpose: Two to four entities side by side, poster or face linked to their page as the cards
+	//			are, the compared quantity (or two) under each card formatted by its unit, the winner
+	//			of each quantity outlined and badged with a word. A tie marks no card and says so
+	//			under the cards. Four cards make two rows of two on a phone.
+	//Params:	$fnposter: see f_t2srep_render_ranked_bars(); $arrfacts: summary_facts (winners)
+	$arrrecords=array_slice(array_values($arrrecords), 0, 4);
+	$arrquantities=f_t2srep_compare_quantities($arrcolumns, $arrfacts);
+	if (count($arrrecords)==0 || count($arrquantities)==0) {
+		return f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
+	}
+	$intfr=($strlang=="fr");
+	//The year under the title tells two homonyms apart, unless a date is what is compared
+	$strdatecolumn=f_t2srep_date_column($arrcolumns);
+	if (in_array($strdatecolumn, array_column($arrquantities, "name"), true)) {
+		$strdatecolumn="";
+	}
+	$strhtml="<ul class=\"t2sCompare t2sCompareN".count($arrrecords)."\" aria-label=\"".f_t2srep_h(f_t2srep_compare_lead($arrrecords, $arrcolumns, $strlang))."\">";
+	foreach ($arrrecords as $lngi=>$arrrecord) {
+		$arrmedia=f_t2srep_entity_media($arrrecord, $arrcolumns, $fnposter);
+		$intwinner=false;
+		$strvalues="";
+		foreach ($arrquantities as $arrquantity) {
+			$intwin=(f_t2srep_winner_index($arrquantity['winner'], count($arrrecords))===$lngi);
+			$intwinner=$intwinner || $intwin;
+			$value=array_key_exists($arrquantity['name'], $arrrecord) ? $arrrecord[$arrquantity['name']] : null;
+			$strvalue=f_t2srep_quantity_value($value, $arrquantity['unit'], $arrquantity['role'], $strlang);
+			$arrword=f_t2srep_quantity_word($arrquantity['name'], $arrrecord, $strlang);
+			$strvalues.="<div class=\"t2sCompareQty".($intwin ? " t2sCompareWin" : "")."\"><span class=\"t2sCompareQtyName\">".f_t2srep_h(f_t2srep_ucfirst($arrword['label']))."</span>"
+				."<span class=\"t2sCompareQtyValue\">".($strvalue!=="" ? f_t2srep_h($strvalue) : "<span class=\"t2sCompareNone\">".($intfr ? "Non renseigné" : "Not known")."</span>")."</span>"
+				.($intwin ? "<span class=\"t2sCompareBadge\">".f_t2srep_h(f_t2srep_winner_badge(isset($arrquantity['winner']['extreme']) ? $arrquantity['winner']['extreme'] : "", $strlang))."</span>" : "")
+				."</div>";
+		}
+		$lngyear=($strdatecolumn!="" && isset($arrrecord[$strdatecolumn])) ? f_t2srep_year($arrrecord[$strdatecolumn]) : null;
+		$strinner="<span class=\"t2sCompareMedia\">".($arrmedia['url']!="" ? "<img src=\"".f_t2srep_h($arrmedia['url'])."\" alt=\"\" loading=\"lazy\">" : "<span class=\"t2sCompareNoPoster\" aria-hidden=\"true\"></span>")."</span>"
+			."<span class=\"t2sCompareTitle\">".f_t2srep_h($arrmedia['title'])."</span>";
+		$strhtml.="<li class=\"t2sCompareCard".($intwinner ? " t2sCompareWinner" : "")."\">"
+			.($arrmedia['href']!="" ? "<a class=\"t2sCompareLink\" href=\"".f_t2srep_h($arrmedia['href'])."\">".$strinner."</a>" : "<span class=\"t2sCompareLink\">".$strinner."</span>")
+			.($lngyear!==null ? "<span class=\"t2sCompareYear\">".(int)$lngyear."</span>" : "")
+			."<div class=\"t2sCompareValues\">".$strvalues."</div></li>";
+	}
+	$strhtml.="</ul>";
+	foreach ($arrquantities as $arrquantity) {
+		if (is_array($arrquantity['winner']) && !empty($arrquantity['winner']['tie'])) {
+			$strhtml.="<p class=\"t2sCompareTie\">".f_t2srep_h(($intfr ? "Égalité : " : "Tie: ").f_t2srep_compare_tie_words($arrquantity, $arrrecords, $strlang))."</p>";
+		}
+	}
+	return $strhtml;
+}
+
+function f_t2srep_compare_tie_words($arrquantity, $arrrecords, $strlang='en') {
+	//Purpose: "same runtime, 2 h 02" / "même durée, 2 h 02"
+	$arrrecord=count($arrrecords)>0 ? $arrrecords[0] : array();
+	$arrword=f_t2srep_quantity_word($arrquantity['name'], $arrrecord, $strlang);
+	$value=(is_array($arrquantity['winner']) && isset($arrquantity['winner']['value']) && $arrquantity['winner']['value']!==null) ? $arrquantity['winner']['value'] : (array_key_exists($arrquantity['name'], $arrrecord) ? $arrrecord[$arrquantity['name']] : null);
+	$strvalue=f_t2srep_quantity_value($value, $arrquantity['unit'], $arrquantity['role'], $strlang);
+	return ($strlang=="fr" ? "même " : "same ").$arrword['label'].($strvalue!=="" ? ", ".$strvalue : "");
+}
+
+function f_t2srep_compare_winner_words($arrquantity, $arrrecords, $arrcolumns, $strlang='en') {
+	//Purpose: The sentence of one compared quantity: "Titanic leads on runtime, 3 h 14", "Charlie
+	//			Chaplin comes first (1889)", "same number of seasons, 5"; "" when nothing is won (a
+	//			date without direction)
+	$arrwinner=$arrquantity['winner'];
+	if (!is_array($arrwinner)) {
+		return "";
+	}
+	if (!empty($arrwinner['tie'])) {
+		return f_t2srep_compare_tie_words($arrquantity, $arrrecords, $strlang);
+	}
+	$lngindex=f_t2srep_winner_index($arrwinner, count($arrrecords));
+	if ($lngindex<0) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	$arrrecord=$arrrecords[$lngindex];
+	$strlabel=(isset($arrwinner['label']) && trim((string)$arrwinner['label'])!=="") ? trim((string)$arrwinner['label']) : f_t2srep_label_for_row($arrrecord, $arrcolumns);
+	$value=(isset($arrwinner['value']) && $arrwinner['value']!==null) ? $arrwinner['value'] : (array_key_exists($arrquantity['name'], $arrrecord) ? $arrrecord[$arrquantity['name']] : null);
+	$strvalue=f_t2srep_quantity_value($value, $arrquantity['unit'], $arrquantity['role'], $strlang);
+	$arrword=f_t2srep_quantity_word($arrquantity['name'], $arrrecord, $strlang);
+	$strextreme=isset($arrwinner['extreme']) ? (string)$arrwinner['extreme'] : "";
+	if ($strextreme=="earliest" || $strextreme=="latest") {
+		$strtext=$strlabel.($strextreme=="earliest" ? ($intfr ? " vient en premier" : " comes first") : ($intfr ? " vient en dernier" : " comes last"));
+		return $strtext.($strvalue!=="" ? " (".$strvalue.")" : "");
+	}
+	if ($strextreme=="min") {
+		if ($intfr) {
+			$strarticle=preg_match('/^[aeiouyéèêàâîôû]/iu', $arrword['label']) ? "l'" : ($arrword['gender']=="f" ? "la " : "le ");
+			$strtext=$strlabel." a ".$strarticle.$arrword['label']." ".($arrword['gender']=="f" ? "la plus basse" : "le plus bas");
+		} else {
+			$strtext=$strlabel." has the lowest ".$arrword['label'];
+		}
+	} else {
+		$strtext=$strlabel.($intfr ? " l'emporte en " : " leads on ").$arrword['label'];
+	}
+	return $strtext.($strvalue!=="" ? ", ".$strvalue : "");
+}
+
+function f_t2srep_caption_compare($jsontext2sql, $strlang='en') {
+	//Purpose: The caption of compare-cards: the count and each winner ("Two titles side by side;
+	//			Titanic leads on runtime, 3 h 14." / "Deux titres côte à côte ; Titanic l'emporte en
+	//			durée, 3 h 14."), a tie said as such ("same number of seasons, 5")
+	$arrrecords=array_slice(f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array()), 0, 4);
+	if (count($arrrecords)==0) {
+		return "";
+	}
+	$arrcolumns=f_t2srep_columns($jsontext2sql);
+	$arrfacts=isset($jsontext2sql['summary_facts']) && is_array($jsontext2sql['summary_facts']) ? $jsontext2sql['summary_facts'] : array();
+	$arrparts=array();
+	foreach (f_t2srep_compare_quantities($arrcolumns, $arrfacts) as $arrquantity) {
+		$strpart=f_t2srep_compare_winner_words($arrquantity, $arrrecords, $arrcolumns, $strlang);
+		if ($strpart!=="") {
+			$arrparts[]=$strpart;
+		}
+	}
+	$strsep=$strlang=="fr" ? " ; " : "; ";
+	return f_t2srep_compare_lead($arrrecords, $arrcolumns, $strlang).(count($arrparts)>0 ? $strsep.implode($strsep, $arrparts) : "").".";
+}
+
+function f_t2srep_fact($arrrecords, $arrcolumns, $arrfacts=array()) {
+	//Purpose: The one fact of a fact-card: summary_facts.fact, else (an older answer) the first value
+	//			column of the first row
+	//Returns: array("index", "column", "unit", "role", "value", "label", "others") or null
+	$lngcount=count($arrrecords);
+	if ($lngcount==0) {
+		return null;
+	}
+	$arrbyname=array();
+	foreach ($arrcolumns as $arrcol) {
+		if (is_array($arrcol) && isset($arrcol['name'])) {
+			$arrbyname[(string)$arrcol['name']]=$arrcol;
+		}
+	}
+	if (is_array($arrfacts) && isset($arrfacts['fact']) && is_array($arrfacts['fact']) && isset($arrfacts['fact']['column']) && trim((string)$arrfacts['fact']['column'])!=="") {
+		$arrfact=$arrfacts['fact'];
+		$strname=(string)$arrfact['column'];
+		$arrcol=isset($arrbyname[$strname]) ? $arrbyname[$strname] : array();
+		$lngindex=(isset($arrfact['index']) && f_t2srep_is_number($arrfact['index']) && (int)$arrfact['index']>=0 && (int)$arrfact['index']<$lngcount) ? (int)$arrfact['index'] : 0;
+		return array(
+			"index"=>$lngindex,
+			"column"=>$strname,
+			"unit"=>(isset($arrfact['unit']) && $arrfact['unit']!==null) ? $arrfact['unit'] : (isset($arrcol['unit']) ? $arrcol['unit'] : null),
+			"role"=>(isset($arrfact['role']) && $arrfact['role']!==null) ? (string)$arrfact['role'] : (isset($arrcol['role']) ? (string)$arrcol['role'] : "metric"),
+			"value"=>(isset($arrfact['value']) && $arrfact['value']!==null) ? $arrfact['value'] : (isset($arrrecords[$lngindex][$strname]) ? $arrrecords[$lngindex][$strname] : null),
+			"label"=>isset($arrfact['label']) ? trim((string)$arrfact['label']) : "",
+			"others"=>(isset($arrfact['others']) && f_t2srep_is_number($arrfact['others'])) ? max(0, (int)$arrfact['others']) : $lngcount-1,
+		);
+	}
+	foreach (f_t2srep_value_columns($arrcolumns) as $arrvalue) {
+		if (!f_t2srep_is_date_part($arrvalue['name'])) {
+			return array("index"=>0, "column"=>$arrvalue['name'], "unit"=>$arrvalue['unit'], "role"=>$arrvalue['role'],
+				"value"=>isset($arrrecords[0][$arrvalue['name']]) ? $arrrecords[0][$arrvalue['name']] : null, "label"=>"", "others"=>$lngcount-1);
+		}
+	}
+	return null;
+}
+
+function f_t2srep_fact_name($strname, $arrrecord=array(), $strlang='en') {
+	//Purpose: The name of a fact on its card: "Runtime", "Release date", "Born" / "Durée",
+	//			"Date de sortie", "Naissance"
+	$arrnames=array("BIRTH_YEAR"=>array("Born", "Naissance"), "DEATH_YEAR"=>array("Died", "Décès"));
+	$strkey=strtoupper((string)$strname);
+	if (isset($arrnames[$strkey])) {
+		return $arrnames[$strkey][$strlang=="fr" ? 1 : 0];
+	}
+	$arrword=f_t2srep_quantity_word($strname, $arrrecord, $strlang);
+	return f_t2srep_ucfirst($arrword['label']);
+}
+
+function f_t2srep_others_words($lngothers, $arrrecords, $arrcolumns, $strlang='en') {
+	//Purpose: "11 other titles with this name" / "11 autres titres portent ce nom", singular for one
+	$arrnoun=f_t2srep_compare_noun($arrrecords, $arrcolumns, $strlang);
+	$intone=((int)$lngothers==1);
+	$strcount=number_format((int)$lngothers, 0, '.', ',');
+	if ($strlang=="fr") {
+		return $strcount." ".($intone ? "autre ".$arrnoun['singular']." porte" : "autres ".$arrnoun['plural']." portent")." ce nom";
+	}
+	return $strcount." other ".($intone ? $arrnoun['singular'] : $arrnoun['plural'])." with this name";
+}
+
+function f_t2srep_render_fact_card($arrrecords, $arrcolumns, $strlang='en', $fnposter=null, $arrfacts=array()) {
+	//Purpose: One entity and the one value the question asks about, named large ("Runtime: 3 h 48",
+	//			"Release date: 28 May 1958", "Born: 1910"), its poster or face and its title linked to
+	//			its page; the other rows (homonyms of the title, the default sort chose the first)
+	//			listed below, compact, each linked to its own page
+	$arrrecords=array_values($arrrecords);
+	$arrfact=f_t2srep_fact($arrrecords, $arrcolumns, $arrfacts);
+	if ($arrfact===null) {
+		return f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
+	}
+	$intfr=($strlang=="fr");
+	$arrrecord=$arrrecords[$arrfact['index']];
+	$arrmedia=f_t2srep_entity_media($arrrecord, $arrcolumns, $fnposter);
+	$strvalue=f_t2srep_quantity_value($arrfact['value'], $arrfact['unit'], $arrfact['role'], $strlang);
+	$strname=f_t2srep_fact_name($arrfact['column'], $arrrecord, $strlang);
+	//The year of the row, unless the fact is that date; the homonyms show theirs
+	$strdatecolumn=f_t2srep_date_column($arrcolumns);
+	$lngyear=($strdatecolumn!="" && $strdatecolumn!=$arrfact['column'] && isset($arrrecord[$strdatecolumn])) ? f_t2srep_year($arrrecord[$strdatecolumn]) : null;
+	$strhref=$arrmedia['href'];
+	$strmedia=$arrmedia['url']!="" ? "<img src=\"".f_t2srep_h($arrmedia['url'])."\" alt=\"\" loading=\"lazy\">" : "<span class=\"t2sFactNoPoster\"></span>";
+	//The poster repeats the title link: kept out of the keyboard order and the screen reader
+	$strhtml="<div class=\"t2sFact\"><div class=\"t2sFactMain\">"
+		.($strhref!="" ? "<a class=\"t2sFactMedia\" href=\"".f_t2srep_h($strhref)."\" tabindex=\"-1\" aria-hidden=\"true\">".$strmedia."</a>" : "<span class=\"t2sFactMedia\" aria-hidden=\"true\">".$strmedia."</span>")
+		."<div class=\"t2sFactBody\"><div class=\"t2sFactLabel\">".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".f_t2srep_h($arrmedia['title'])."</a>" : f_t2srep_h($arrmedia['title']))."</div>"
+		.($lngyear!==null ? "<div class=\"t2sFactYear\">".(int)$lngyear."</div>" : "")
+		."<div class=\"t2sFactValue\"><span class=\"t2sFactName\">".f_t2srep_h($strname).($intfr ? " :" : ":")."</span> "
+		."<span class=\"t2sFactNumber\">".($strvalue!=="" ? f_t2srep_h($strvalue) : "<span class=\"t2sCompareNone\">".($intfr ? "Non renseigné" : "Not known")."</span>")."</span></div>"
+		."</div></div>";
+	if ($arrfact['others']>0 && count($arrrecords)>1) {
+		$strhtml.="<div class=\"t2sFactOthers\"><p class=\"t2sFactOthersTitle\">".f_t2srep_h(f_t2srep_others_words($arrfact['others'], $arrrecords, $arrcolumns, $strlang))."</p><ul class=\"t2sFactOthersList\">";
+		foreach ($arrrecords as $lngi=>$arrother) {
+			if ($lngi==$arrfact['index']) {
+				continue;
+			}
+			$arrothermedia=f_t2srep_entity_media($arrother, $arrcolumns, null);
+			$arrmeta=array();
+			$lngotheryear=($strdatecolumn!="" && isset($arrother[$strdatecolumn])) ? f_t2srep_year($arrother[$strdatecolumn]) : null;
+			if ($lngotheryear!==null) {
+				$arrmeta[]=(string)$lngotheryear;
+			}
+			if ($arrfact['role']!="date") {
+				$strothervalue=f_t2srep_quantity_value(isset($arrother[$arrfact['column']]) ? $arrother[$arrfact['column']] : null, $arrfact['unit'], $arrfact['role'], $strlang);
+				if ($strothervalue!=="") {
+					$arrmeta[]=$strothervalue;
+				}
+			}
+			$strhtml.="<li>".($arrothermedia['href']!="" ? "<a href=\"".f_t2srep_h($arrothermedia['href'])."\">".f_t2srep_h($arrothermedia['title'])."</a>" : f_t2srep_h($arrothermedia['title']))
+				.(count($arrmeta)>0 ? " <span class=\"t2sFactOthersMeta\">".f_t2srep_h(implode(" · ", $arrmeta))."</span>" : "")."</li>";
+		}
+		$strhtml.="</ul></div>";
+	}
+	return $strhtml."</div>";
+}
+
+function f_t2srep_caption_fact($jsontext2sql, $strlang='en') {
+	//Purpose: The caption of a fact-card: "<label>: <quantity word>, <value>" ("Lawrence of Arabia:
+	//			runtime, 3 h 48." / "Lawrence d'Arabie : durée, 3 h 48."), plus "(11 other titles
+	//			with this name)" / "(11 autres titres portent ce nom)" when there are homonyms
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	$arrcolumns=f_t2srep_columns($jsontext2sql);
+	$arrfact=f_t2srep_fact($arrrecords, $arrcolumns, $jsontext2sql['summary_facts']);
+	if ($arrfact===null) {
+		return "";
+	}
+	$arrrecord=$arrrecords[$arrfact['index']];
+	$strlabel=$arrfact['label']!=="" ? $arrfact['label'] : f_t2srep_label_for_row($arrrecord, $arrcolumns);
+	$arrword=f_t2srep_quantity_word($arrfact['column'], $arrrecord, $strlang);
+	$strvalue=f_t2srep_quantity_value($arrfact['value'], $arrfact['unit'], $arrfact['role'], $strlang);
+	$strtext=$strlabel.($strlang=="fr" ? " : " : ": ").$arrword['label'].($strvalue!=="" ? ", ".$strvalue : "");
+	if ($arrfact['others']>0) {
+		$strtext.=" (".f_t2srep_others_words($arrfact['others'], $arrrecords, $arrcolumns, $strlang).")";
+	}
+	return $strtext.".";
+}
+
+function f_t2srep_verdict_evidence($jsontext2sql) {
+	//Purpose: The renderer that draws the evidence of a verdict: the option that follows `verdict`
+	//			in representation_options (entity-page or card-grid for rows, number-card for a
+	//			count); "" for an empty result, which has nothing to show
+	if (!is_array($jsontext2sql) || count(f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array()))==0) {
+		return "";
+	}
+	$arroptions=f_t2srep_options($jsontext2sql);
+	$lngposition=array_search("verdict", $arroptions, true);
+	if ($lngposition===false || !isset($arroptions[$lngposition+1])) {
+		return "";
+	}
+	return $arroptions[$lngposition+1];
+}
+
+function f_t2srep_verdict_parts($arrrecords, $arrcolumns, $arrfacts, $strlang='en') {
+	//Purpose: The pieces of a verdict, shared by its block and its caption
+	//Returns: array("yes"=>bool, "word"=>"Yes"|"No"|"Oui"|"Non", "detail"=>"2 matching results" or
+	//			"nothing in the database matches" or "", "value"=>the count of a count verdict, else ""),
+	//			or null when summary_facts carries no verdict
+	if (!is_array($arrfacts) || !isset($arrfacts['verdict']) || !in_array(strtolower((string)$arrfacts['verdict']), array("yes", "no"), true)) {
+		return null;
+	}
+	$intfr=($strlang=="fr");
+	$intyes=(strtolower((string)$arrfacts['verdict'])=="yes");
+	$strbasis=isset($arrfacts['verdict_basis']) ? (string)$arrfacts['verdict_basis'] : "";
+	$strdetail="";
+	$strvalue="";
+	if ($strbasis=="count" && count($arrrecords)>0) {
+		$arrmetrics=f_t2srep_scalar_metrics($arrrecords, $arrcolumns);
+		if (count($arrmetrics)>0) {
+			$strvalue=f_t2srep_format_metric($arrmetrics[0]['value'], $arrmetrics[0]['unit'], $strlang);
+		}
+	} elseif (count($arrrecords)>0) {
+		$lngcount=(isset($arrfacts['count']) && f_t2srep_is_number($arrfacts['count']) && (int)$arrfacts['count']>0) ? (int)$arrfacts['count'] : count($arrrecords);
+		$strcount=number_format($lngcount, 0, '.', ',');
+		if ($intfr) {
+			$strdetail=$strcount." ".($lngcount==1 ? "résultat correspondant" : "résultats correspondants");
+		} else {
+			$strdetail=$strcount." ".($lngcount==1 ? "matching result" : "matching results");
+		}
+	} else {
+		//Never "it is false": an empty answer cannot tell that from what the database lacks
+		$strdetail=$intfr ? "rien dans la base ne correspond" : "nothing in the database matches";
+	}
+	return array("yes"=>$intyes, "word"=>$intyes ? ($intfr ? "Oui" : "Yes") : ($intfr ? "Non" : "No"), "detail"=>$strdetail, "value"=>$strvalue);
+}
+
+function f_t2srep_render_verdict($arrrecords, $arrcolumns, $strlang='en', $arrfacts=array(), $strevidence="") {
+	//Purpose: Yes or No, large (a word and a sign, never a colour alone), then the evidence: the
+	//			number card for a count; for rows the search page shows its card view under this one
+	//			(the cards of entity-page or card-grid), so nothing more is drawn here; nothing for an
+	//			empty result
+	//Params:	$strevidence: f_t2srep_verdict_evidence() of the answer
+	$arrparts=f_t2srep_verdict_parts($arrrecords, $arrcolumns, $arrfacts, $strlang);
+	if ($arrparts===null) {
+		return f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
+	}
+	$intfr=($strlang=="fr");
+	$strhtml="<div class=\"t2sVerdict ".($arrparts['yes'] ? "t2sVerdictYes" : "t2sVerdictNo")."\" role=\"group\" aria-label=\"".f_t2srep_h(($intfr ? "Réponse : " : "Answer: ").$arrparts['word'])."\">"
+		."<span class=\"t2sVerdictIcon\" aria-hidden=\"true\">".($arrparts['yes'] ? "✓" : "✗")."</span>"
+		."<div class=\"t2sVerdictText\"><div class=\"t2sVerdictWord\">".f_t2srep_h($arrparts['word'])."</div>"
+		.($arrparts['detail']!=="" ? "<div class=\"t2sVerdictDetail\">".f_t2srep_h(f_t2srep_ucfirst($arrparts['detail']))."</div>" : "")
+		."</div></div>";
+	if (count($arrrecords)>0 && ($strevidence=="number-card" || $strevidence=="stat-strip")) {
+		$strhtml.=f_t2srep_render_scalar_cards($arrrecords, $arrcolumns, $strlang);
+	} elseif (count($arrrecords)>0 && $strevidence=="table") {
+		$strhtml.=f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
+	}
+	return $strhtml;
+}
+
+function f_t2srep_caption_verdict($jsontext2sql, $strlang='en') {
+	//Purpose: The caption of a verdict: "Yes: 2 matching results." / "Oui : 2 résultats
+	//			correspondants.", "No: nothing in the database matches." / "Non : rien dans la base ne
+	//			correspond.", for a count "Yes: 3." / "No: 0." / "Oui : 3." / "Non : 0."
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	$arrparts=f_t2srep_verdict_parts($arrrecords, f_t2srep_columns($jsontext2sql), $jsontext2sql['summary_facts'], $strlang);
+	if ($arrparts===null) {
+		return "";
+	}
+	$strrest=$arrparts['detail']!=="" ? $arrparts['detail'] : $arrparts['value'];
+	return $arrparts['word'].($strrest!=="" ? ($strlang=="fr" ? " : " : ": ").$strrest : "").".";
 }

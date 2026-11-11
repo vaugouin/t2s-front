@@ -25,7 +25,13 @@
  * Then the pages that follow: the caption says "the first N" while a page may follow, the next
  * page of a timeline is a flat list of marks with their years, the loader and caption scripts go
  * through node --check, and the caption the page recounts in JavaScript is checked against the PHP
- * one on the same numbers. The last group pins the links of the entity titles in the table.
+ * one on the same numbers.
+ *
+ * Phase 2 lot B adds compare-cards, fact-card and verdict on live answers reclassified with the
+ * API module of that lot (fixtures lotb-*): the winner or the tie of each compared quantity, the
+ * fact and its homonyms, the Yes or No and its evidence (an empty result and a count of zero
+ * included), the chips and their captions in English and French. The last group pins the links of
+ * the entity titles in the table.
  */
 
 require_once(__DIR__."/../lib/t2s-representation.inc.php");
@@ -467,6 +473,194 @@ if ($lngstatus!==0) {
 	f_check("caption fill, a reversed sequence",$arrphp[5],"Three films, most recent first, from 1966 to 1964.");
 	f_check("caption fill, fr, the first N and one undated",$arrphp[1],"Les 104 premiers films, de 1962 à 2024 ; un sans date.");
 }
+
+//Phase 2 lot B: compare-cards, fact-card, verdict, on live answers of API 1.1.20
+//reclassified with the module of phase 2 lot B (fixtures lotb-*)
+f_group("Phase 2 lot B: dispatch, chips and evidence");
+$arrgodfather=$arrfix["lotb-compare-godfather-runtime-en"];
+$arrtie=$arrfix["lotb-compare-seasons-tie-en"];
+$arrtwofocus=$arrfix["lotb-compare-two-focus-en"];
+$arrbornbefore=$arrfix["lotb-compare-born-before-en"];
+$arrlawrence=$arrfix["lotb-fact-runtime-en"];
+$arrvertigo=$arrfix["lotb-fact-vertigo-homonyms-en"];
+$arrchernobyl=$arrfix["lotb-fact-chernobyl-homonym-en"];
+$arrjaws=$arrfix["lotb-verdict-yes-en"];
+$arrkubrick=$arrfix["lotb-verdict-yes-two-rows-en"];
+$arrempty=$arrfix["lotb-verdict-no-empty-en"];
+$arrcountzero=$arrfix["lotb-verdict-count-zero-en"];
+f_check("the three are known (render= accepted)",count(array_intersect(array("compare-cards","fact-card","verdict"),f_t2srep_known())),3);
+f_check("the three are drawn by this module",count(array_intersect(array("compare-cards","fact-card","verdict"),f_t2srep_module_reps())),3);
+f_check("compare-cards is drawn by this module",f_t2srep_choose($arrgodfather),"compare-cards");
+f_check("compare chips",f_t2srep_options($arrgodfather),array("compare-cards","card-grid","value-cards","ranked-bars","table"));
+f_check("render=value-cards from a comparison",f_t2srep_choose($arrgodfather,"value-cards"),"");
+f_check("render=value-cards is then the active view",f_t2srep_active($arrgodfather,"value-cards"),"value-cards");
+f_check("fact-card is drawn by this module",f_t2srep_choose($arrlawrence),"fact-card");
+f_check("fact chips",f_t2srep_options($arrlawrence),array("fact-card","entity-page","table"));
+f_check("render=entity-page from a fact: the card renderer",f_t2srep_choose($arrlawrence,"entity-page"),"");
+f_check("homonyms offer compare-cards behind the fact",f_t2srep_choose($arrchernobyl,"compare-cards"),"compare-cards");
+f_check("verdict is drawn by this module",f_t2srep_choose($arrjaws),"verdict");
+f_check("an empty verdict is drawn too",f_t2srep_choose($arrempty),"verdict");
+f_check("evidence of one row: the entity page",f_t2srep_verdict_evidence($arrjaws),"entity-page");
+f_check("evidence of rows: the card grid",f_t2srep_verdict_evidence($arrkubrick),"card-grid");
+f_check("evidence of a count: the number card",f_t2srep_verdict_evidence($arrcountzero),"number-card");
+f_check("evidence of an empty result: nothing",f_t2srep_verdict_evidence($arrempty),"");
+f_check("card view under a verdict: shown, no values",f_t2srep_view_open(array("verdict","card-grid"),"verdict","t2sCaption"),
+	"<div class=\"t2sRepView t2sRepCards\" data-t2sreps=\"verdict card-grid\" aria-describedby=\"t2sCaption\">");
+f_check("the same card view under card-grid",strpos(f_t2srep_view_open(array("verdict","card-grid"),"card-grid")," hidden"),false);
+f_check("the verdict view hidden under card-grid",f_t2srep_view_open(array("verdict"),"card-grid"),"<div class=\"t2sRepView\" data-t2sreps=\"verdict\" hidden>");
+$strchips=f_t2srep_render_chips(f_t2srep_options($arrlawrence),"fact-card",array(),array("fact-card"=>"Fact","entity-page"=>"Card","table"=>"Table"));
+f_contains("a fact on one row has its chips",$strchips,"data-t2srep=\"fact-card\"");
+
+f_group("Phase 2 lot B: dates");
+f_check("a full date, en",f_t2srep_format_date("1958-05-28","en"),"28 May 1958");
+f_check("a full date, fr",f_t2srep_format_date("1958-05-28","fr"),"28 mai 1958");
+f_check("the first of the month, fr",f_t2srep_format_date("1958-05-01","fr"),"1er mai 1958");
+f_check("no day",f_t2srep_format_date("1958-05-00","en"),"May 1958");
+f_check("a year column",f_t2srep_format_date(1910,"fr"),"1910");
+f_check("a zero date is nothing",f_t2srep_format_date("0000-00-00","en"),"");
+f_check("blank is nothing",f_t2srep_format_date(null,"en"),"");
+f_check("text kept",f_t2srep_format_date("circa 1900","en"),"circa 1900");
+f_check("a date part is no quantity",f_t2srep_is_date_part("BIRTH_MONTH") && f_t2srep_is_date_part("BIRTH_DAY") && !f_t2srep_is_date_part("BIRTH_YEAR"),true);
+
+f_group("Phase 2 lot B: compare-cards rendering");
+$strhtml=f_t2srep_render("compare-cards",$arrgodfather,"en",$fnfixposter);
+f_contains("a list named by its lead",$strhtml,"<ul class=\"t2sCompare t2sCompareN3\" aria-label=\"Three titles side by side\">");
+f_contains("the winner outlined, linked to its page, poster shown",$strhtml,"<li class=\"t2sCompareCard t2sCompareWinner\"><a class=\"t2sCompareLink\" href=\"movie.php?movieid=240\"><span class=\"t2sCompareMedia\"><img src=\"https://img/w342/8a1lJs7mFyGhGhZZDT1azJUoQiZ.jpg\"");
+f_contains("the winning value badged with a word",$strhtml,"<div class=\"t2sCompareQty t2sCompareWin\"><span class=\"t2sCompareQtyName\">Runtime</span><span class=\"t2sCompareQtyValue\">3 h 22</span><span class=\"t2sCompareBadge\">Leads</span></div>");
+f_check("one winner only",substr_count($strhtml,"t2sCompareWinner"),1);
+f_contains("the other values unmarked",$strhtml,"<div class=\"t2sCompareQty\"><span class=\"t2sCompareQtyName\">Runtime</span><span class=\"t2sCompareQtyValue\">2 h 55</span></div>");
+f_contains("a homonym told apart by its year",$strhtml,"<span class=\"t2sCompareYear\">2023</span>");
+f_check("no tie line",strpos($strhtml,"t2sCompareTie"),false);
+$strhtml=f_t2srep_render("compare-cards",$arrfix["lotb-compare-yes-no-runtime-fr"],"fr",$fnfixposter);
+f_contains("French names and badge",$strhtml,"<span class=\"t2sCompareQtyName\">Durée</span><span class=\"t2sCompareQtyValue\">3 h 14</span><span class=\"t2sCompareBadge\">En tête</span>");
+f_contains("French lead",$strhtml,"aria-label=\"Deux titres côte à côte\"");
+$strhtml=f_t2srep_render("compare-cards",$arrtie,"en",$fnfixposter);
+f_check("a tie marks no card",strpos($strhtml,"t2sCompareWinner"),false);
+f_check("a tie has no badge",strpos($strhtml,"t2sCompareBadge"),false);
+f_contains("a tie says so",$strhtml,"<p class=\"t2sCompareTie\">Tie: same number of seasons, 5</p>");
+f_contains("a tie says so, fr",f_t2srep_render("compare-cards",$arrtie,"fr"),"<p class=\"t2sCompareTie\">Égalité : même nombre de saisons, 5</p>");
+$strhtml=f_t2srep_render("compare-cards",$arrtwofocus,"en",$fnfixposter);
+f_check("two quantities under each of two cards",substr_count($strhtml,"<div class=\"t2sCompareQty"),4);
+f_check("two quantities won by the same card",substr_count($strhtml,"t2sCompareBadge"),2);
+f_contains("budget",$strhtml,"<span class=\"t2sCompareQtyName\">Budget</span><span class=\"t2sCompareQtyValue\">$237,000,000</span>");
+f_contains("revenue",$strhtml,"<span class=\"t2sCompareQtyName\">Revenue</span><span class=\"t2sCompareQtyValue\">$2,264,162,353</span>");
+$strhtml=f_t2srep_render("compare-cards",$arrbornbefore,"en",$fnfixprofile);
+f_contains("a birth year compared, the first born badged",$strhtml,"<span class=\"t2sCompareQtyName\">Birth year</span><span class=\"t2sCompareQtyValue\">1899</span><span class=\"t2sCompareBadge\">First</span>");
+f_check("the month and the day are not compared",strpos($strhtml,"Birth month")===false && strpos($strhtml,"Birth day")===false,true);
+f_check("no year line when the date is compared",strpos($strhtml,"t2sCompareYear"),false);
+f_contains("a face for a person",$strhtml,"<img src=\"https://img/w185/108fiNM6poRieMg7RIqLJRxdAwG.jpg\"");
+f_contains("without the poster callable: the route of the id",f_t2srep_render_compare_cards(f_t2srep_records($arrbornbefore["result"]),f_t2srep_columns($arrbornbefore),"en",null,$arrbornbefore["summary_facts"]),
+	"<a class=\"t2sCompareLink\" href=\"person.php?personid=2636\"><span class=\"t2sCompareMedia\"><span class=\"t2sCompareNoPoster\" aria-hidden=\"true\"></span></span><span class=\"t2sCompareTitle\">Alfred Hitchcock</span></a>");
+$arrnowinners=$arrfix["lotb-compare-yes-no-runtime-en"];
+unset($arrnowinners["summary_facts"]["winners"]);
+$strhtml=f_t2srep_render("compare-cards",$arrnowinners,"en");
+f_contains("no winners (an older answer): the value columns, unmarked",$strhtml,"<span class=\"t2sCompareQtyValue\">3 h 14</span></div>");
+f_check("no winners, no mark",strpos($strhtml,"t2sCompareWinner"),false);
+$arrfive=array_fill(0,5,array("ID_MOVIE"=>1,"MOVIE_TITLE"=>"A","RUNTIME"=>100));
+f_check("four cards at most",substr_count(f_t2srep_render_compare_cards($arrfive,f_t2srep_columns($arrgodfather),"en"),"<li class=\"t2sCompareCard"),4);
+f_contains("a missing value is said, never 0",f_t2srep_render_compare_cards(array(array("ID_MOVIE"=>1,"MOVIE_TITLE"=>"A","RUNTIME"=>0),array("ID_MOVIE"=>2,"MOVIE_TITLE"=>"B","RUNTIME"=>90)),f_t2srep_columns($arrgodfather),"en"),
+	"<span class=\"t2sCompareNone\">Not known</span>");
+f_contains("escaping in a card",f_t2srep_render_compare_cards(array(array("ID_MOVIE"=>"1\"><x","MOVIE_TITLE"=>"<b>","RUNTIME"=>90)),f_t2srep_columns($arrgodfather),"en"),"&lt;b&gt;");
+f_contains("nothing to compare: the table",f_t2srep_render_compare_cards(array(array("ID_MOVIE"=>1,"MOVIE_TITLE"=>"A")),array(array("name"=>"ID_MOVIE","role"=>"entity_id"),array("name"=>"MOVIE_TITLE","role"=>"label")),"en"),"t2sTable");
+
+f_group("Phase 2 lot B: fact-card rendering");
+$strhtml=f_t2srep_render("fact-card",$arrlawrence,"en",$fnfixposter);
+f_contains("the fact named large",$strhtml,"<div class=\"t2sFactValue\"><span class=\"t2sFactName\">Runtime:</span> <span class=\"t2sFactNumber\">3 h 48</span></div>");
+f_contains("the title linked to its page",$strhtml,"<div class=\"t2sFactLabel\"><a href=\"movie.php?movieid=947\">Lawrence of Arabia</a></div>");
+f_contains("the poster, out of the keyboard order",$strhtml,"<a class=\"t2sFactMedia\" href=\"movie.php?movieid=947\" tabindex=\"-1\" aria-hidden=\"true\"><img src=\"https://img/w342/AiAm0EtDvyGqNpVoieRw4u65vD1.jpg\"");
+f_contains("the year of the entity",$strhtml,"<div class=\"t2sFactYear\">1962</div>");
+f_check("no homonyms, no list",strpos($strhtml,"t2sFactOthers"),false);
+$strhtml=f_t2srep_render("fact-card",$arrvertigo,"en",$fnfixposter);
+f_contains("a release date in words",$strhtml,"<span class=\"t2sFactName\">Release date:</span> <span class=\"t2sFactNumber\">28 May 1958</span>");
+f_check("no year line when the fact is the date",strpos($strhtml,"t2sFactYear"),false);
+f_contains("the homonyms counted",$strhtml,"<p class=\"t2sFactOthersTitle\">11 other titles with this name</p>");
+f_check("the homonyms listed",substr_count($strhtml,"<li>"),11);
+f_contains("a homonym linked, with its year",$strhtml,"<li><a href=\"movie.php?movieid=922902\">Vertigo</a> <span class=\"t2sFactOthersMeta\">2016</span></li>");
+f_check("the fact itself is not among the homonyms",strpos($strhtml,"<li><a href=\"movie.php?movieid=426\""),false);
+$strhtml=f_t2srep_render("fact-card",$arrfix["lotb-fact-vertigo-date-fr"],"fr",$fnfixposter);
+f_contains("a release date in French",$strhtml,"<span class=\"t2sFactName\">Date de sortie :</span> <span class=\"t2sFactNumber\">28 mai 1958</span>");
+$strhtml=f_t2srep_render("fact-card",$arrfix["lotb-fact-birth-year-en"],"en",$fnfixprofile);
+f_contains("born",$strhtml,"<span class=\"t2sFactName\">Born:</span> <span class=\"t2sFactNumber\">1910</span>");
+f_contains("a face",$strhtml,"https://img/w185/ca8fRqLDfTJTCamLKHp70up23ET.jpg");
+f_contains("born, fr",f_t2srep_render("fact-card",$arrfix["lotb-fact-birth-year-en"],"fr"),"<span class=\"t2sFactName\">Naissance :</span>");
+$strhtml=f_t2srep_render("fact-card",$arrchernobyl,"en");
+f_contains("one homonym, singular, with its value",$strhtml,"<p class=\"t2sFactOthersTitle\">1 other title with this name</p><ul class=\"t2sFactOthersList\"><li><a href=\"serie.php?serieid=196108\">Chernobyl</a> <span class=\"t2sFactOthersMeta\">2022 · 12</span></li></ul>");
+f_contains("a count of episodes",$strhtml,"<span class=\"t2sFactName\">Number of episodes:</span> <span class=\"t2sFactNumber\">5</span>");
+f_contains("revenue in dollars",f_t2srep_render("fact-card",$arrfix["lotb-fact-revenue-en"],"en"),"<span class=\"t2sFactNumber\">$2,923,706,026</span>");
+f_contains("seasons, fr",f_t2srep_render("fact-card",$arrfix["lotb-fact-seasons-fr"],"fr"),"<span class=\"t2sFactName\">Nombre de saisons :</span> <span class=\"t2sFactNumber\">5</span>");
+f_check("others: plural fr",f_t2srep_others_words(11,array(),array(array("name"=>"ID_MOVIE","role"=>"entity_id")),"fr"),"11 autres titres portent ce nom");
+f_check("others: singular fr",f_t2srep_others_words(1,array(),array(array("name"=>"ID_MOVIE","role"=>"entity_id")),"fr"),"1 autre titre porte ce nom");
+f_check("others: people",f_t2srep_others_words(2,array(),array(array("name"=>"ID_PERSON","role"=>"entity_id")),"en"),"2 other people with this name");
+f_check("others: one person, fr",f_t2srep_others_words(1,array(),array(array("name"=>"ID_PERSON","role"=>"entity_id")),"fr"),"1 autre personne porte ce nom");
+$arrnofact=$arrlawrence;
+unset($arrnofact["summary_facts"]["fact"]);
+f_contains("no fact (an older answer): the focus column of the first row",f_t2srep_render("fact-card",$arrnofact,"en"),"<span class=\"t2sFactNumber\">3 h 48</span>");
+f_check("no row: nothing",f_t2srep_render_fact_card(array(),array(),"en"),"");
+
+f_group("Phase 2 lot B: verdict rendering");
+$strhtml=f_t2srep_render("verdict",$arrjaws,"en",$fnfixposter);
+f_check("Yes, large, a word and a sign",$strhtml,"<div class=\"t2sVerdict t2sVerdictYes\" role=\"group\" aria-label=\"Answer: Yes\"><span class=\"t2sVerdictIcon\" aria-hidden=\"true\">✓</span><div class=\"t2sVerdictText\"><div class=\"t2sVerdictWord\">Yes</div><div class=\"t2sVerdictDetail\">1 matching result</div></div></div>");
+f_contains("Oui",f_t2srep_render("verdict",$arrfix["lotb-verdict-yes-two-rows-fr"],"fr"),"<div class=\"t2sVerdictWord\">Oui</div><div class=\"t2sVerdictDetail\">2 résultats correspondants</div>");
+$strhtml=f_t2srep_render("verdict",$arrempty,"en");
+f_check("an empty result: No and nothing in the database, nothing below",$strhtml,
+	"<div class=\"t2sVerdict t2sVerdictNo\" role=\"group\" aria-label=\"Answer: No\"><span class=\"t2sVerdictIcon\" aria-hidden=\"true\">✗</span><div class=\"t2sVerdictText\"><div class=\"t2sVerdictWord\">No</div><div class=\"t2sVerdictDetail\">Nothing in the database matches</div></div></div>");
+f_contains("an empty result, fr",f_t2srep_render("verdict",$arrfix["lotb-verdict-no-empty-fr"],"fr"),"<div class=\"t2sVerdictWord\">Non</div><div class=\"t2sVerdictDetail\">Rien dans la base ne correspond</div>");
+$strhtml=f_t2srep_render("verdict",$arrcountzero,"en");
+f_contains("a count of zero: No",$strhtml,"<div class=\"t2sVerdict t2sVerdictNo\" role=\"group\" aria-label=\"Answer: No\">");
+f_contains("a count: the number card below",$strhtml,"</div></div><div class=\"t2sNumberCardWrap\"><div class=\"t2sNumberCard\"><div class=\"t2sNumberValue\">0</div>");
+f_check("a count: no detail line, the number says it",strpos($strhtml,"t2sVerdictDetail"),false);
+f_contains("Réponse : Non",f_t2srep_render("verdict",$arrfix["lotb-verdict-count-zero-fr"],"fr"),"aria-label=\"Réponse : Non\"");
+f_contains("no verdict in the facts: the table",f_t2srep_render_verdict(f_t2srep_records($arrjaws["result"]),f_t2srep_columns($arrjaws),"en",array(),"entity-page"),"t2sTable");
+
+f_group("Phase 2 lot B: captions (contract, Spoken rows)");
+f_check("compare, en",f_t2srep_caption($arrfix["lotb-compare-yes-no-runtime-en"],"en"),"Two titles side by side; Titanic leads on runtime, 3 h 14.");
+f_check("compare, fr",f_t2srep_caption($arrfix["lotb-compare-yes-no-runtime-fr"],"fr"),"Deux titres côte à côte ; Titanic l'emporte en durée, 3 h 14.");
+f_check("compare three with a homonym",f_t2srep_caption($arrgodfather,"en"),"Three titles side by side; The Godfather Part II leads on runtime, 3 h 22.");
+f_check("compare revenue, fr",f_t2srep_caption($arrfix["lotb-compare-three-revenue-en"],"fr"),"Trois titres côte à côte ; Jurassic Park l'emporte en box-office, $1,058,454,230.");
+f_check("compare two quantities",f_t2srep_caption($arrtwofocus,"en"),"Two titles side by side; Avatar leads on budget, $237,000,000; Avatar leads on revenue, $2,923,706,026.");
+f_check("compare a date, earliest",f_t2srep_caption($arrfix["lotb-compare-born-first-en"],"en"),"Two people side by side; Charlie Chaplin comes first (1889).");
+f_check("compare a date, earliest, fr",f_t2srep_caption($arrfix["lotb-compare-born-before-fr"],"fr"),"Deux personnes côte à côte ; Alfred Hitchcock vient en premier (1899).");
+f_check("compare a tie",f_t2srep_caption($arrtie,"en"),"Two titles side by side; same number of seasons, 5.");
+f_check("compare a tie, fr",f_t2srep_caption($arrtie,"fr"),"Deux titres côte à côte ; même nombre de saisons, 5.");
+$arrlowest=$arrfix["lotb-compare-yes-no-runtime-en"];
+$arrlowest["summary_facts"]["winners"][0]=array("column"=>"RUNTIME","unit"=>"minutes","role"=>"metric","index"=>1,"id"=>19995,"label"=>"Avatar","value"=>162,"extreme"=>"min","tie"=>false);
+f_check("compare, the minimum",f_t2srep_caption($arrlowest,"en"),"Two titles side by side; Avatar has the lowest runtime, 2 h 42.");
+f_check("compare, the minimum, fr",f_t2srep_caption($arrlowest,"fr"),"Deux titres côte à côte ; Avatar a la durée la plus basse, 2 h 42.");
+$arrnodirection=$arrfix["lotb-compare-born-first-en"];
+$arrnodirection["summary_facts"]["winners"][0]["index"]=null;
+f_check("compare a date without direction: no winner said",f_t2srep_caption($arrnodirection,"en"),"Two people side by side.");
+f_check("fact, en",f_t2srep_caption($arrlawrence,"en"),"Lawrence of Arabia: runtime, 3 h 48.");
+f_check("fact, fr",f_t2srep_caption($arrfix["lotb-fact-seasons-fr"],"fr"),"Breaking Bad : nombre de saisons, 5.");
+f_check("fact with homonyms",f_t2srep_caption($arrvertigo,"en"),"Vertigo: release date, 28 May 1958 (11 other titles with this name).");
+f_check("fact with homonyms, fr",f_t2srep_caption($arrvertigo,"fr"),"Vertigo : date de sortie, 28 mai 1958 (11 autres titres portent ce nom).");
+f_check("fact with one homonym",f_t2srep_caption($arrchernobyl,"en"),"Chernobyl: number of episodes, 5 (1 other title with this name).");
+f_check("fact, a date in French",f_t2srep_caption($arrfix["lotb-fact-vertigo-date-fr"],"fr"),"Sueurs froides : date de sortie, 28 mai 1958.");
+f_check("fact, a birth year",f_t2srep_caption($arrfix["lotb-fact-birth-year-en"],"en"),"Akira Kurosawa: birth year, 1910.");
+f_check("fact, revenue",f_t2srep_caption($arrfix["lotb-fact-revenue-en"],"en"),"Avatar: revenue, $2,923,706,026.");
+f_check("verdict, one row",f_t2srep_caption($arrjaws,"en"),"Yes: 1 matching result.");
+f_check("verdict, one row, fr",f_t2srep_caption($arrfix["lotb-verdict-yes-fr"],"fr"),"Oui : 1 résultat correspondant.");
+f_check("verdict, two rows",f_t2srep_caption($arrkubrick,"en"),"Yes: 2 matching results.");
+f_check("verdict, two rows, fr",f_t2srep_caption($arrfix["lotb-verdict-yes-two-rows-fr"],"fr"),"Oui : 2 résultats correspondants.");
+f_check("verdict, empty",f_t2srep_caption($arrempty,"en"),"No: nothing in the database matches.");
+f_check("verdict, empty, fr",f_t2srep_caption($arrfix["lotb-verdict-no-empty-fr"],"fr"),"Non : rien dans la base ne correspond.");
+f_check("verdict, a count of zero",f_t2srep_caption($arrcountzero,"en"),"No: 0.");
+f_check("verdict, a count of zero, fr",f_t2srep_caption($arrfix["lotb-verdict-count-zero-fr"],"fr"),"Non : 0.");
+$arrcountyes=$arrcountzero;
+$arrcountyes["summary_facts"]["verdict"]="yes";
+$arrcountyes["result"][0]["data"]["AWARD_WIN_COUNT"]=3;
+f_check("verdict, a count above zero",f_t2srep_caption($arrcountyes,"en"),"Yes: 3.");
+f_check("verdict, a count above zero, fr",f_t2srep_caption($arrcountyes,"fr"),"Oui : 3.");
+$strallb="";
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"lotb-")===0) {
+		$strallb.=f_t2srep_caption($arrjson,"en").f_t2srep_caption($arrjson,"fr");
+		foreach (f_t2srep_options($arrjson) as $stroption) {
+			$strallb.=f_t2srep_render($stroption,$arrjson,"en",$fnfixposter).f_t2srep_render($stroption,$arrjson,"fr",$fnfixposter);
+		}
+	}
+}
+f_check("a verdict never says false",preg_match('/\b(false|faux|fausse)\b/i',$strallb),0);
+f_check("no em dash in any lot B caption or rendering",strpos($strallb,"\u{2014}"),false);
 
 f_group("Table: entity titles link to their page");
 f_check("label column to its id",f_t2srep_label_links(array("ID_MOVIE","MOVIE_TITLE","RUNTIME"),array(array("name"=>"ID_MOVIE","role"=>"entity_id"),array("name"=>"MOVIE_TITLE","role"=>"label"))),

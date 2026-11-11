@@ -898,9 +898,14 @@ if ($intdbavailable) {
 				//the inactive ones hidden, so a click re-renders locally with no API call. A
 				//reload or a shared URL carries render= and asks the API once, like any page load
 				//(the question is then answered from the API cache, retrieve_from_cache).
-				$strt2srepactive=($lngrowcount > 0) ? f_t2srep_active($jsontext2sql, $strt2srepoverride) : "";
-				$strt2srep=($lngrowcount > 0) ? f_t2srep_choose($jsontext2sql, $strt2srepoverride) : "";
-				$arrt2soptions=($lngrowcount > 0) ? f_t2srep_options($jsontext2sql) : array();
+				//Phase 2 lot B: a verdict on an empty result has no row and still an answer (No,
+				//summary_facts with a count of 0): it is drawn, not the "no results" line
+				$intt2sverdictempty=($lngrowcount==0 && isset($jsontext2sql['representation']) && trim((string)$jsontext2sql['representation'])=="verdict"
+					&& isset($jsontext2sql['summary_facts']) && is_array($jsontext2sql['summary_facts']));
+				$intt2sanswer=($lngrowcount > 0 || $intt2sverdictempty);
+				$strt2srepactive=$intt2sanswer ? f_t2srep_active($jsontext2sql, $strt2srepoverride) : "";
+				$strt2srep=$intt2sanswer ? f_t2srep_choose($jsontext2sql, $strt2srepoverride) : "";
+				$arrt2soptions=$intt2sanswer ? f_t2srep_options($jsontext2sql) : array();
 				$arrt2scardreps=array();
 				foreach ($arrt2soptions as $strt2soption) {
 					if (f_t2srep_is_card_rep($strt2soption)) {
@@ -915,6 +920,15 @@ if ($intdbavailable) {
 				if ($strt2srepactive=="" && count($arrt2scardreps)>0) {
 					$strt2srepactive=$arrt2scardreps[0];
 				}
+				//The evidence of a verdict on rows is the card view (entity-page or card-grid), shown
+				//under the Yes / No block: the card view answers to "verdict" too. An empty verdict
+				//has no card to show, and no "no results" line under its No.
+				if ($intt2sverdictempty) {
+					$arrt2scardreps=array();
+					$intt2scards=false;
+				} elseif (in_array("verdict", $arrt2soptions, true) && f_t2srep_is_card_rep(f_t2srep_verdict_evidence($jsontext2sql))) {
+					array_unshift($arrt2scardreps, "verdict");
+				}
 				//The value under each card, kept hidden until value-cards is the active view
 				$arrt2svaluecolumns=in_array("value-cards", $arrt2scardreps, true) ? f_t2srep_value_columns(f_t2srep_columns($jsontext2sql)) : array();
 				//Sequence-strip is these cards numbered (the badge shows only under
@@ -922,7 +936,7 @@ if ($intdbavailable) {
 				//infinite scroll appends (a loadmore call, render=card) go on counting.
 				$intt2ssequence=in_array("sequence-strip", $arrt2scardreps, true);
 				$lngt2ssequencebase=(isset($jsontext2sql['offset']) && f_t2srep_is_number($jsontext2sql['offset'])) ? (int)$jsontext2sql['offset'] : max(0, ($lngpage-1)*(isset($lngrowsperpage) ? (int)$lngrowsperpage : 0));
-				$intt2sviews=($lngrowcount > 0 && isset($jsontext2sql['representation']) && trim((string)$jsontext2sql['representation'])!="");
+				$intt2sviews=($intt2sanswer && isset($jsontext2sql['representation']) && trim((string)$jsontext2sql['representation'])!="");
 				//A full page may have another behind it (the same test as the card grid's
 				//data-has-more): the caption then says "the first N" and the timeline fetches the rest
 				$intt2shasmore=(isset($lngrowsperpage) && $lngrowsperpage>0 && $lngrowcount==$lngrowsperpage);
@@ -950,7 +964,10 @@ if ($intdbavailable) {
 							echo "<script>".f_t2srep_caption_live_js($arrt2scaptionspec)."</script>";
 						}
 					}
-					if (count($arrt2soptions)>1 && $lngrowcount>1) {  // No chips on an entity page or a one-row scalar, as voice-agent
+					//No chips on an entity page or a one-row scalar, as voice-agent; a fact or a verdict
+					//on one row has them (the fact or the Yes / No, the card, the table)
+					$strt2sdefault=trim((string)$jsontext2sql['representation']);
+					if (count($arrt2soptions)>1 && ($lngrowcount>1 || ($lngrowcount==1 && ($strt2sdefault=="fact-card" || $strt2sdefault=="verdict")))) {
 						$arrt2shrefs=array();
 						$arrt2slabels=array();
 						foreach ($arrt2soptions as $strt2soption) {
