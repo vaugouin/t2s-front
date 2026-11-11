@@ -1,0 +1,1375 @@
+/* t2s-front dark theme - modern and responsive design */
+
+:root {
+    /* Color Palette */
+    --bg-primary: #121212;
+    --bg-secondary: #1e1e1e;
+    --bg-tertiary: #2d2d2d;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --accent-primary: #bb86fc;
+    --accent-secondary: #03dac6;
+    --error: #cf6679;
+    --success: #4caf50;
+    --link: #8ab4f8;
+    --link-hover: #adc8ff;
+    --border: #404040;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* Base Styles */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+}
+
+/* Layout */
+.content-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Typography */
+h1, h2, h3 {
+    color: var(--accent-primary);
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2rem;
+    border-bottom: 2px solid var(--accent-primary);
+    padding-bottom: 0.5rem;
+}
+
+h2 {
+    font-size: 1.5rem;
+    margin-top: 2rem;
+}
+
+/* Links */
+a {
+    color: var(--link);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+/* Person Profile */
+.person-profile {
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.profile-header {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+.profile-image {
+    max-width: 300px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Data Fields */
+.info-field {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+}
+
+.info-label {
+    color: var(--accent-secondary);
+    font-weight: 600;
+    min-width: 120px;
+}
+
+/* Movie Credits */
+.credits-section {
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.movie-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.movie-card {
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: transform 0.2s ease;
+}
+
+.movie-card:hover {
+    transform: translateY(-2px);
+}
+
+.movie-title {
+    color: var(--accent-primary);
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.movie-info {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* Status Messages */
+.status-message {
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.status-error {
+    background-color: rgba(207, 102, 121, 0.1);
+    border: 1px solid var(--error);
+    color: var(--error);
+}
+
+.status-success {
+    background-color: rgba(76, 175, 80, 0.1);
+    border: 1px solid var(--success);
+    color: var(--success);
+}
+
+.search-poster-results {
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+    margin: 1rem 0;
+    overflow: hidden;
+}
+
+.search-poster-results-title {
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    padding: 1.5rem;
+}
+
+.search-poster-card-grid {
+    background-color: var(--bg-tertiary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+.search-poster-card {
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    flex: 0 1 220px;
+    max-width: 100%;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-poster-card:hover {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+    transform: translateY(-4px);
+}
+
+.search-poster-card-link {
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 0;
+    text-decoration: none;
+}
+
+.search-poster-card-link:hover {
+    color: inherit;
+    text-decoration: none;
+}
+
+.search-poster-card img {
+    background-color: transparent;
+    display: block;
+    height: 100%;
+    margin: 0;
+    max-width: none;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+    width: 100%;
+}
+
+.search-poster-card:hover img {
+    transform: scale(1.03);
+}
+
+.search-poster-card-media {
+    aspect-ratio: 2 / 3;
+    display: block;
+    margin: 0;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.search-poster-card-text {
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.25;
+    padding: 0.6rem 0.9rem 0;
+    text-align: left;
+    white-space: normal;
+}
+
+/* Bottom padding belongs to the card, not to each text block: a card carrying an
+   extra column would otherwise stack two paddings into a blank line. */
+.search-poster-card-text:last-child {
+    padding-bottom: 0.6rem;
+}
+
+.search-poster-card:hover .search-poster-card-text {
+    opacity: 1;
+}
+
+.search-poster-card-reveal {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 40%, rgba(0, 0, 0, 0.35) 100%);
+    bottom: 0;
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    left: 0;
+    opacity: 0;
+    padding: 1rem;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transform: translateY(10px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 2;
+}
+
+.search-poster-card:hover .search-poster-card-reveal {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.search-poster-card-reveal-title {
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    margin-bottom: 0.4rem;
+}
+
+.search-poster-card-reveal-meta {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.8rem;
+    line-height: 1.3;
+    margin-bottom: 0.25rem;
+}
+
+.search-poster-card-reveal-rating {
+    color: #f0b429;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.search-poster-card-reveal-overview {
+    color: rgba(255, 255, 255, 0.85);
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: 1.35;
+    overflow: hidden;
+}
+
+/* Constant text height: for a given SQL query every card must stack the same
+   number of lines, otherwise a wrapped title stretches its whole flex row and
+   the poster rows stop aligning. Title is capped AND floored at two lines,
+   year and extra-column lines are floored at one, empty value included. */
+.search-poster-card-title {
+    /* inherits font/color from .search-poster-card-text */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    min-height: 2.5em; /* 2 lines at line-height 1.25 */
+    overflow: hidden;
+}
+
+.search-poster-card-year {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.82rem;
+    font-weight: 400;
+    margin-top: 0.15rem;
+    min-height: 1.25em; /* keeps the line when the year is unknown */
+}
+
+/* Extra SQL columns (Criterion spine, budget, runtime...) are emitted as their
+   own text block by the card renderer. Glue them under the title block instead
+   of letting the two paddings stack into a blank line, and give them the muted
+   look of the year line. */
+.search-poster-card-meta {
+    color: rgba(255, 255, 255, 0.75);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    font-size: 0.82rem;
+    font-weight: 400;
+    margin-top: 0.15rem;
+    min-height: 1.25em; /* keeps the line when the column is empty */
+    overflow: hidden;
+    padding-top: 0;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+th {
+    background-color: var(--bg-tertiary);
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+tr:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* Forms */
+textarea, input[type="text"], input[type="search"], input[type="number"], select {
+    /* 16px is not a taste, it is the threshold below which iOS Safari ZOOMS the page
+       when a field takes focus. Form controls do not inherit the body font, WebKit
+       gives them about 13.3px, and the zoom widens the layout past the viewport: the
+       round submit button, positioned at the right edge of the search box, ended up
+       off-screen and only reachable by scrolling sideways.
+       The guard used to exist. basic-*.css carried ".responsive-input { font-size:
+       16px }" and the search textarea still asks for that class, but this theme
+       replaced that sheet and never defined it, so the rule vanished with it. Same
+       story for ".container", which wraps every page in global-light.inc.php and is
+       defined nowhere here. */
+    font-size: 16px;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    padding: 0.5rem;
+    width: 100%;
+    max-width: 100%;
+    margin: 0.5rem 0;
+}
+
+textarea:focus, input[type="text"]:focus, input[type="search"]:focus, input[type="number"]:focus, select:focus {
+    border-color: var(--accent-primary);
+    outline: none;
+}
+
+/* Copy to clipboard icon button (download links section heading) */
+.copy-button {
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.15rem;
+    vertical-align: middle;
+}
+
+.copy-button img {
+    display: block;
+    opacity: 0.75;
+}
+
+.copy-button:hover img,
+.copy-button:focus img {
+    opacity: 1;
+}
+
+.copy-button:focus {
+    outline: 1px solid var(--accent-primary);
+}
+
+.copy-button-feedback {
+    color: var(--error);
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+/* Navigation */
+.navigation {
+    background-color: var(--bg-secondary);
+    padding: 1rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+}
+
+.nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Burger menu */
+.burger-button {
+    background: none;
+    border: none;
+    color: var(--accent-primary);
+    cursor: pointer;
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 0 0.4rem 0 0;
+    vertical-align: middle;
+}
+
+.burger-button:hover {
+    color: var(--link-hover);
+}
+
+.burger-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    inset: 0;
+    position: fixed;
+    z-index: 99;
+}
+
+.burger-overlay.burger-open {
+    display: block;
+}
+
+.burger-menu {
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+    height: 100%;
+    left: 0;
+    max-width: 85vw;
+    overflow-y: auto;
+    padding: 1.5rem 1rem;
+    position: fixed;
+    top: 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    width: 280px;
+    z-index: 100;
+}
+
+.burger-menu.burger-open {
+    transform: translateX(0);
+}
+
+.burger-menu a {
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    display: block;
+    padding: 0.7rem 0.5rem;
+}
+
+.burger-menu a:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--link-hover);
+    text-decoration: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .content-container {
+        padding: 1rem;
+    }
+
+    .search-poster-card-grid {
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .search-poster-card {
+        flex-basis: calc(50% - 0.5rem);
+    }
+
+    .profile-header {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-image {
+        max-width: 100%;
+    }
+
+    .movie-list {
+        grid-template-columns: 1fr;
+    }
+
+    .info-field {
+        flex-direction: column;
+    }
+
+    .info-label {
+        min-width: auto;
+    }
+}
+
+/* Print Styles */
+@media print {
+    body {
+        background-color: white;
+        color: black;
+    }
+
+    .content-container {
+        max-width: none;
+        padding: 0;
+    }
+
+    .movie-card, .person-profile, .credits-section {
+        break-inside: avoid;
+    }
+}
+
+.circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-block;
+    margin: 0px;
+}
+/* Letterboxed logo cards (company/network image galleries, e.g. "show me company logos"):
+   reproduce the synthetic-images padded-logo canvas in CSS instead of cropping wide logos
+   to fill the 2:3 box. #f5f3ee == the Pillow CANVAS_RGB (245,243,238); 10% padding == the
+   80%-width safe box of the padded masters. */
+.search-poster-card-media-contain {
+    background-color: #f5f3ee;
+}
+
+.search-poster-card .search-poster-card-media-contain img {
+    /* The img itself MUST stay transparent (canvas color comes from the parent div):
+       drop-shadow follows the element's rendered alpha, so an opaque background here
+       turns the halo into a rectangle shadow outside the box, clipped by the media
+       div's overflow:hidden -- i.e. no visible halo at all. */
+    background-color: transparent;
+    box-sizing: border-box;
+    /* Alpha-following dark halo: keeps white/near-white logos readable on the off-white
+       canvas (mirrors the Pillow alpha-shadow baked into the padded masters). Stacked
+       shadows compound into a dense outline right at the glyph edge -- a single soft
+       shadow is too faint there (Gaussian falloff halves it at the edge). */
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 12px rgba(0, 0, 0, 0.5));
+    object-fit: contain;
+    padding: 10%;
+}
+
+/* samples.php: one row per showcase sample, the question then its cards on a
+   single horizontally scrolling line, poster-sized like the voice-agent showcase wall. */
+.samples-summary {
+    color: var(--text-secondary);
+}
+
+.samples-error {
+    color: var(--error);
+}
+
+.samples-row {
+    border-top: 1px solid var(--border);
+    padding: 1rem 0;
+}
+
+.samples-path {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.samples-question {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0.25rem 0;
+}
+
+.samples-badge {
+    color: var(--success);
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.samples-row:not(.samples-status-shown) .samples-badge {
+    color: var(--error);
+}
+
+.samples-cards {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.samples-card {
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    flex: 0 0 118px;
+    overflow: hidden;
+    width: 118px;
+}
+
+.samples-card a {
+    color: inherit;
+    display: block;
+    text-decoration: none;
+}
+
+.samples-card-out {
+    opacity: 0.4;
+}
+
+.samples-card-media {
+    aspect-ratio: 2 / 3;
+    background-color: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.samples-card-media img {
+    display: block;
+    height: 100%;
+    margin: 0;
+    max-width: none;
+    object-fit: cover;
+    width: 100%;
+}
+
+.samples-card-noimage {
+    align-items: center;
+    color: var(--text-secondary);
+    display: flex;
+    font-size: 0.75rem;
+    justify-content: center;
+}
+
+.samples-card-title,
+.samples-card-sub {
+    font-size: 0.75rem;
+    line-height: 1.25;
+    overflow: hidden;
+    padding: 0 0.4rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.samples-card-title {
+    font-weight: 600;
+    padding-top: 0.3rem;
+}
+
+.samples-card-sub {
+    color: var(--text-secondary);
+    padding-bottom: 0.3rem;
+}
+
+.samples-card-unknown {
+    flex-basis: 240px;
+    font-size: 0.7rem;
+    overflow-wrap: anywhere;
+    padding: 0.4rem;
+    width: 240px;
+}
+
+.samples-scalar {
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    font-size: 1.4rem;
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+}
+
+.samples-detail {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+}
+
+/* Incomplete samples (no assertion yet): their own colour, amber, distinct from the red of the
+   samples the showcase cannot draw, so the ones still waiting for data stand out. */
+.samples-row.samples-status-noassert {
+    background-color: rgba(255, 183, 77, 0.08);
+    border-left: 4px solid #ffb74d;
+    padding-left: 0.75rem;
+}
+
+.samples-row.samples-status-noassert .samples-badge {
+    color: #ffb74d;
+    font-weight: 600;
+}
+
+.samples-incomplete-list {
+    background-color: rgba(255, 183, 77, 0.08);
+    border-left: 4px solid #ffb74d;
+    color: #ffb74d;
+    margin: 0.5rem 0 1rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.samples-incomplete-list ul {
+    margin: 0.25rem 0 0;
+}
+
+.samples-incomplete-list li {
+    color: var(--text-primary);
+}
+
+/* Wikipedia sections rendered from CONTENT_MD (lib/wikipedia-md.inc.php).
+   The theme's table rule pads cells by 1rem and stretches them to the full width, which suits
+   the site's own lists but turns a Wikipedia filmography into a wall: these tables are denser,
+   and a wide one scrolls inside its own box instead of widening the page on a phone. */
+.wp-section h4 { margin: 1rem 0 0.4rem; }
+.wp-section h5 { margin: 0.8rem 0 0.3rem; font-size: 1rem; }
+.wp-section ul, .wp-section ol { margin: 0.4rem 0 0.8rem; padding-left: 1.4rem; }
+.wp-section dl { margin: 0.4rem 0 0.8rem; }
+.wp-section dt { font-weight: 600; }
+.wp-section dd { margin: 0 0 0.3rem 1.2rem; }
+.wp-section blockquote {
+    border-left: 3px solid var(--border);
+    color: var(--text-secondary);
+    margin: 0.6rem 0;
+    padding: 0.2rem 0 0.2rem 1rem;
+}
+.wp-table-wrap { max-width: 100%; overflow-x: auto; margin: 0.6rem 0 1rem; }
+.wp-table-wrap table { margin: 0; width: auto; min-width: 50%; font-size: 0.9rem; }
+.wp-table-wrap th, .wp-table-wrap td {
+    padding: 0.35rem 0.6rem;
+    overflow-wrap: normal;
+    word-break: normal;
+    vertical-align: top;
+}
+.wp-infobox { max-width: 32rem; }
+.wp-infobox th { width: 40%; color: var(--text-secondary); background-color: var(--bg-tertiary); }
+.wp-section a.wp-wiki { text-decoration: underline dotted; }
+.wp-refs { margin: 0.4rem 0 1.2rem; font-size: 0.85rem; color: var(--text-secondary); }
+.wp-refs summary { cursor: pointer; color: var(--link); }
+.wp-refs ol { list-style: none; padding-left: 0.4rem; margin: 0.4rem 0 0; }
+.wp-refs li { margin: 0.2rem 0; overflow-wrap: anywhere; }
+.wp-ref-label { color: var(--accent-primary); }
+
+/* Persons, movies and series linked through Wikipedia articles . */
+.wp-mentions { margin: 1.2rem 0; }
+.wp-mentions-group { line-height: 1.7; }
+.wp-mentions-year { color: var(--text-secondary); font-size: 0.85rem; }
+.wp-mentions-more { color: var(--text-secondary); font-style: italic; }
+
+/* Wikipedia images in 2:3 cards (2026-10-18). A Wikipedia lead image has
+   any shape (a landscape skyline, a square globe), and object-fit: cover cropped it to fill
+   the 2:3 box: Los Angeles lost half the Hollywood sign. f_wikifit() (global-light.inc.php)
+   measures the image once loaded and, when it is more than 5% away from 2:3, puts
+   t2s-media-fit on the media div: the whole image, on a dark background like the card's.
+   Like the logo mode above, but no drop-shadow (that halo exists for white logos) and a
+   smaller padding (a photo needs no safe box). A true 2:3 image keeps the full-bleed cover. */
+.search-poster-card-media.t2s-media-fit,
+.samples-card-media.t2s-media-fit {
+    background-color: #181818;
+}
+
+.search-poster-card .t2s-media-fit img,
+.samples-card-media.t2s-media-fit img {
+    background-color: transparent;
+    box-sizing: border-box;
+    object-fit: contain;
+    padding: 4%;
+}
+
+/* ============================================================
+   Fiche film : accordeons (<details>) + barre d'ancres a icones
+   Ajoute le 2026-10-26 (reorganisation de movie.php).
+   ============================================================ */
+
+/* Barre d'ancres : rangee d'icones cliquables, collante en haut,
+   defilement horizontal si elle deborde sur petit ecran. */
+.fiche-anchorbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 1.5rem 0;
+    padding: 0.6rem 0.4rem;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
+}
+
+.fiche-anchorlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fiche-anchorlink:hover {
+    background-color: var(--accent-primary);
+    color: #000000;
+    text-decoration: none;
+}
+
+.fiche-anchorlink-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+/* Sous 640px, la barre ne garde que les icones pour tenir sur une ligne. */
+@media (max-width: 640px) {
+    .fiche-anchorbar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+    .fiche-anchorlink-label {
+        display: none;
+    }
+}
+
+/* Accordeons de section. Le <summary> porte l'icone + le titre et reprend
+   l'allure d'un h2 ; le corps garde la mise en page existante. */
+details.fiche-section {
+    margin: 0 0 0.75rem 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background-color: var(--bg-secondary);
+    overflow: hidden;
+}
+
+summary.fiche-section-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.9rem 1.1rem;
+    cursor: pointer;
+    list-style: none;
+    color: var(--accent-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    user-select: none;
+}
+
+summary.fiche-section-summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Chevron maison, pivote a l'ouverture. */
+summary.fiche-section-summary::after {
+    content: "\25B8"; /* triangle pointant a droite */
+    margin-left: auto;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+
+details.fiche-section[open] > summary.fiche-section-summary::after {
+    transform: rotate(90deg);
+}
+
+summary.fiche-section-summary:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.fiche-section-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.fiche-section-title {
+    font-size: 1.25rem;
+}
+
+.fiche-section-body {
+    padding: 0.4rem 1.1rem 1.1rem 1.1rem;
+}
+
+/* Les h2 internes (sections rendues par des fonctions, hors accordeon)
+   gardent leur style d'origine : rien a surcharger ici. */
+
+/* Result representations of the text2sql search, mirror of voice-agent
+   (app/static/styles.css, .t2s* rules). Keep both in step: every representation ships on
+   both fronts. */
+.t2sNumberCardWrap,
+.t2sStatStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+.t2sNumberCard {
+  flex: 1 1 200px;
+  min-width: 180px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 22px;
+}
+.t2sNumberValue {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.t2sStatStrip .t2sNumberValue {
+  font-size: 1.6rem;
+}
+.t2sNumberLabel {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.t2sBars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+.t2sBar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.t2sBarLabel {
+  flex: 0 0 34%;
+  max-width: 34%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+.t2sBarBody {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.t2sBarTrack {
+  flex: 1 1 auto;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.18);
+}
+.t2sBarFill {
+  height: 100%;
+  border-radius: 7px;
+  background: var(--accent-secondary);
+}
+.t2sBarValue {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.t2sPosterRanking .t2sRankCard .t2sBarBody {
+  padding: 8px 10px 12px;
+}
+.t2sTableWrap {
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.t2sTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.t2sTable th,
+.t2sTable td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.t2sTable th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+}
+@media (max-width: 768px) {
+  .t2sBarLabel {
+    flex-basis: 42%;
+    max-width: 42%;
+  }
+  .t2sNumberValue {
+    font-size: 1.6rem;
+  }
+}
+
+/* Phase 1 of the result representations: the caption from
+   summary_facts, the chips of representation_options, the value under each card of
+   value-cards, the rank number of the poster ranking. Mirror of voice-agent; keep both in step. */
+.t2sCaption {
+  margin: 14px 0 6px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.t2sChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.t2sChip {
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+.t2sChip:hover,
+.t2sChip:focus-visible {
+  border-color: var(--accent-secondary);
+}
+.t2sChipActive {
+  background: var(--accent-secondary);
+  border-color: var(--accent-secondary);
+  color: #000000;
+  font-weight: 600;
+}
+/* The card view carries the values of value-cards and the bare grid of card-grid at once:
+   the value lines exist on every card and show only under .t2sShowValues. */
+.t2sCardValue {
+  display: none;
+  padding: 0.2rem 0.9rem 0.7rem;
+  color: var(--accent-secondary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.t2sShowValues .t2sCardValue {
+  display: block;
+}
+.t2sShowValues .t2sCardValue + .t2sCardValue {
+  padding-top: 0;
+  margin-top: -0.45rem;
+}
+.t2sCardValueLabel {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.t2sRankNumber {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 6px;
+  border-radius: 1rem;
+  background: rgba(0, 0, 0, 0.78);
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 2rem;
+  text-align: center;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+/* Under value-cards the plain meta line of the value column is hidden, the
+   value card shows it (it appeared twice, 2026-11-08). */
+.t2sShowValues .t2sCardValueSource {
+  display: none;
+}
+
+/* Phase 2 lot A of the result representations: sequence-strip,
+   timeline, trend-columns. Mirror of voice-agent once its twin ships; keep both in step.
+   sequence-strip is the card grid with the rank badge of the poster ranking on each card,
+   shown only under .t2sShowSequence. */
+.t2sSeqNumber {
+  display: none;
+}
+.t2sShowSequence .t2sSeqNumber {
+  display: block;
+}
+
+/* Timeline: one column per year that holds rows, the marks of a year stacked above the axis,
+   the gap between two years widening with the years between. The axis scrolls inside its box
+   (phone width included), never the page. */
+.t2sTimeline {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 12px 0;
+  padding: 12px 12px 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+.t2sTimeline:focus-visible,
+.t2sTrendScroll:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+}
+.t2sTimelineAxis {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  width: max-content;
+  min-width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.t2sTimelineYear {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+.t2sTimelineYear .t2sTimelineMarks {
+  order: 1;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  padding: 0 6px 8px;
+}
+.t2sTimelineYearLabel {
+  order: 2;
+  display: block;
+  height: 1.8rem;
+  line-height: 1.8rem;
+  border-top: 2px solid var(--accent-secondary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.t2sTimelineGap {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  height: 1.8rem;
+  border-top: 2px solid var(--accent-secondary);
+  box-sizing: border-box;
+}
+.t2sTimelineBreak {
+  min-width: 1.6rem;
+  border-top-style: dashed;
+}
+.t2sTimelineBreak span {
+  display: block;
+  line-height: 1.8rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.t2sTimelineMarks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.t2sTimelineMark {
+  width: 84px;
+}
+.t2sTimelineMark a {
+  display: block;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.t2sTimelineMark a:hover .t2sTimelineTitle,
+.t2sTimelineMark a:focus-visible .t2sTimelineTitle {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+.t2sTimelineMark img,
+.t2sTimelineNoPoster {
+  display: block;
+  width: 84px;
+  height: 126px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+.t2sTimelineTitle {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.t2sTimelineUndated {
+  margin: 4px 0 12px;
+}
+.t2sTimelineUndatedLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Trend: one column per row (a year or a decade), the height the metric. Over twelve columns
+   (.t2sTrendDense) the values turn transparent, still read by a screen reader and kept in the
+   tooltip, so every track keeps the same height; the extremum keeps its value. */
+.t2sTrend {
+  margin: 12px 0;
+}
+.t2sTrendScroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+.t2sTrendCols {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 240px;
+  width: max-content;
+  min-width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.t2sTrendCol {
+  flex: 1 0 3.2rem;
+  min-width: 3.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.t2sTrendValue {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 2.4em;
+  line-height: 1.2;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.t2sTrendTrack {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  border-bottom: 2px solid var(--border);
+}
+.t2sTrendBar {
+  display: block;
+  width: 70%;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent-secondary);
+}
+.t2sTrendPeak .t2sTrendBar {
+  background: var(--accent-primary);
+}
+.t2sTrendLabel {
+  height: 2.4em;
+  margin-top: 4px;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.t2sTrendDense .t2sTrendCol {
+  flex-basis: 2.6rem;
+  min-width: 2.6rem;
+}
+.t2sTrendDense .t2sTrendValue {
+  color: transparent;
+  white-space: nowrap;
+}
+.t2sTrendDense .t2sTrendPeak .t2sTrendValue {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+@media (max-width: 768px) {
+  .t2sTimelineMark,
+  .t2sTimelineMark img,
+  .t2sTimelineNoPoster {
+    width: 64px;
+  }
+  .t2sTimelineMark img,
+  .t2sTimelineNoPoster {
+    height: 96px;
+  }
+  .t2sTrendCols {
+    height: 200px;
+  }
+}

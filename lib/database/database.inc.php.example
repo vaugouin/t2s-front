@@ -1,0 +1,25 @@
+<?php
+//Database account of the front. EXAMPLE FILE: copy it to
+//lib/database/database.inc.php and replace every placeholder.
+//The copy is ignored by git (.gitignore) and must never be committed.
+//
+//Included by lib/database/global-light-secrets.inc.php. Two MariaDB accounts are expected:
+//a read-only one, used by every page, and a read-write one, used only by the few pages that
+//set $intdbreadwrite=true, which run in private mode only (lib/private-mode.inc.php).
+
+//Host name or address of the MariaDB server
+$dbhost="127.0.0.1";
+if ($intdbreadwrite) {
+	//Read-write access to the database
+	$dbuser="YOUR_READ_WRITE_USER";
+	$dbpwd="YOUR_READ_WRITE_PASSWORD";
+} else {
+	//Read-only access to the database
+	$dbuser="YOUR_READ_ONLY_USER";
+	$dbpwd="YOUR_READ_ONLY_PASSWORD";
+}
+$dbname="YOUR_DATABASE_NAME";
+//Prefix of the table names. The code also names many tables in full (T_WC_TMDB_MOVIE, ...),
+//so this value must stay T_WC_.
+$strsqlns="T_WC_";
+?>

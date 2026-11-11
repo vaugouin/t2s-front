@@ -1,0 +1,26 @@
+# Secrets: never commit them. Create them from the *.example files.
+.env
+.env.*
+!.env.example
+lib/database/*.inc.php
+!lib/database/*.example
+
+# Plugins: installed on the server, never part of this repository
+/plugins/
+
+# Logs and runtime output
+logs/
+*.log
+
+# Editors and tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.claude/settings.local.json
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
