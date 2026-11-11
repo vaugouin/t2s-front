@@ -32,6 +32,12 @@
  * fact and its homonyms, the Yes or No and its evidence (an empty result and a count of zero
  * included), the chips and their captions in English and French. The last group pins the links of
  * the entity titles in the table.
+ *
+ * Phase 2 lot C adds histogram, share-bar and flag-list on live answers reclassified with the
+ * API module of that lot (fixtures lotc-*): the bins in their order and the empty bin kept, the
+ * parts and their labels (GENDER named, one share and its rest), the countries with their flag
+ * or their code badge, the chips, and the captions in English and French, word for word those
+ * of voice-agent. The flag detection script goes through node --check.
  */
 
 require_once(__DIR__."/../lib/t2s-representation.inc.php");
@@ -687,6 +693,123 @@ f_contains("person linked",$strhtml,"<td><a href=\"person.php?personid=31\">Tom 
 f_contains("movie linked and escaped",$strhtml,"<td><a href=\"movie.php?movieid=13\">Forrest &lt;Gump&gt;</a></td>");
 f_contains("id escaped in the href",f_t2srep_render_table(array(array("ID_MOVIE"=>"1\"><script>","MOVIE_TITLE"=>"x")),array(),"en"),"movie.php?movieid=1%22%3E%3Cscript%3E");
 f_check("a grouped table with no id has no link",strpos(f_t2srep_render("table",$arrgenres),"<a "),false);
+
+f_group("Phase 2 lot C: histogram");
+$arrhr=$arrfix['lotc-histogram-runtime-range-en'];
+f_check("histogram is drawn here",f_t2srep_choose($arrhr),"histogram");
+f_check("histogram chips",f_t2srep_options($arrhr),array("histogram","table"));
+$arrhm=f_t2srep_histogram_model($arrhr['summary_facts'],"en");
+$arrbars=array();
+foreach ($arrhm['bars'] as $arrbar) {
+	$arrbars[]=array($arrbar['axis'],$arrbar['range'],$arrbar['value'],$arrbar['empty'],$arrbar['peak']);
+}
+f_check("histogram bars in bin order, the empty bin kept",$arrbars,array(
+	array("0","0 to 29 min",3.0,false,false),array("30","30 to 59 min",0.0,true,false),array("60","60 to 89 min",4.0,false,false),
+	array("90","90 to 119 min",2.0,false,false),array("120","120 to 149 min",5.0,false,true),array("150","150 to 179 min",2.0,false,false),
+	array("180","180 to 209 min",2.0,false,false)));
+f_check("histogram caption en",f_t2srep_caption($arrhr,"en"),"18 films in bins of 30 min; the most common bin is 120 to 149 min, 5 films.");
+f_check("histogram caption fr",f_t2srep_caption($arrfix['lotc-histogram-runtime-range-fr'],"fr"),
+	"18 films, par tranches de 30 min ; la tranche la plus fréquente : 120 à 149 min, 5 films.");
+f_check("histogram caption, width without an end",f_t2srep_caption($arrfix['lotc-histogram-bond-runtime-en'],"en"),
+	"27 films in bins of 10 min; the most common bin is 130 to 139 min, 8 films.");
+f_check("histogram caption, money",f_t2srep_caption($arrfix['lotc-histogram-budget-en'],"en"),
+	"31 films in bins of $50M; the most common bin is $0 to $50M, 16 films.");
+f_check("histogram caption, no unit",f_t2srep_caption($arrfix['lotc-histogram-rating-band-en'],"en"),
+	"14,292 films in 10 bins; the most common bin is 6, 4,133 films.");
+f_check("histogram caption, series",f_t2srep_caption($arrfix['lotc-histogram-seasons-en'],"en"),
+	"375 series in 57 bins; the most common bin is 1, 219 series.");
+f_check("histogram axis name en",f_t2srep_histogram_axis_name($arrhm,"en"),"Runtime (min), bins of 30 min");
+f_check("histogram axis name fr",f_t2srep_histogram_axis_name(f_t2srep_histogram_model($arrfix['lotc-histogram-runtime-range-fr']['summary_facts'],"fr"),"fr"),
+	"Durée (min), tranches de 30 min");
+f_check("histogram axis name money",f_t2srep_histogram_axis_name(f_t2srep_histogram_model($arrfix['lotc-histogram-budget-en']['summary_facts'],"en"),"en"),
+	"Budget ($), bins of $50M");
+$strhtml=f_t2srep_render("histogram",$arrhr,"en");
+f_contains("histogram column named by range and count",$strhtml,"<span class=\"t2sSrOnly\">120 to 149 min: 5</span>");
+f_contains("histogram peak marked",$strhtml,"t2sHistoCol t2sHistoPeak");
+f_contains("histogram empty bin kept",$strhtml,"t2sHistoCol t2sHistoEmpty");
+f_contains("histogram axis title",$strhtml,"<figcaption class=\"t2sHistoAxis\">Runtime (min), bins of 30 min</figcaption>");
+$strhtml=f_t2srep_render("histogram",$arrfix['lotc-histogram-seasons-en'],"en");
+f_contains("a long histogram is dense and scrolls in its box",$strhtml,"t2sHisto t2sHistoDense");
+f_check("text bin",f_t2srep_bin_range(array("label"=>"under 90"),array("unit"=>"minutes"),"en"),"under 90");
+f_check("step of one",f_t2srep_bin_range(array("low"=>3,"high"=>null),array("unit"=>"count","width"=>1),"fr"),"3");
+f_check("no histogram facts, a table",strpos(f_t2srep_render_histogram(array(array("A"=>1)),array(),"en",array()),"t2sTable")!==false,true);
+
+f_group("Phase 2 lot C: share-bar");
+$arrst=$arrfix['lotc-share-hbo-type-en'];
+f_check("share-bar is drawn here",f_t2srep_choose($arrst),"share-bar");
+f_check("share-bar chips",f_t2srep_options($arrst),array("share-bar","ranked-bars","table"));
+f_check("share caption en",f_t2srep_caption($arrst,"en"),"375 series counted in six parts: Scripted 49%, Miniseries 38%, Documentary 8% and 3 more.");
+f_check("share caption fr",f_t2srep_caption($arrfix['lotc-share-hbo-type-fr'],"fr"),
+	"375 séries comptées en six parts : Scripted 49 %, Miniseries 38 %, Documentary 8 % et 3 autres.");
+f_check("share caption as a pie",f_t2srep_caption($arrfix['lotc-share-pie-status-en'],"en"),
+	"375 series counted in five parts: Ended 74%, Canceled 12%, Returning Series 11% and 2 more.");
+f_check("share caption gender codes",f_t2srep_caption($arrfix['lotc-share-gender-codes-en'],"en"),"66 people counted in three parts: women 11%, men 88%, non-binary 2%.");
+f_check("share caption CASE labels fr",f_t2srep_caption($arrfix['lotc-share-gender-labels-fr'],"fr"),"65 résultats comptés en deux parts : Femmes 11 %, Hommes 89 %.");
+f_check("one share en",f_t2srep_caption($arrfix['lotc-share-single-en'],"en"),"74% of the whole; the rest, 26%.");
+f_check("one share fr",f_t2srep_caption($arrfix['lotc-share-single-percent-fr'],"fr"),"74 % de l'ensemble ; le reste, 26 %.");
+f_check("one share and its rest add up",f_t2srep_caption($arrfix['lotc-share-single-percent-en'],"en"),"38% of the whole; the rest, 62%.");
+f_check("one share has chips (bar and table)",f_t2srep_options($arrfix['lotc-share-single-en']),array("share-bar","number-card","table"));
+$arrgm=f_t2srep_share_model($arrfix['lotc-share-gender-codes-en'],"fr");
+f_check("gender codes named fr",array($arrgm['segments'][0]['label'],$arrgm['segments'][1]['label'],$arrgm['segments'][2]['label']),array("femmes","hommes","non binaire"));
+f_check("percent below one",array(f_t2srep_percent(0.004,"en"),f_t2srep_percent(0.004,"fr"),f_t2srep_percent(0,"en")),array("<1%","<1 %","0%"));
+$strhtml=f_t2srep_render("share-bar",$arrst,"en");
+f_contains("share legend: label, count, percentage",$strhtml,"<span class=\"t2sShareName\">Scripted</span><span class=\"t2sShareNumbers\">182 · 49%</span>");
+f_contains("share bar hidden from screen readers (the legend says it)",$strhtml,"<div class=\"t2sShareBar\" aria-hidden=\"true\">");
+f_contains("a wide segment shows its percentage",$strhtml,"title=\"Scripted 49%\">49%</span>");
+$strhtml=f_t2srep_render("share-bar",$arrfix['lotc-share-single-en'],"en");
+f_contains("one share: the rest striped",$strhtml,"data-hue=\"rest\"");
+f_contains("one share: the rest in the legend",$strhtml,"<span class=\"t2sShareName\">The rest</span><span class=\"t2sShareNumbers\">26%</span>");
+
+f_group("Phase 2 lot C: flag-list");
+$arrfk=$arrfix['lotc-flags-codes-kurosawa-en'];
+f_check("flag-list is drawn here",f_t2srep_choose($arrfk),"flag-list");
+f_check("flag-list chips (codes)",f_t2srep_options($arrfk),array("flag-list","ranked-bars","table"));
+f_check("flag-list chips (locations)",f_t2srep_options($arrfix['lotc-flags-filmed-mad-max-en']),array("flag-list","card-grid","table"));
+f_check("flag emoji",array(bin2hex(f_t2srep_flag_emoji("FR")),f_t2srep_flag_emoji("jp")==="\u{1F1EF}\u{1F1F5}",f_t2srep_flag_emoji("1A"),f_t2srep_flag_emoji("")),
+	array("f09f87abf09f87b7",true,"",""));
+f_check("flag caption count en",f_t2srep_caption($arrfk,"en"),"The first 13 countries by number of films; Japan leads with 93 films.");
+f_check("flag caption count fr",f_t2srep_caption($arrfix['lotc-flags-codes-kurosawa-fr'],"fr"),"Les 13 premiers pays par nombre de films ; Japon arrive en tête avec 93 films.");
+f_check("flag caption names en",f_t2srep_caption($arrfix['lotc-flags-filmed-mad-max-en'],"en"),"Four countries: Angola, Australia, Namibia and South Africa.");
+f_check("flag caption names fr",f_t2srep_caption($arrfix['lotc-flags-filmed-mad-max-fr'],"fr"),"Quatre pays : Angola, Australie, Namibie et Afrique du Sud.");
+f_check("flag caption repeated film",f_t2srep_caption($arrfix['lotc-flags-repeated-lotr-en'],"en"),"Two countries: New Zealand and United States.");
+f_check("flag caption more pages",f_t2srep_caption($arrfix['lotc-flags-filmed-mad-max-en'],"en",true),"The first four countries: Angola, Australia, Namibia and South Africa.");
+$arrfm=f_t2srep_flag_model($arrfix['lotc-flags-filmed-england-en'],"fr");
+$arrnames=array();
+foreach ($arrfm['items'] as $arritem) {
+	$arrnames[]=$arritem['code']." ".$arritem['name'];
+}
+f_check("place names: England kept, the others in French",$arrnames,array("GB England","JO Jordanie","MA Maroc","ES Espagne","GB Royaume-Uni"));
+$arrnoflag=array();
+foreach (f_t2srep_flag_model($arrfix['lotc-flags-codes-no-flag-en'],"en")['items'] as $arritem) {
+	if ($arritem['flag']==="") {
+		$arrnoflag[]=$arritem['code']." ".$arritem['name'];
+	}
+}
+f_check("codes with no flag",$arrnoflag,array("YU Yugoslavia","SU Soviet Union","XC Czechoslovakia","XK Kosovo"));
+$strhtml=f_t2srep_render("flag-list",$arrfk,"en");
+f_contains("flag row: badge, emoji, name, bar, count",$strhtml,"<li class=\"t2sFlagRow t2sFlagRowValue\"><span class=\"t2sFlag\" aria-hidden=\"true\"><span class=\"t2sFlagEmoji\">\u{1F1EF}\u{1F1F5}</span><span class=\"t2sFlagCode\">JP</span></span><span class=\"t2sFlagName\">Japan</span><span class=\"t2sFlagBody\">");
+f_contains("flag bar at 100% for the leader",$strhtml,"style=\"width:100%\"></span></span><span class=\"t2sFlagValue\">93</span>");
+$strhtml=f_t2srep_render("flag-list",$arrfix['lotc-flags-codes-no-flag-en'],"en");
+f_contains("a code with no flag keeps its badge",$strhtml,"<span class=\"t2sFlagCode t2sFlagAlways\">SU</span>");
+$strhtml=f_t2srep_render("flag-list",$arrfix['lotc-flags-filmed-mad-max-en'],"en");
+f_contains("a location row links to its page",$strhtml,"<span class=\"t2sFlagName\"><a href=\"");
+f_check("no bar without a count",strpos($strhtml,"t2sFlagBody"),false);
+f_nodecheck("the flag detection script",f_t2srep_flags_js());
+
+$strallc="";
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"lotc-")===0) {
+		$strallc.=f_t2srep_caption($arrjson,"en").f_t2srep_caption($arrjson,"fr");
+		foreach (f_t2srep_options($arrjson) as $stroption) {
+			//No poster callback: the rows of lot C are countries, bins and parts, not films
+			$strallc.=f_t2srep_render($stroption,$arrjson,"en").f_t2srep_render($stroption,$arrjson,"fr");
+		}
+	}
+}
+f_check("no em dash in any lot C caption or rendering",strpos($strallc,"\u{2014}"),false);
+f_check("every lot C fixture has a caption in both languages",array_sum(array_map(function($k) use ($arrfix) {
+	return (strpos($k,"lotc-")===0 && (f_t2srep_caption($arrfix[$k],"en")==="" || f_t2srep_caption($arrfix[$k],"fr")==="")) ? 1 : 0;
+}, array_keys($arrfix))),0);
 
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);

@@ -37,6 +37,12 @@
  * cards of the search page for rows, the number card for a count, nothing for an empty result).
  * All three are drawn here, each with its caption in f_t2srep_caption().
  *
+ * Phase 2 lot C adds `histogram` (one column per bin of summary_facts.histogram, in bin order),
+ * `share-bar` (the parts of a whole as one 100% bar with a legend, from summary_facts.share) and
+ * `flag-list` (countries with their flag, name and count, from summary_facts.countries; the flag
+ * is the code in a badge unless the browser draws flag emoji, f_t2srep_flags_js()). All three
+ * are drawn here, each with its caption in f_t2srep_caption().
+ *
  * Side-effect free on purpose, so test/t2s-representation-test.php loads it alone: no database,
  * no global, no echo. The one lookup that needs global-light (the poster URL of an entity row,
  * for the poster ranking) is handed in as a callable by the page.
@@ -48,12 +54,13 @@ define('T2SREP_POSTER_RANKING_MAX', 12);
 function f_t2srep_known() {
 	//Purpose: The representations this front draws, in the contract's vocabulary
 	return array("entity-page", "card-grid", "value-cards", "sequence-strip", "timeline", "trend-columns",
-		"compare-cards", "fact-card", "verdict", "number-card", "stat-strip", "ranked-bars", "table");
+		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_module_reps() {
 	//Purpose: The representations drawn by this module; the others keep the card renderer
-	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "number-card", "stat-strip", "ranked-bars", "table");
+	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list",
+		"number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_is_card_rep($strrep) {
@@ -667,6 +674,16 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 	if ($strrep=="verdict") {
 		return f_t2srep_render_verdict($arrrecords, $arrcolumns, $strlang, $arrfacts, f_t2srep_verdict_evidence($jsontext2sql));
 	}
+	//Phase 2 lot C
+	if ($strrep=="histogram") {
+		return f_t2srep_render_histogram($arrrecords, $arrcolumns, $strlang, $arrfacts);
+	}
+	if ($strrep=="share-bar") {
+		return f_t2srep_render_share_bar($jsontext2sql, $strlang);
+	}
+	if ($strrep=="flag-list") {
+		return f_t2srep_render_flag_list($jsontext2sql, $strlang);
+	}
 	return f_t2srep_render_scalar_cards($arrrecords, $arrcolumns, $strlang);
 }
 
@@ -900,6 +917,16 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	}
 	if ($strrepb=="verdict") {
 		return f_t2srep_caption_verdict($jsontext2sql, $strlang);
+	}
+	//Phase 2 lot C: one share stands on one row, so the three come before the floor too
+	if ($strrepb=="histogram") {
+		return f_t2srep_caption_histogram($jsontext2sql, $strlang);
+	}
+	if ($strrepb=="share-bar") {
+		return f_t2srep_caption_share($jsontext2sql, $strlang);
+	}
+	if ($strrepb=="flag-list") {
+		return f_t2srep_caption_flags($jsontext2sql, $strlang, $inthasmore);
 	}
 	if ($lngcount<2) {
 		return "";
@@ -2060,4 +2087,491 @@ function f_t2srep_caption_verdict($jsontext2sql, $strlang='en') {
 	}
 	$strrest=$arrparts['detail']!=="" ? $arrparts['detail'] : $arrparts['value'];
 	return $arrparts['word'].($strrest!=="" ? ($strlang=="fr" ? " : " : ": ").$strrest : "").".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phase 2 lot C: histogram, share-bar, flag-list. Drawn here from summary_facts.histogram,
+ * .share and .countries, the sentences word for word those of voice-agent
+ * (text2SqlHistogramSummary(), text2SqlShareSummary(), text2SqlFlagSummary()). Digits are
+ * shared by both languages, as everywhere in the contract.
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_plain_number($value) {
+	//Purpose: A number with en-US grouping and two decimals at most (Intl.NumberFormat("en-US", {maximumFractionDigits: 2}))
+	if (!f_t2srep_is_number($value)) {
+		return (string)$value;
+	}
+	return f_t2srep_format_number((float)$value, 2);
+}
+
+function f_t2srep_short_money($value) {
+	//Purpose: Mirrors formatMoney(): $150M, $1.7B, $50K; "$0" for zero (a bin starts there)
+	$dblvalue=(float)$value;
+	if ($dblvalue<=0) {
+		return "$0";
+	}
+	if ($dblvalue>=1e9) {
+		return "$".number_format($dblvalue/1e9, $dblvalue>=1e10 ? 0 : 1, '.', '')."B";
+	}
+	if ($dblvalue>=1e6) {
+		return "$".number_format($dblvalue/1e6, $dblvalue>=1e7 ? 0 : 1, '.', '')."M";
+	}
+	if ($dblvalue>=1e3) {
+		return "$".round($dblvalue/1e3)."K";
+	}
+	return "$".round($dblvalue);
+}
+
+function f_t2srep_counted_noun($strvaluecolumn, $value, $strlang='en') {
+	//Purpose: What a count column counts, as the noun of the sentence (FILM_COUNT counts films)
+	//Returns: array("word"=>..., "gender"=>"m"|"f")
+	$strname=strtoupper((string)$strvaluecolumn);
+	$intone=(f_t2srep_is_number($value) && (float)$value==1);
+	if (preg_match('/MOVIE|FILM/', $strname)) {
+		$arrnoun=array("films", "film", "films", "film", "m");
+	} elseif (preg_match('/SERIE|SHOW/', $strname)) {
+		$arrnoun=array("series", "series", "séries", "série", "f");
+	} elseif (preg_match('/PERSON|PEOPLE|CAST|ACTOR|ACTRESS|DIRECTOR|WINNER|CREW|MEMBER/', $strname)) {
+		$arrnoun=array("people", "person", "personnes", "personne", "f");
+	} else {
+		$arrnoun=array("results", "result", "résultats", "résultat", "m");
+	}
+	$lngi=($strlang=="fr" ? 2 : 0)+($intone ? 1 : 0);
+	return array("word"=>$arrnoun[$lngi], "gender"=>$arrnoun[4]);
+}
+
+function f_t2srep_bin_value($value, $strunit) {
+	//Purpose: A bin boundary: a plain number, money in the short form
+	if (!f_t2srep_is_number($value)) {
+		return (string)$value;
+	}
+	return $strunit=="usd" ? f_t2srep_short_money($value) : f_t2srep_plain_number($value);
+}
+
+function f_t2srep_bin_range($arrbin, $arrhistogram, $strlang='en') {
+	//Purpose: "120 to 149 min": the bin's own end, else start + width - 1 for whole numbers; the
+	//			start alone for a step of 1 or a fractional step. A text bin is its label.
+	if (isset($arrbin['label']) && $arrbin['label']!==null && trim((string)$arrbin['label'])!=="") {
+		return (string)$arrbin['label'];
+	}
+	$strunit=isset($arrhistogram['unit']) ? (string)$arrhistogram['unit'] : "";
+	$low=isset($arrbin['low']) ? $arrbin['low'] : null;
+	$high=isset($arrbin['high']) && f_t2srep_is_number($arrbin['high']) ? (float)$arrbin['high'] : null;
+	$width=isset($arrhistogram['width']) && f_t2srep_is_number($arrhistogram['width']) ? (float)$arrhistogram['width'] : null;
+	if ($high===null && f_t2srep_is_number($low) && floor((float)$low)==(float)$low && $width!==null && floor($width)==$width && $width>1) {
+		$high=(float)$low+$width-1;
+	}
+	$strsuffix=$strunit=="minutes" ? " min" : "";
+	$strlow=f_t2srep_bin_value($low, $strunit);
+	if ($high===null || !f_t2srep_is_number($low) || $high==(float)$low) {
+		return $strlow.$strsuffix;
+	}
+	return $strlow." ".($strlang=="fr" ? "à" : "to")." ".f_t2srep_bin_value($high, $strunit).$strsuffix;
+}
+
+function f_t2srep_histogram_model($arrfacts, $strlang='en') {
+	//Purpose: Mirrors text2SqlHistogramModel(): the bars of summary_facts.histogram, or null
+	if (!is_array($arrfacts) || !isset($arrfacts['histogram']) || !is_array($arrfacts['histogram'])) {
+		return null;
+	}
+	$arrhistogram=$arrfacts['histogram'];
+	$arrbins=isset($arrhistogram['bins']) && is_array($arrhistogram['bins']) ? array_values($arrhistogram['bins']) : array();
+	if (count($arrbins)<2) {
+		return null;
+	}
+	$arrvalues=array();
+	foreach ($arrbins as $arrbin) {
+		$arrvalues[]=isset($arrbin['value']) && f_t2srep_is_number($arrbin['value']) ? (float)$arrbin['value'] : 0;
+	}
+	$dblmax=max($arrvalues);
+	$lngpeak=isset($arrhistogram['peak']) && f_t2srep_is_number($arrhistogram['peak']) ? (int)$arrhistogram['peak'] : array_search($dblmax, $arrvalues);
+	$strunit=isset($arrhistogram['unit']) ? (string)$arrhistogram['unit'] : "";
+	$arrbars=array();
+	foreach ($arrbins as $lngi=>$arrbin) {
+		$dblvalue=$arrvalues[$lngi];
+		$intlabel=isset($arrbin['label']) && $arrbin['label']!==null && trim((string)$arrbin['label'])!=="";
+		$arrbars[]=array(
+			"axis"=>$intlabel ? (string)$arrbin['label'] : f_t2srep_bin_value(isset($arrbin['low']) ? $arrbin['low'] : null, $strunit),
+			"range"=>f_t2srep_bin_range($arrbin, $arrhistogram, $strlang),
+			"value"=>$dblvalue,
+			"valuetext"=>f_t2srep_plain_number($dblvalue),
+			"pct"=>$dblmax>0 ? ($dblvalue>0 ? max(1, (int)round($dblvalue/$dblmax*100)) : 0) : 0,
+			"empty"=>!empty($arrbin['empty']) || $dblvalue==0,
+			"peak"=>($lngi===$lngpeak),
+		);
+	}
+	$dbltotal=isset($arrhistogram['total']) && f_t2srep_is_number($arrhistogram['total']) ? (float)$arrhistogram['total'] : array_sum($arrvalues);
+	return array(
+		"bars"=>$arrbars,
+		"unit"=>$strunit,
+		"width"=>isset($arrhistogram['width']) && f_t2srep_is_number($arrhistogram['width']) ? (float)$arrhistogram['width'] : null,
+		"column"=>isset($arrhistogram['column']) ? (string)$arrhistogram['column'] : "",
+		"valuecolumn"=>isset($arrhistogram['value_column']) ? (string)$arrhistogram['value_column'] : (isset($arrfacts['value_column']) ? (string)$arrfacts['value_column'] : ""),
+		"total"=>$dbltotal,
+		"unbinned"=>isset($arrhistogram['unbinned']) && f_t2srep_is_number($arrhistogram['unbinned']) ? (float)$arrhistogram['unbinned'] : 0,
+		"histogram"=>$arrhistogram,
+	);
+}
+
+function f_t2srep_histogram_axis_name($arrmodel, $strlang='en') {
+	//Purpose: The axis title under the columns: the quantity cut into bins, its unit and the bin width
+	$strcolumn=isset($arrmodel['column']) ? (string)$arrmodel['column'] : "";
+	$strname=preg_replace('/_(?:BUCKET|BAND|BIN|RANGE|START|MIN|LOW|FROM|DEBUT)(?:_MINUTES)?$/i', '', $strcolumn);
+	$strname=preg_replace('/_(?:BUCKET|BAND|BIN|RANGE)$/i', '', $strname);
+	if (preg_match('/^(duree|duration|runtime)/i', $strname)) {
+		$strname="RUNTIME";
+	}
+	$arrword=f_t2srep_metric_word($strname!="" ? $strname : $strcolumn, $strlang);
+	$strunit=$arrmodel['unit']=="minutes" ? " (min)" : ($arrmodel['unit']=="usd" ? " ($)" : "");
+	$strstep="";
+	if ($arrmodel['width']!==null && ($arrmodel['unit']=="minutes" || $arrmodel['unit']=="usd")) {
+		$strstep=", ".($strlang=="fr" ? "tranches de" : "bins of")." ".($arrmodel['unit']=="usd" ? f_t2srep_short_money($arrmodel['width']) : f_t2srep_plain_number($arrmodel['width'])." min");
+	}
+	return f_t2srep_ucfirst($arrword['label']).$strunit.$strstep;
+}
+
+function f_t2srep_render_histogram($arrrecords, $arrcolumns, $strlang='en', $arrfacts=array()) {
+	//Purpose: The histogram: one column per bin, in bin order, the columns touching; an empty bin
+	//			the API filled in keeps its slot (a dashed base). Every column carries its range and
+	//			its count as text, so a screen reader reads "120 to 149 min: 5"; the counts show over
+	//			the columns up to twelve bins, the peak's always. A long axis scrolls in its box.
+	$arrmodel=f_t2srep_histogram_model($arrfacts, $strlang);
+	if ($arrmodel===null) {
+		return f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
+	}
+	$intfew=(count($arrmodel['bars'])<=12);
+	$lngevery=$intfew ? 1 : (int)ceil(count($arrmodel['bars'])/12);
+	$straxis=f_t2srep_histogram_axis_name($arrmodel, $strlang);
+	$strhtml="<figure class=\"t2sHisto".($intfew ? "" : " t2sHistoDense")."\" role=\"group\" aria-label=\"".f_t2srep_h($straxis)."\">"
+		."<div class=\"t2sHistoScroll\" tabindex=\"0\"><ol class=\"t2sHistoCols\" style=\"min-width:".(count($arrmodel['bars'])*($intfew ? 40 : 14))."px\">";
+	foreach ($arrmodel['bars'] as $lngi=>$arrbar) {
+		$strtext=$arrbar['range'].($strlang=="fr" ? " : " : ": ").$arrbar['valuetext'];
+		$strhtml.="<li class=\"t2sHistoCol".($arrbar['peak'] ? " t2sHistoPeak" : "").($arrbar['empty'] ? " t2sHistoEmpty" : "")."\" title=\"".f_t2srep_h($strtext)."\">"
+			."<span class=\"t2sSrOnly\">".f_t2srep_h($strtext)."</span>"
+			."<span class=\"t2sHistoValue\" aria-hidden=\"true\">".((($intfew && !$arrbar['empty']) || $arrbar['peak']) ? f_t2srep_h($arrbar['valuetext']) : "")."</span>"
+			."<span class=\"t2sHistoTrack\" aria-hidden=\"true\"><span class=\"t2sHistoBar\" style=\"height:".$arrbar['pct']."%\"></span></span>"
+			."<span class=\"t2sHistoLabel\" aria-hidden=\"true\">".(($lngi % $lngevery==0 || $arrbar['peak']) ? f_t2srep_h($arrbar['axis']) : "")."</span></li>";
+	}
+	$strhtml.="</ol></div><figcaption class=\"t2sHistoAxis\">".f_t2srep_h($straxis)."</figcaption>";
+	if ($arrmodel['unbinned']>0) {
+		$arrnoun=f_t2srep_counted_noun($arrmodel['valuecolumn'], $arrmodel['unbinned'], $strlang);
+		$strhtml.="<p class=\"t2sHistoNote\">".f_t2srep_h(f_t2srep_plain_number($arrmodel['unbinned'])." ".$arrnoun['word']
+			.($strlang=="fr" ? " sans valeur, hors tranches." : " with no value, outside the bins."))."</p>";
+	}
+	return $strhtml."</figure>";
+}
+
+function f_t2srep_caption_histogram($jsontext2sql, $strlang='en') {
+	//Purpose: "18 films in bins of 30 min; the most common bin is 120 to 149 min, 5 films." /
+	//			"18 films, par tranches de 30 min ; la tranche la plus fréquente : 120 à 149 min, 5 films."
+	$arrmodel=f_t2srep_histogram_model(isset($jsontext2sql['summary_facts']) ? $jsontext2sql['summary_facts'] : null, $strlang);
+	if ($arrmodel===null) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	$arrnoun=f_t2srep_counted_noun($arrmodel['valuecolumn'], $arrmodel['total'], $strlang);
+	if ($arrmodel['width']!==null && $arrmodel['unit']=="minutes") {
+		$strstep=($intfr ? "par tranches de " : "in bins of ").f_t2srep_plain_number($arrmodel['width'])." min";
+	} elseif ($arrmodel['width']!==null && $arrmodel['unit']=="usd") {
+		$strstep=($intfr ? "par tranches de " : "in bins of ").f_t2srep_short_money($arrmodel['width']);
+	} else {
+		$strstep=$intfr ? "en ".count($arrmodel['bars'])." tranches" : "in ".count($arrmodel['bars'])." bins";
+	}
+	$strlead=f_t2srep_plain_number($arrmodel['total'])." ".$arrnoun['word'].($intfr ? ", " : " ").$strstep;
+	$arrpeak=null;
+	foreach ($arrmodel['bars'] as $arrbar) {
+		if ($arrbar['peak']) {
+			$arrpeak=$arrbar;
+		}
+	}
+	if ($arrpeak===null || $arrpeak['value']==0) {
+		return f_t2srep_ucfirst($strlead).".";
+	}
+	$arrpeaknoun=f_t2srep_counted_noun($arrmodel['valuecolumn'], $arrpeak['value'], $strlang);
+	$strcount=$arrpeak['valuetext']." ".$arrpeaknoun['word'];
+	$strtail=$intfr ? "la tranche la plus fréquente : ".$arrpeak['range'].", ".$strcount : "the most common bin is ".$arrpeak['range'].", ".$strcount;
+	return f_t2srep_ucfirst($strlead).($intfr ? " ; " : "; ").$strtail.".";
+}
+
+function f_t2srep_percent($dblshare, $strlang='en') {
+	//Purpose: A share as a percentage: "49%" / "49 %", "<1%" for a share above 0 and under 1%
+	if (!f_t2srep_is_number($dblshare)) {
+		return "";
+	}
+	$dblpct=(float)$dblshare*100;
+	$strn=($dblpct>0 && $dblpct<1) ? "<1" : (string)(int)round($dblpct);
+	return $strlang=="fr" ? $strn." %" : $strn."%";
+}
+
+function f_t2srep_gender_word($value, $strlang='en') {
+	//Purpose: TMDb's gender code as a word (0 not set, 1 women, 2 men, 3 non-binary), or null
+	$arrwords=array("0"=>array("not set", "non renseigné"), "1"=>array("women", "femmes"), "2"=>array("men", "hommes"), "3"=>array("non-binary", "non binaire"));
+	$strkey=trim((string)$value);
+	return isset($arrwords[$strkey]) ? $arrwords[$strkey][$strlang=="fr" ? 1 : 0] : null;
+}
+
+function f_t2srep_share_model($jsontext2sql, $strlang='en') {
+	//Purpose: Mirrors text2SqlShareModel(): the labelled parts of summary_facts.share, or null.
+	//			One share and its rest are rounded to add up to 100 (38% and 62%, never 63%).
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['share']) || !is_array($jsontext2sql['summary_facts']['share'])) {
+		return null;
+	}
+	$arrshare=$jsontext2sql['summary_facts']['share'];
+	$arrparts=isset($arrshare['parts']) && is_array($arrshare['parts']) ? array_values($arrshare['parts']) : array();
+	if (count($arrparts)==0) {
+		return null;
+	}
+	$intfr=($strlang=="fr");
+	$strkind=(isset($arrshare['kind']) && $arrshare['kind']=="single") ? "single" : "parts";
+	$intgender=preg_match('/GENDER|SEXE/i', isset($arrshare['label_column']) ? (string)$arrshare['label_column'] : "");
+	$dblshown=null;
+	foreach ($arrparts as $arrpart) {
+		if (empty($arrpart['rest']) && $dblshown===null) {
+			$dblshown=isset($arrpart['share']) ? (float)$arrpart['share'] : 0;
+		}
+	}
+	$arrsegments=array();
+	foreach ($arrparts as $lngi=>$arrpart) {
+		$intrest=!empty($arrpart['rest']);
+		if ($intrest) {
+			$strlabel=$intfr ? "le reste" : "the rest";
+		} elseif ($strkind=="single") {
+			$arrword=f_t2srep_metric_word(isset($arrshare['value_column']) ? $arrshare['value_column'] : "", $strlang);
+			$strlabel=$arrword['label'];
+		} elseif ($intgender && f_t2srep_gender_word(isset($arrpart['label']) ? $arrpart['label'] : null, $strlang)!==null) {
+			$strlabel=f_t2srep_gender_word($arrpart['label'], $strlang);
+		} else {
+			$strlabel=trim((string)(isset($arrpart['label']) ? $arrpart['label'] : ""));
+			if ($strlabel==="") {
+				$strlabel=$intfr ? "sans valeur" : "no value";
+			}
+		}
+		$dblshare=isset($arrpart['share']) && f_t2srep_is_number($arrpart['share']) ? (float)$arrpart['share'] : 0;
+		$dblpctshare=($strkind=="single" && $intrest && $dblshown!==null) ? (100-round($dblshown*100))/100 : $dblshare;
+		$value=isset($arrpart['value']) ? $arrpart['value'] : null;
+		$arrsegments[]=array(
+			"label"=>$strlabel,
+			"share"=>$dblshare,
+			"pcttext"=>f_t2srep_percent($dblpctshare, $strlang),
+			"valuetext"=>($strkind=="single" || !f_t2srep_is_number($value)) ? "" : f_t2srep_plain_number($value),
+			"rest"=>$intrest,
+			"index"=>isset($arrpart['index']) && f_t2srep_is_number($arrpart['index']) ? (int)$arrpart['index'] : null,
+		);
+	}
+	return array("kind"=>$strkind, "segments"=>$arrsegments, "total"=>isset($arrshare['total']) ? $arrshare['total'] : null,
+		"valuecolumn"=>isset($arrshare['value_column']) ? (string)$arrshare['value_column'] : "");
+}
+
+function f_t2srep_render_share_bar($jsontext2sql, $strlang='en') {
+	//Purpose: The share bar: one 100% bar, a segment per part in the API's order, its percentage
+	//			written on every segment of 12% or more; the legend below lists every part with its
+	//			swatch, label, count and percentage, so nothing rests on the colour. A part whose row
+	//			names an entity links to its page.
+	$arrmodel=f_t2srep_share_model($jsontext2sql, $strlang);
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	if ($arrmodel===null) {
+		return f_t2srep_render_table($arrrecords, f_t2srep_columns($jsontext2sql), $strlang);
+	}
+	$strbar="";
+	$strlegend="";
+	foreach ($arrmodel['segments'] as $lngi=>$arrsegment) {
+		$strhue=$arrsegment['rest'] ? "rest" : (string)($lngi % 8);
+		$strname=f_t2srep_ucfirst($arrsegment['label']);
+		$strbar.="<span class=\"t2sShareSeg\" data-hue=\"".$strhue."\" style=\"flex-grow:".f_t2srep_h((string)max($arrsegment['share'], 0.0001))."\" title=\"".f_t2srep_h($strname." ".$arrsegment['pcttext'])."\">"
+			.($arrsegment['share']>=0.12 ? f_t2srep_h($arrsegment['pcttext']) : "")."</span>";
+		$strhref=($arrsegment['index']!==null && isset($arrrecords[$arrsegment['index']])) ? f_t2srep_entity_href($arrrecords[$arrsegment['index']]) : "";
+		$strnamehtml=$strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".f_t2srep_h($strname)."</a>" : f_t2srep_h($strname);
+		$strlegend.="<li class=\"t2sShareItem\"><span class=\"t2sShareSwatch\" data-hue=\"".$strhue."\" aria-hidden=\"true\"></span>"
+			."<span class=\"t2sShareName\">".$strnamehtml."</span>"
+			."<span class=\"t2sShareNumbers\">".f_t2srep_h($arrsegment['valuetext']!=="" ? $arrsegment['valuetext']." · ".$arrsegment['pcttext'] : $arrsegment['pcttext'])."</span></li>";
+	}
+	return "<div class=\"t2sShare\"><div class=\"t2sShareBar\" aria-hidden=\"true\">".$strbar."</div><ul class=\"t2sShareLegend\">".$strlegend."</ul></div>";
+}
+
+function f_t2srep_caption_share($jsontext2sql, $strlang='en') {
+	//Purpose: "368 series counted in six parts: Scripted 49%, Miniseries 38%, Documentary 8% and 3
+	//			more." / "... séries comptées en six parts : ... et 3 autres."; one share alone
+	//			"74% of the whole; the rest, 26%." / "74 % de l'ensemble ; le reste, 26 %."
+	$arrmodel=f_t2srep_share_model($jsontext2sql, $strlang);
+	if ($arrmodel===null) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	if ($arrmodel['kind']=="single") {
+		$arrpart=$arrmodel['segments'][0];
+		$strhead=$arrpart['pcttext'].($intfr ? " de l'ensemble" : " of the whole");
+		if (count($arrmodel['segments'])>1) {
+			return $strhead.($intfr ? " ; le reste, " : "; the rest, ").$arrmodel['segments'][1]['pcttext'].".";
+		}
+		return $strhead.".";
+	}
+	$arrnoun=f_t2srep_counted_noun($arrmodel['valuecolumn'], $arrmodel['total'], $strlang);
+	$lngk=count($arrmodel['segments']);
+	$strcounted=$intfr ? ($arrnoun['gender']=="f" ? "comptées" : "comptés") : "counted";
+	$strlead=f_t2srep_plain_number($arrmodel['total'])." ".$arrnoun['word']." ".$strcounted." ".($intfr ? "en " : "in ").f_t2srep_count_word($lngk, $strlang, "f")." parts";
+	$arrnamed=array();
+	foreach (array_slice($arrmodel['segments'], 0, 3) as $arrsegment) {
+		$arrnamed[]=$arrsegment['label']." ".$arrsegment['pcttext'];
+	}
+	$strlist=implode(", ", $arrnamed);
+	if ($lngk>3) {
+		$strlist.=$intfr ? " et ".($lngk-3)." ".($lngk-3==1 ? "autre" : "autres") : " and ".($lngk-3)." more";
+	}
+	return f_t2srep_ucfirst($strlead).($intfr ? " : " : ": ").$strlist.".";
+}
+
+function f_t2srep_flag_emoji($strcode) {
+	//Purpose: The flag emoji of an ISO 3166-1 alpha-2 code: its two regional-indicator letters
+	$strcode=strtoupper(trim((string)$strcode));
+	if (!preg_match('/^[A-Z]{2}$/', $strcode)) {
+		return "";
+	}
+	//U+1F1E6 + n is F0 9F 87 A6+n in UTF-8 for every letter: no mbstring needed
+	return "\xF0\x9F\x87".chr(0xA6+ord($strcode[0])-65)."\xF0\x9F\x87".chr(0xA6+ord($strcode[1])-65);
+}
+
+function f_t2srep_fold_name($strtext) {
+	//Purpose: A name folded for comparison: lowercase, the usual accents stripped
+	return strtolower(trim(strtr((string)$strtext, array("é"=>"e", "è"=>"e", "ê"=>"e", "ë"=>"e", "à"=>"a", "â"=>"a", "ä"=>"a", "á"=>"a", "å"=>"a",
+		"î"=>"i", "ï"=>"i", "í"=>"i", "ô"=>"o", "ö"=>"o", "ó"=>"o", "û"=>"u", "ü"=>"u", "ú"=>"u", "ç"=>"c", "ñ"=>"n", "É"=>"e", "Å"=>"a"))));
+}
+
+function f_t2srep_country_name($arrentry, $strlang='en') {
+	//Purpose: The name a row shows: the place's own name when it is not the country's (England
+	//			stays England under the United Kingdom flag), else the country's name in the UI language
+	$arrnames=isset($arrentry['name']) && is_array($arrentry['name']) ? $arrentry['name'] : null;
+	$strlabel=trim((string)(isset($arrentry['label']) ? $arrentry['label'] : ""));
+	if ($strlabel!=="" && ($arrnames===null || f_t2srep_fold_name($strlabel)!==f_t2srep_fold_name(isset($arrnames['en']) ? $arrnames['en'] : ""))) {
+		return $strlabel;
+	}
+	$strname=$arrnames!==null ? (string)(isset($arrnames[$strlang=="fr" ? "fr" : "en"]) ? $arrnames[$strlang=="fr" ? "fr" : "en"] : "") : "";
+	if ($strname!=="") {
+		return $strname;
+	}
+	return $strlabel!=="" ? $strlabel : (string)(isset($arrentry['code']) ? $arrentry['code'] : "");
+}
+
+function f_t2srep_flag_model($jsontext2sql, $strlang='en') {
+	//Purpose: Mirrors text2SqlFlagModel(): one item per country of summary_facts.countries, or null
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['countries']) || !is_array($jsontext2sql['summary_facts']['countries'])) {
+		return null;
+	}
+	$arrcountries=$jsontext2sql['summary_facts']['countries'];
+	$arrlist=isset($arrcountries['countries']) && is_array($arrcountries['countries']) ? array_values($arrcountries['countries']) : array();
+	if (count($arrlist)==0) {
+		return null;
+	}
+	$dblmax=0;
+	foreach ($arrlist as $arrentry) {
+		if (isset($arrentry['value']) && f_t2srep_is_number($arrentry['value'])) {
+			$dblmax=max($dblmax, (float)$arrentry['value']);
+		}
+	}
+	$arritems=array();
+	foreach ($arrlist as $arrentry) {
+		$value=isset($arrentry['value']) && f_t2srep_is_number($arrentry['value']) ? (float)$arrentry['value'] : null;
+		$strcode=strtoupper(trim((string)(isset($arrentry['code']) ? $arrentry['code'] : "")));
+		$arritems[]=array(
+			"code"=>$strcode,
+			"flag"=>(!empty($arrentry['flag']) && $strcode!=="") ? f_t2srep_flag_emoji($strcode) : "",
+			"name"=>f_t2srep_country_name($arrentry, $strlang),
+			"value"=>$value,
+			"valuetext"=>$value===null ? "" : f_t2srep_plain_number($value),
+			"pct"=>($value!==null && $dblmax>0) ? max(2, (int)round($value/$dblmax*100)) : 0,
+			"index"=>isset($arrentry['index']) && f_t2srep_is_number($arrentry['index']) ? (int)$arrentry['index'] : null,
+		);
+	}
+	return array("items"=>$arritems, "valuecolumn"=>isset($arrcountries['value_column']) ? (string)$arrcountries['value_column'] : "",
+		"source"=>isset($arrcountries['source']) ? (string)$arrcountries['source'] : "");
+}
+
+function f_t2srep_render_flag_list($jsontext2sql, $strlang='en') {
+	//Purpose: The flag list: one row per country, the flag, the name, the count with a thin bar
+	//			when the rows carry one. The flag is the code in a badge until f_t2srep_flags_js()
+	//			finds that the browser draws flag emoji (Windows draws two letters), then the emoji;
+	//			the name is always written. A location row links to its page.
+	$arrmodel=f_t2srep_flag_model($jsontext2sql, $strlang);
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	if ($arrmodel===null) {
+		return f_t2srep_render_table($arrrecords, f_t2srep_columns($jsontext2sql), $strlang);
+	}
+	$strhtml="<ul class=\"t2sFlags\">";
+	foreach ($arrmodel['items'] as $arritem) {
+		$strflag="<span class=\"t2sFlag\" aria-hidden=\"true\">"
+			.($arritem['flag']!=="" ? "<span class=\"t2sFlagEmoji\">".$arritem['flag']."</span>" : "")
+			."<span class=\"t2sFlagCode".($arritem['flag']!=="" ? "" : " t2sFlagAlways")."\">".f_t2srep_h($arritem['code']!=="" ? $arritem['code'] : "?")."</span></span>";
+		$strhref=($arrmodel['source']=="locations" && $arritem['index']!==null && isset($arrrecords[$arritem['index']])) ? f_t2srep_entity_href($arrrecords[$arritem['index']]) : "";
+		$strname=$strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".f_t2srep_h($arritem['name'])."</a>" : f_t2srep_h($arritem['name']);
+		$strhtml.="<li class=\"t2sFlagRow".($arritem['valuetext']!=="" ? " t2sFlagRowValue" : "")."\">".$strflag."<span class=\"t2sFlagName\">".$strname."</span>";
+		if ($arritem['valuetext']!=="") {
+			$strhtml.="<span class=\"t2sFlagBody\"><span class=\"t2sBarTrack\" aria-hidden=\"true\"><span class=\"t2sBarFill\" style=\"width:".$arritem['pct']."%\"></span></span>"
+				."<span class=\"t2sFlagValue\">".f_t2srep_h($arritem['valuetext'])."</span></span>";
+		}
+		$strhtml.="</li>";
+	}
+	return $strhtml."</ul>";
+}
+
+function f_t2srep_flags_js() {
+	//Purpose: Mirrors text2SqlFlagEmojiSupported(): draws one flag on a canvas and, when colour
+	//			pixels come out (a real flag, not two grey letters), sets t2sFlagEmojiOk on the root
+	//			element so the emoji replaces the code badge. A plain string with no PHP value in it.
+	return "(function(){try{var c=document.createElement('canvas');c.width=24;c.height=24;var x=c.getContext('2d');if(!x){return;}"
+		."x.textBaseline='top';x.font='20px sans-serif';x.fillText('\\uD83C\\uDDEB\\uD83C\\uDDF7',0,0);var d=x.getImageData(0,0,24,24).data;"
+		."for(var i=0;i<d.length;i+=4){if(d[i+3]>0&&(Math.abs(d[i]-d[i+1])>40||Math.abs(d[i+1]-d[i+2])>40||Math.abs(d[i]-d[i+2])>40)){document.documentElement.classList.add('t2sFlagEmojiOk');return;}}}catch(e){}})();";
+}
+
+function f_t2srep_caption_flags($jsontext2sql, $strlang='en', $inthasmore=false) {
+	//Purpose: With a count: "The first 13 countries by number of films; Japan leads with 93
+	//			films." / "Les 13 premiers pays par nombre de films ; Japon arrive en tête avec 93
+	//			films."; without: "Four countries: Angola, Australia, Namibia and South Africa." /
+	//			"Quatre pays : Angola, Australie, Namibie et Afrique du Sud."
+	$arrmodel=f_t2srep_flag_model($jsontext2sql, $strlang);
+	if ($arrmodel===null) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	$lngn=count($arrmodel['items']);
+	$strntext=($lngn<=12 && $lngn>1) ? f_t2srep_count_word($lngn, $strlang, "m") : (string)$lngn;
+	$strcountries=$intfr ? "pays" : ($lngn==1 ? "country" : "countries");
+	$arrfacts=$jsontext2sql['summary_facts'];
+	$strorder=isset($arrfacts['order']) ? (string)$arrfacts['order'] : "";
+	$arrtop=null;
+	foreach ($arrmodel['items'] as $arritem) {
+		if ($arritem['value']!==null && ($arrtop===null || $arritem['value']>$arrtop['value'])) {
+			$arrtop=$arritem;
+		}
+	}
+	if ($arrtop!==null) {
+		$intranking=($strorder!="" && $strorder!="collection" && $strorder!="date");
+		if ($intranking || $inthasmore) {
+			$strlead=$intfr ? "les ".$strntext." premiers pays" : "the first ".$strntext." countries";
+			if ($intranking) {
+				$arrword=f_t2srep_metric_word($strorder, $strlang);
+				$strlead.=($intfr ? " par " : " by ").$arrword['label'];
+			}
+		} else {
+			$strlead=f_t2srep_count_word($lngn, $strlang, "m")." ".$strcountries;
+		}
+		$arrnoun=f_t2srep_counted_noun($arrmodel['valuecolumn'], $arrtop['value'], $strlang);
+		$strcount=$arrtop['valuetext']." ".$arrnoun['word'];
+		return f_t2srep_ucfirst($strlead).($intfr ? " ; ".$arrtop['name']." arrive en tête avec ".$strcount : "; ".$arrtop['name']." leads with ".$strcount).".";
+	}
+	$arrnames=array();
+	foreach ($arrmodel['items'] as $arritem) {
+		if ($arritem['name']!=="") {
+			$arrnames[]=$arritem['name'];
+		}
+	}
+	$arrshown=array_slice($arrnames, 0, 5);
+	if (count($arrnames)>5) {
+		$strlist=implode(", ", $arrshown)." ".($intfr ? "et ".(count($arrnames)-5)." autres" : "and ".(count($arrnames)-5)." more");
+	} elseif (count($arrshown)>1) {
+		$strlast=array_pop($arrshown);
+		$strlist=implode(", ", $arrshown)." ".($intfr ? "et" : "and")." ".$strlast;
+	} else {
+		$strlist=implode("", $arrshown);
+	}
+	$strlead=$inthasmore ? ($intfr ? "les ".$strntext." premiers pays" : "the first ".$strntext." countries") : f_t2srep_count_word($lngn, $strlang, "m")." ".$strcountries;
+	return f_t2srep_ucfirst($strlead).($intfr ? " : " : ": ").$strlist.".";
 }

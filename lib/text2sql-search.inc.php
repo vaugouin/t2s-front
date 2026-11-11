@@ -964,10 +964,11 @@ if ($intdbavailable) {
 							echo "<script>".f_t2srep_caption_live_js($arrt2scaptionspec)."</script>";
 						}
 					}
-					//No chips on an entity page or a one-row scalar, as voice-agent; a fact or a verdict
-					//on one row has them (the fact or the Yes / No, the card, the table)
+					//No chips on an entity page or a one-row scalar, as voice-agent; a fact, a verdict
+					//or one share alone on one row has them (the fact, the Yes / No or the bar, the
+					//card, the table)
 					$strt2sdefault=trim((string)$jsontext2sql['representation']);
-					if (count($arrt2soptions)>1 && ($lngrowcount>1 || ($lngrowcount==1 && ($strt2sdefault=="fact-card" || $strt2sdefault=="verdict")))) {
+					if (count($arrt2soptions)>1 && ($lngrowcount>1 || ($lngrowcount==1 && ($strt2sdefault=="fact-card" || $strt2sdefault=="verdict" || $strt2sdefault=="share-bar")))) {
 						$arrt2shrefs=array();
 						$arrt2slabels=array();
 						foreach ($arrt2soptions as $strt2soption) {
@@ -986,6 +987,10 @@ if ($intdbavailable) {
 						if (in_array($strt2soption, f_t2srep_module_reps(), true)) {
 							echo f_t2srep_view_open(array($strt2soption), $strt2srepactive, $strt2scaption!="" ? "t2sCaption" : "");
 							echo f_t2srep_render($strt2soption, $jsontext2sql, $struilang, 'f_t2s_rep_poster');
+							if ($strt2soption=="flag-list") {
+								//The code badges turn into flags where the browser draws flag emoji
+								echo "<script>".f_t2srep_flags_js()."</script>";
+							}
 							if ($strt2soption=="timeline" && $intt2shasmore) {
 								//The rest of the rows, page after page, while the timeline is shown
 								echo "<div id=\"t2sTimelineStatus\" class=\"muted\" style=\"display:none; margin-top:12px;\"></div>";
