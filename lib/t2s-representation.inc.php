@@ -690,6 +690,12 @@ function f_t2srep_value_columns($arrcolumns) {
 			}
 		}
 	}
+	//A union of films and series aliases the release date as DAT_FIRST_AIR and repeats it as
+	//DAT_LAST_AIR: the first date of the span is the one asked for, the last one is dropped
+	$arrfocusnames=array_column($arrfocus, "name");
+	if (in_array("DAT_FIRST_AIR", $arrfocusnames, true) && in_array("DAT_LAST_AIR", $arrfocusnames, true)) {
+		$arrfocus=array_values(array_filter($arrfocus, function ($arrvalue) { return $arrvalue['name']!=="DAT_LAST_AIR"; }));
+	}
 	if (count($arrfocus)>0) {
 		return $arrfocus;
 	}
@@ -745,6 +751,9 @@ function f_t2srep_metric_word($strname, $strlang='en') {
 		"NUMBER_OF_EPISODES"=>array("number of episodes", "nombre d'épisodes", "m"),
 		"BIRTH_YEAR"=>array("birth year", "année de naissance", "f"),
 		"DEATH_YEAR"=>array("death year", "année de décès", "f"),
+		"DAT_RELEASE"=>array("release date", "date de sortie", "f"),
+		"DAT_FIRST_AIR"=>array("first aired", "première diffusion", "f"),
+		"DAT_LAST_AIR"=>array("last aired", "dernière diffusion", "f"),
 	);
 	$strkey=strtoupper((string)$strname);
 	if (isset($arrwords[$strkey])) {
@@ -777,7 +786,9 @@ function f_t2srep_card_value_html($arrrecord, $arrvaluecolumns, $strlang='en') {
 		}
 		$strlabel="";
 		if (count($arrvaluecolumns)>1) {
-			$arrword=f_t2srep_metric_word($arrvaluecol['name'], $strlang);
+			//A film of a films-and-series union carries its release date as DAT_FIRST_AIR
+			$strwordname=($arrvaluecol['name']=="DAT_FIRST_AIR" && isset($arrrecord['CONTENT_TYPE']) && $arrrecord['CONTENT_TYPE']=="movie") ? "DAT_RELEASE" : $arrvaluecol['name'];
+			$arrword=f_t2srep_metric_word($strwordname, $strlang);
 			$strlabel="<span class=\"t2sCardValueLabel\">".f_t2srep_h(f_t2srep_ucfirst($arrword['label']))."</span> ";
 		}
 		$arrlines[]="<div class=\"t2sCardValue\">".$strlabel.f_t2srep_h($strvalue)."</div>";

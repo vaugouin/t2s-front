@@ -194,6 +194,20 @@ f_check("the same quantity twice is shown once (IMDB_RATING_WEIGHTED)",f_t2srep_
 	array(array("name"=>"IMDB_RATING","unit"=>null,"role"=>"metric")));
 f_check("a birth year compared",f_t2srep_card_value_html(f_t2srep_records($arrfix["2596-en-compare-birth-year"]["result"])[0],f_t2srep_value_columns(f_t2srep_columns($arrfix["2596-en-compare-birth-year"]))),
 	"<div class=\"t2sCardValue\">1899</div>");
+//A films-and-series union that returns films only: the release date, aliased DAT_FIRST_AIR and
+//repeated as DAT_LAST_AIR, is shown once, and named "release date" on a film
+$arrunioncols=array(array("name"=>"ID_CONTENT","role"=>"entity_id"),array("name"=>"CONTENT_TYPE","role"=>"other"),
+	array("name"=>"CONTENT_TITLE","role"=>"label"),array("name"=>"DAT_FIRST_AIR","role"=>"date","focus"=>true),
+	array("name"=>"DAT_LAST_AIR","role"=>"date","focus"=>true));
+$arrunionrow=array("ID_CONTENT"=>12445,"CONTENT_TYPE"=>"movie","CONTENT_TITLE"=>"Harry Potter and the Deathly Hallows: Part 2","DAT_FIRST_AIR"=>"2011-07-12","DAT_LAST_AIR"=>"2011-07-12");
+f_check("union of films and series: the first date only",f_t2srep_value_columns($arrunioncols),
+	array(array("name"=>"DAT_FIRST_AIR","unit"=>null,"role"=>"date")));
+f_check("union of films and series: the date shown once",f_t2srep_card_value_html($arrunionrow,f_t2srep_value_columns($arrunioncols)),
+	"<div class=\"t2sCardValue\">2011-07-12</div>");
+f_contains("a film of the union is named by its release date",f_t2srep_card_value_html($arrunionrow,array(array("name"=>"DAT_FIRST_AIR","unit"=>null,"role"=>"date"),array("name"=>"RUNTIME","unit"=>"minutes","role"=>"metric"))),
+	"Release date</span>");
+f_contains("a series of the union keeps its first air date",f_t2srep_card_value_html(array("CONTENT_TYPE"=>"serie","DAT_FIRST_AIR"=>"2027-01-01","RUNTIME"=>50),array(array("name"=>"DAT_FIRST_AIR","unit"=>null,"role"=>"date"),array("name"=>"RUNTIME","unit"=>"minutes","role"=>"metric")),"fr"),
+	"Première diffusion</span>");
 f_check("no focus: the ordered metric",f_t2srep_value_columns(array(array("name"=>"IMDB_RATING","role"=>"metric"),array("name"=>"REVENUE","role"=>"metric","unit"=>"usd","ordered"=>"desc"))),
 	array(array("name"=>"REVENUE","unit"=>"usd","role"=>"metric")));
 f_check("no focus, no order: the first metric",f_t2srep_value_columns(array(array("name"=>"ID_MOVIE","role"=>"entity_id"),array("name"=>"IMDB_RATING","role"=>"metric"))),

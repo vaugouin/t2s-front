@@ -1010,7 +1010,20 @@ if ($intdbavailable) {
 										break;
 									case "ID_CONTENT":
 										if ($lngcol==0) {
-											$strlabel=get_movie_string('lib_t2s_label_movie_serie');
+											//A union of films and series that returns one type only is named after it
+											$arrcontenttypes=array();
+											foreach ($apiresults as $arrcontentitem) {
+												if (isset($arrcontentitem['data']['CONTENT_TYPE'])) {
+													$arrcontenttypes[(string)$arrcontentitem['data']['CONTENT_TYPE']]=true;
+												}
+											}
+											if (array_keys($arrcontenttypes)===array("movie")) {
+												$strlabel=get_movie_string('lib_t2s_label_movie');
+											} elseif (array_keys($arrcontenttypes)===array("serie")) {
+												$strlabel=get_movie_string('lib_t2s_label_serie');
+											} else {
+												$strlabel=get_movie_string('lib_t2s_label_movie_serie');
+											}
 											$intisvisible=true;
 											$strresultkeycolumn=$strkey;
 										} else {
