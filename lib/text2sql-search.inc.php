@@ -289,6 +289,9 @@ $arrurlquery['render']=$strrenderalt;
 $strrenderalturl=(isset($arrurlparsed['path'])?$arrurlparsed['path']:'').(count($arrurlquery)>0?"?".http_build_query($arrurlquery):"").(isset($arrurlparsed['fragment'])?"#".$arrurlparsed['fragment']:'');
 
 $intloadmore=(f_request2("loadmore")=="1");
+//A loadmore call names the view it feeds: the cards by default, "timeline" for the script that
+//appends the next pages to a timeline (f_t2srep_timeline_more_js())
+$strt2sloadmoreview=trim(strtolower(f_request2("loadmoreview")));
 //Key column of the result (the identifier that names its entity) and the values met while
 //rendering; handed to the search.result.after hook
 $strresultkeycolumn="";
@@ -920,6 +923,16 @@ if ($intdbavailable) {
 				$intt2ssequence=in_array("sequence-strip", $arrt2scardreps, true);
 				$lngt2ssequencebase=(isset($jsontext2sql['offset']) && f_t2srep_is_number($jsontext2sql['offset'])) ? (int)$jsontext2sql['offset'] : max(0, ($lngpage-1)*(isset($lngrowsperpage) ? (int)$lngrowsperpage : 0));
 				$intt2sviews=($lngrowcount > 0 && isset($jsontext2sql['representation']) && trim((string)$jsontext2sql['representation'])!="");
+				//A full page may have another behind it (the same test as the card grid's
+				//data-has-more): the caption then says "the first N" and the timeline fetches the rest
+				$intt2shasmore=(isset($lngrowsperpage) && $lngrowsperpage>0 && $lngrowcount==$lngrowsperpage);
+				if ($intloadmore && $strt2sloadmoreview=="timeline") {
+					//The next page of a timeline: its marks only, filed by year in the page
+					echo f_t2srep_render_timeline_page($jsontext2sql, $struilang, 'f_t2s_rep_poster', $intt2shasmore);
+					break;
+				}
+				//The year of each card under sequence-strip, read by the caption when more cards come in
+				$strt2sseqdatecolumn=$intt2ssequence ? f_t2srep_date_column(f_t2srep_columns($jsontext2sql)) : "";
 				if (!$intt2sviews && $strt2srep!="") {
 					//Hintless one-row number (an API colour predating the hint): as in 1.0.60
 					if (!$intloadmore) {
@@ -928,9 +941,14 @@ if ($intdbavailable) {
 					break;
 				}
 				if (!$intloadmore && $intt2sviews) {
-					$strt2scaption=f_t2srep_caption($jsontext2sql, $struilang);
+					$strt2scaption=f_t2srep_caption($jsontext2sql, $struilang, $intt2shasmore);
 					if ($strt2scaption!="") {
 						echo "<p class=\"t2sCaption\" id=\"t2sCaption\">".f_htmlspecialchars($strt2scaption)."</p>";
+						//A timeline or a sequence recounts its caption as the next pages come in
+						$arrt2scaptionspec=$intt2shasmore ? f_t2srep_caption_spec($jsontext2sql, $struilang) : null;
+						if ($arrt2scaptionspec!==null) {
+							echo "<script>".f_t2srep_caption_live_js($arrt2scaptionspec)."</script>";
+						}
 					}
 					if (count($arrt2soptions)>1 && $lngrowcount>1) {  // No chips on an entity page or a one-row scalar, as voice-agent
 						$arrt2shrefs=array();
@@ -951,6 +969,15 @@ if ($intdbavailable) {
 						if (in_array($strt2soption, f_t2srep_module_reps(), true)) {
 							echo f_t2srep_view_open(array($strt2soption), $strt2srepactive, $strt2scaption!="" ? "t2sCaption" : "");
 							echo f_t2srep_render($strt2soption, $jsontext2sql, $struilang, 'f_t2s_rep_poster');
+							if ($strt2soption=="timeline" && $intt2shasmore) {
+								//The rest of the rows, page after page, while the timeline is shown
+								echo "<div id=\"t2sTimelineStatus\" class=\"muted\" style=\"display:none; margin-top:12px;\"></div>";
+								echo "<button type=\"button\" id=\"t2sTimelineMore\" class=\"responsive-input\" style=\"display:none; margin-top:12px;\"></button>";
+								echo "<script>".f_t2srep_timeline_more_js(array("page"=>$lngpage+1, "maxauto"=>4,
+									"more"=>(string)get_movie_string('lib_t2s_load_more'), "loading"=>(string)get_movie_string('lib_t2s_loading_more'),
+									"suffix"=>(string)get_movie_string('lib_t2s_retrieved_count_suffix'), "nodate"=>($struilang=="fr" ? "Sans date" : "No date"),
+									"aria"=>f_t2srep_timeline_aria($struilang)))."</script>";
+							}
 							echo "</div>";
 						}
 					}
@@ -2461,7 +2488,8 @@ if ($intdbavailable) {
 								if ($strcellurl!="" || $strrowurl!="") {
 									$strcardcontent.="</a>";
 								}
-								echo "<div class=\"search-poster-card\">".($intt2ssequence ? f_t2srep_sequence_number_html($lngt2ssequencebase+$lngrow+1) : "").$strcardcontent."</div>";
+								$lngt2sseqyear=($strt2sseqdatecolumn!="" && isset($rstemprecord[$strt2sseqdatecolumn])) ? f_t2srep_year($rstemprecord[$strt2sseqdatecolumn]) : null;
+								echo "<div class=\"search-poster-card\"".($lngt2sseqyear!==null ? " data-t2syear=\"".(int)$lngt2sseqyear."\"" : "").">".($intt2ssequence ? f_t2srep_sequence_number_html($lngt2ssequencebase+$lngrow+1) : "").$strcardcontent."</div>";
 							} else {
 								$straggregatecontent=f_t2s_build_aggregate_card($rstemprecord);
 								if ($straggregatecontent!="") {
@@ -2507,14 +2535,18 @@ if ($intdbavailable) {
 						echo "function setLoading(on){refreshStatusText();if(loader){loader.style.display=on?'block':'none';}}\n";
 						echo "function setEndMessage(on){refreshStatusText();if(endMessage){endMessage.style.display=on?'block':'none';}}\n";
 						echo "function setLoadMoreButton(on){refreshStatusText();if(loadMoreBtn){loadMoreBtn.style.display=on?'inline-block':'none';}}\n";
-						echo "function getRemainingDistance(){var rect=grid.getBoundingClientRect();return rect.bottom-window.innerHeight;}\n";
+						// Under sequence-strip the grid is one horizontal row that scrolls inside its frame:
+						// the next page is due when its right end comes near, and its bottom never moves.
+						echo "function isStrip(){return !!(grid.closest&&grid.closest('.t2sShowSequence'));}\n";
+						echo "function getRemainingDistance(){if(isStrip()){return grid.scrollWidth-grid.scrollLeft-grid.clientWidth;}var rect=grid.getBoundingClientRect();return rect.bottom-window.innerHeight;}\n";
 						// The grid can sit in a hidden view (another chip is active); a hidden
 						// grid measures 0 and would load page after page, so it waits until it is shown.
-						echo "function shouldAutoLoad(){if(!hasMore||loading){return false;}if(grid.offsetParent===null){return false;}if(autoPagesLoaded>=maxAutoPages){return false;}return getRemainingDistance()<preloadDistance;}\n";
-						echo "function loadNext(isAuto){if(!hasMore||loading){return;}loading=true;setEndMessage(false);setLoadMoreButton(false);lastTriggerBottom=grid.getBoundingClientRect().bottom;setLoading(true);baseUrl.searchParams.set('page',String(nextPage));fetch(baseUrl.toString(),{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(html){var wrap=document.createElement('div');wrap.innerHTML=html;var cards=wrap.querySelectorAll('.search-poster-card');if(!cards.length){hasMore=false;grid.setAttribute('data-has-more','0');refreshStatusText();setEndMessage(true);return;}cards.forEach(function(card){grid.appendChild(card);});refreshStatusText();var nextGrid=wrap.querySelector('.search-poster-card-grid');if(nextGrid&&nextGrid.getAttribute('data-has-more')==='0'){hasMore=false;grid.setAttribute('data-has-more','0');setEndMessage(true);}else if(cards.length<50){hasMore=false;grid.setAttribute('data-has-more','0');setEndMessage(true);}nextPage+=1;if(isAuto){autoPagesLoaded+=1;}}).catch(function(){hasMore=false;grid.setAttribute('data-has-more','0');refreshStatusText();setEndMessage(true);}).finally(function(){loading=false;setLoading(false);if(hasMore&&autoPagesLoaded>=maxAutoPages){setLoadMoreButton(true);}});}\n";
-						echo "function maybeLoadNext(){if(!shouldAutoLoad()){if(hasMore&&!loading&&autoPagesLoaded>=maxAutoPages){setLoadMoreButton(true);}return;}var currentBottom=grid.getBoundingClientRect().bottom;if(lastTriggerBottom!==null&&Math.abs(currentBottom-lastTriggerBottom)<120){return;}loadNext(true);}\n";
+						echo "function shouldAutoLoad(){if(!hasMore||loading){return false;}if(grid.offsetParent===null){return false;}if(autoPagesLoaded>=maxAutoPages){return false;}return getRemainingDistance()<(isStrip()?Math.max(grid.clientWidth,600):preloadDistance);}\n";
+						echo "function loadNext(isAuto){if(!hasMore||loading){return;}loading=true;setEndMessage(false);setLoadMoreButton(false);lastTriggerBottom=grid.getBoundingClientRect().bottom;setLoading(true);baseUrl.searchParams.set('page',String(nextPage));fetch(baseUrl.toString(),{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(html){var wrap=document.createElement('div');wrap.innerHTML=html;var cards=wrap.querySelectorAll('.search-poster-card');if(!cards.length){hasMore=false;grid.setAttribute('data-has-more','0');refreshStatusText();setEndMessage(true);return;}cards.forEach(function(card){grid.appendChild(card);});refreshStatusText();var nextGrid=wrap.querySelector('.search-poster-card-grid');if(nextGrid&&nextGrid.getAttribute('data-has-more')==='0'){hasMore=false;grid.setAttribute('data-has-more','0');setEndMessage(true);}else if(cards.length<50){hasMore=false;grid.setAttribute('data-has-more','0');setEndMessage(true);}nextPage+=1;if(isAuto){autoPagesLoaded+=1;}}).catch(function(){hasMore=false;grid.setAttribute('data-has-more','0');refreshStatusText();setEndMessage(true);}).finally(function(){loading=false;setLoading(false);if(hasMore&&autoPagesLoaded>=maxAutoPages){setLoadMoreButton(true);}if(window.f_t2srepcaptionupdate){window.f_t2srepcaptionupdate('sequence-strip',hasMore);}});}\n";
+						echo "function maybeLoadNext(){if(!shouldAutoLoad()){if(hasMore&&!loading&&autoPagesLoaded>=maxAutoPages){setLoadMoreButton(true);}return;}var currentBottom=grid.getBoundingClientRect().bottom;if(!isStrip()&&lastTriggerBottom!==null&&Math.abs(currentBottom-lastTriggerBottom)<120){return;}loadNext(true);}\n";
 						echo "if(loadMoreBtn){loadMoreBtn.addEventListener('click',function(){autoPagesLoaded=0;loadNext(false);});}\n";
 						echo "window.addEventListener('scroll',maybeLoadNext,{passive:true});\n";
+						echo "grid.addEventListener('scroll',maybeLoadNext,{passive:true});\n";
 						echo "window.addEventListener('resize',function(){preloadDistance=Math.max(window.innerHeight,900);maybeLoadNext();},{passive:true});\n";
 						echo "refreshStatusText();\n";
 						echo "if(!hasMore){setEndMessage(true);}\n";

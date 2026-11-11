@@ -180,7 +180,8 @@ Three files, one idiom, and all three must move together. A new selector needs: 
 - Never format a number as dollars without the `usd` unit.
 - The representation chips re-render locally: every option is rendered when the page is built and the inactive views carry `hidden`. Do not turn a chip into a fetch.
 - `render=` is two things: `card` / `grid` is the page mode, kept in the session; a representation name is a per-question override, honoured only when the answer offers it, never written to the session.
-- `sequence-strip` is a card view: its numbering is the API `offset` plus the row, so that a second page continues the count.
+- `sequence-strip` is a card view: its numbering is the API `offset` plus the row, so that a second page continues the count. Its grid is one horizontal row (`.t2sShowSequence .search-poster-card-grid`), so the card loader measures the distance to its right end, not to the bottom of the page.
+- The timeline is not a card view, yet it must not stop at the first page: `f_t2srep_timeline_more_js()` fetches the next pages with `loadmore=1&loadmoreview=timeline` (answered by `f_t2srep_render_timeline_page()`, marks only) and files each mark under its `data-t2syear`. While a page may follow, the caption of a timeline or a sequence says "the first N"; the page recounts it with `f_t2srep_caption_fill_js()`, the twin of `f_t2srep_caption_fill()`: change both, the test compares them.
 - On the samples page nothing is hidden: what the showcase drops is shown dimmed with a status badge.
 - The fixtures of `test/t2s-representation-test.php` are trimmed real answers; to add one, keep only the fields the representations read.
 

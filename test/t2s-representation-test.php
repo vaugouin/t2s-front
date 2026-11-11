@@ -22,7 +22,10 @@
  * Phase 2 lot A adds timeline, sequence-strip and trend-columns on answers
  * recomputed with the API module of that lot (fixtures lota-*): years and decades, the
  * rendering of each, the chips and render=, and their captions in English and French.
- * The last group pins the links of the entity titles in the table.
+ * Then the pages that follow: the caption says "the first N" while a page may follow, the next
+ * page of a timeline is a flat list of marks with their years, the loader and caption scripts go
+ * through node --check, and the caption the page recounts in JavaScript is checked against the PHP
+ * one on the same numbers. The last group pins the links of the entity titles in the table.
  */
 
 require_once(__DIR__."/../lib/t2s-representation.inc.php");
@@ -341,13 +344,13 @@ $strhtml=f_t2srep_render("timeline",$arrfix["lota-timeline-alien-fr"],"fr",$fnfi
 f_contains("timeline label fr",$strhtml,"aria-label=\"Frise chronologique, de 1979 à 1997\"");
 $fncontentposter=function($arrrecord) { return isset($arrrecord["POSTER_PATH"]) ? array("url"=>"https://img/w342".$arrrecord["POSTER_PATH"],"title"=>$arrrecord["CONTENT_TITLE"],"href"=>"movie.php?movieid=".$arrrecord["ID_CONTENT"]) : null; };
 $strhtml=f_t2srep_render("timeline",$arrhp,"en",$fncontentposter);
-f_contains("mixed aliases: CONTENT_TITLE and DAT_FIRST_AIR",$strhtml,"<span class=\"t2sTimelineYearLabel\">2001</span><ul class=\"t2sTimelineMarks\"><li class=\"t2sTimelineMark\"><a href=\"movie.php?movieid=671\" title=\"Harry Potter and the Philosopher&#039;s Stone\">");
+f_contains("mixed aliases: CONTENT_TITLE and DAT_FIRST_AIR",$strhtml,"<span class=\"t2sTimelineYearLabel\">2001</span><ul class=\"t2sTimelineMarks\"><li class=\"t2sTimelineMark\" data-t2syear=\"2001\"><a href=\"movie.php?movieid=671\" title=\"Harry Potter and the Philosopher&#039;s Stone\">");
 $strhtml=f_t2srep_render_timeline($arrhprows,f_t2srep_columns($arrhp),"en",null,$arrhp["summary_facts"]);
 f_contains("mixed aliases without a poster callable: routed by CONTENT_TYPE",$strhtml,"<a href=\"movie.php?movieid=12445\"");
 f_contains("no poster: a placeholder",$strhtml,"t2sTimelineNoPoster");
 $arrstackcols=array(array("name"=>"ID_MOVIE","role"=>"entity_id"),array("name"=>"MOVIE_TITLE","role"=>"label"),array("name"=>"DAT_RELEASE","role"=>"date","focus"=>true));
 $strhtml=f_t2srep_render_timeline($arrstack,$arrstackcols,"en");
-f_contains("two marks stacked in one year",$strhtml,"<span class=\"t2sTimelineYearLabel\">1999</span><ul class=\"t2sTimelineMarks\"><li class=\"t2sTimelineMark\"><a href=\"movie.php?movieid=1\" title=\"A\">");
+f_contains("two marks stacked in one year",$strhtml,"<span class=\"t2sTimelineYearLabel\">1999</span><ul class=\"t2sTimelineMarks\"><li class=\"t2sTimelineMark\" data-t2syear=\"1999\"><a href=\"movie.php?movieid=1\" title=\"A\">");
 f_contains("the second of the year",$strhtml,"movieid=3\" title=\"C\"");
 f_contains("a long gap is a break",$strhtml,"t2sTimelineBreak");
 f_contains("undated listed apart",$strhtml,"<div class=\"t2sTimelineUndated\"><span class=\"t2sTimelineUndatedLabel\">No date</span><ul class=\"t2sTimelineMarks\"><li class=\"t2sTimelineMark\"><a href=\"movie.php?movieid=2\" title=\"B\">");
@@ -403,6 +406,67 @@ $arrnotop=$arrwoody;
 $arrnotop["summary_facts"]["top"]=null;
 f_check("trend without top: the span alone",f_t2srep_caption($arrnotop,"en"),"From the 1960s to the 2020s.");
 f_check("no em dash in any lot A caption",strpos(implode("",array_map(function($j){ return f_t2srep_caption($j,"en").f_t2srep_caption($j,"fr"); },$arrfix)),"\u{2014}"),false);
+
+f_group("Phase 2 lot A: more pages (timeline appends, caption says the first N, then recounts)");
+f_check("timeline with more pages, en",f_t2srep_caption($arrfix["lota-timeline-nolan-en"],"en",true),"The first 18 films, from 1990 to 2026.");
+f_check("timeline with more pages, fr",f_t2srep_caption($arrfix["lota-timeline-alien-fr"],"fr",true),"Les quatre premiers films, de 1979 à 1997.");
+f_check("sequence with more pages",f_t2srep_caption($arrfix["lota-sequence-mcu-54rows-en"],"en",true),"The first 54 films in release order, from 2008 to 2027.");
+f_check("value cards with more pages",f_t2srep_caption($arrfix["2568-en-value-cards-budget-release-order"],"en",true),
+	"The first 13 films in chronological order; the most expensive is Star Wars: The Rise of Skywalker, $489,900,000.");
+f_check("value cards with more pages, fr",f_t2srep_caption($arrfix["2560-fr-value-cards-runtime"],"fr",true),
+	"Les trois premiers films dans l'ordre de la collection ; le plus long est Le Seigneur des anneaux : Le Retour du roi, 3 h 21.");
+f_check("a ranking is unchanged by more pages",f_t2srep_caption($arrscorsese,"en",true),f_t2srep_caption($arrscorsese,"en"));
+f_check("no spec for a ranking",f_t2srep_caption_spec($arrscorsese,"en"),null);
+$arrspectimeline=f_t2srep_caption_spec($arrstackanswer,"en");
+f_check("timeline spec column",$arrspectimeline["column"],"DAT_RELEASE");
+f_check("fill: every page counted",f_t2srep_caption_fill($arrspectimeline,104,1962,2024,3,false),"104 films, from 1962 to 2024; three without a date.");
+f_check("fill: one year",f_t2srep_caption_fill($arrspectimeline,2,1999,1999,0,false),"Two films, in 1999.");
+f_check("fill: thousands",f_t2srep_caption_fill($arrspectimeline,1250,1900,2020,0,true),"The first 1,250 films, from 1900 to 2020.");
+$strhtml=f_t2srep_render("timeline",$arralien,"en",$fnfixposter);
+f_contains("a year column carries its year",$strhtml,"<li class=\"t2sTimelineYear\" data-t2syear=\"1986\">");
+$strhtml=f_t2srep_render_timeline_page(array("representation"=>"timeline","result_columns"=>$arrstackcols,"result"=>$arrstack,
+	"summary_facts"=>array("count"=>4,"value_column"=>"DAT_RELEASE")),"en",null,true);
+f_contains("next page: a hidden flat list that says more may follow",$strhtml,"<ul class=\"t2sTimelinePage\" data-has-more=\"1\" hidden>");
+f_check("next page: one mark per row",substr_count($strhtml,"<li class=\"t2sTimelineMark\""),4);
+f_contains("next page: a dated mark carries its year",$strhtml,"<li class=\"t2sTimelineMark\" data-t2syear=\"1985\"><a href=\"movie.php?movieid=4\"");
+f_contains("next page: an undated mark carries none",$strhtml,"<li class=\"t2sTimelineMark\"><a href=\"movie.php?movieid=2\"");
+f_contains("next page: the last one says so",f_t2srep_render_timeline_page(array("result"=>array()),"en"),"data-has-more=\"0\"");
+$arrtimelinecfg=array("page"=>2,"maxauto"=>4,"more"=>"Load more","loading"=>"Loading","suffix"=>" retrieved","nodate"=>"No date","aria"=>f_t2srep_timeline_aria("fr"));
+f_nodecheck("the timeline loader script",f_t2srep_timeline_more_js($arrtimelinecfg));
+f_contains("the loader asks for the timeline page",f_t2srep_timeline_more_js($arrtimelinecfg),"searchParams.set('loadmoreview','timeline')");
+f_check("the loader config is json, no raw tag",strpos(f_t2srep_timeline_more_js(array("more"=>"</script>")),"</script>"),false);
+f_nodecheck("the caption script",f_t2srep_caption_live_js($arrspectimeline));
+//The caption the page recounts must be the caption PHP writes: the JavaScript fill runs on the
+//same pieces and numbers as the PHP one
+$arrfillcases=array(
+	array(f_t2srep_caption_spec($arrstackanswer,"en"),104,1962,2024,3,false),
+	array(f_t2srep_caption_spec($arrstackanswer,"fr"),104,1962,2024,1,true),
+	array(f_t2srep_caption_spec($arrstackanswer,"en"),2,1999,1999,0,false),
+	array(f_t2srep_caption_spec($arrstackanswer,"en"),5,null,null,5,false),
+	array(f_t2srep_caption_spec($arrfix["lota-sequence-dollars-fr"],"fr"),61,1964,2020,0,true),
+	array(f_t2srep_caption_spec($arrdesc,"en"),3,1964,1966,0,false),
+	array(f_t2srep_caption_spec($arrfix["lota-sequence-indiana-collection-order-fr"],"fr"),12,1981,2023,0,false),
+	array(f_t2srep_caption_spec($arrfix["lota-sequence-mcu-54rows-en"],"en"),1250,2008,2027,0,true),
+);
+$arrout=array();
+$lngstatus=1;
+exec("node --version 2>&1",$arrout,$lngstatus);
+if ($lngstatus!==0) {
+	echo "  SKIP  caption fill, PHP against JavaScript (node is not on the PATH; a skip is not a pass)\n";
+} else {
+	$strjs=f_t2srep_caption_fill_js()."var arrcases=".json_encode($arrfillcases, JSON_UNESCAPED_UNICODE).";"
+		."console.log(JSON.stringify(arrcases.map(function(a){return f_t2srepcaptionfill(a[0],a[1],a[2],a[3],a[4],a[5]);})));";
+	$strtempfile=tempnam(sys_get_temp_dir(),"t2srep").".js";
+	file_put_contents($strtempfile,$strjs);
+	$arrout=array();
+	exec("node ".escapeshellarg($strtempfile)." 2>&1",$arrout,$lngstatus);
+	@unlink($strtempfile);
+	$arrjs=json_decode(implode("",$arrout),true);
+	$arrphp=array_map(function($a) { return f_t2srep_caption_fill($a[0],$a[1],$a[2],$a[3],$a[4],$a[5]); },$arrfillcases);
+	f_check("caption fill, PHP and JavaScript say the same sentence",$arrjs,$arrphp);
+	f_check("caption fill, a reversed sequence",$arrphp[5],"Three films, most recent first, from 1966 to 1964.");
+	f_check("caption fill, fr, the first N and one undated",$arrphp[1],"Les 104 premiers films, de 1962 à 2024 ; un sans date.");
+}
 
 f_group("Table: entity titles link to their page");
 f_check("label column to its id",f_t2srep_label_links(array("ID_MOVIE","MOVIE_TITLE","RUNTIME"),array(array("name"=>"ID_MOVIE","role"=>"entity_id"),array("name"=>"MOVIE_TITLE","role"=>"label"))),

@@ -1151,6 +1151,22 @@ summary.fiche-section-summary:hover {
 .t2sShowSequence .t2sSeqNumber {
   display: block;
 }
+/* Under sequence-strip the cards are one row, in order, that scrolls inside the frame of the
+   grid (a snap point on each card): never wrapped like the plain grid, never wider than the
+   page. The cards that infinite scroll appends join the end of the row. */
+.t2sShowSequence .search-poster-card-grid {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 1.5rem;
+  scrollbar-width: thin;
+}
+.t2sShowSequence .search-poster-card {
+  flex: 0 0 200px;
+  scroll-snap-align: start;
+}
 
 /* Timeline: one column per year that holds rows, the marks of a year stacked above the axis,
    the gap between two years widening with the years between. The axis scrolls inside its box
@@ -1371,5 +1387,11 @@ summary.fiche-section-summary:hover {
   }
   .t2sTrendCols {
     height: 200px;
+  }
+  .t2sShowSequence .search-poster-card-grid {
+    scroll-padding-inline: 1rem;
+  }
+  .t2sShowSequence .search-poster-card {
+    flex-basis: 150px;
   }
 }

@@ -22,9 +22,13 @@
  * before.
  *
  * Phase 2 lot A adds `timeline` (entities on a time axis, drawn here),
- * `sequence-strip` (the card grid numbered: the card renderer, the badge from
- * f_t2srep_sequence_number_html()) and `trend-columns` (one column per year or decade, drawn
- * here), each with its caption. The entity titles of the table are links.
+ * `sequence-strip` (the card grid numbered and laid out as one horizontal row: the card renderer,
+ * the badge from f_t2srep_sequence_number_html()) and `trend-columns` (one column per year or
+ * decade, drawn here), each with its caption. The entity titles of the table are links.
+ * A timeline is completed page after page in the browser (f_t2srep_timeline_more_js(), the next
+ * pages from f_t2srep_render_timeline_page()), as the cards are by infinite scroll; while a page
+ * may follow, its caption and the sequence's say "the first N", then recount what is on screen
+ * (f_t2srep_caption_live_js()), as voice-agent does.
  *
  * Side-effect free on purpose, so test/t2s-representation-test.php loads it alone: no database,
  * no global, no echo. The one lookup that needs global-light (the poster URL of an entity row,
@@ -853,7 +857,7 @@ function f_t2srep_count_word($lngcount, $strlang='en', $strgender='m') {
 	return $arren[$lngcount];
 }
 
-function f_t2srep_caption($jsontext2sql, $strlang='en') {
+function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	//Purpose: The caption of a list from `summary_facts`, the sentence the
 	//			voice-agent speaks: count, order, one extremum. "Eight films in
 	//			collection order; the longest is Harry Potter and the Order of the Phoenix, 2 h 18."
@@ -861,6 +865,8 @@ function f_t2srep_caption($jsontext2sql, $strlang='en') {
 	//			`total` is null in phase 1). "" with no summary_facts, fewer than two rows, or no
 	//			value column: a plain card grid ("films by Kubrick") keeps no caption, as before,
 	//			and its infinite scroll would soon make a count wrong anyway.
+	//			$inthasmore: the page is full and another may follow; the count is then "the first
+	//			N", as voice-agent says it (text2SqlSummaryLine(), hasMore).
 	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']) || !is_array($jsontext2sql['summary_facts'])) {
 		return "";
 	}
@@ -873,11 +879,8 @@ function f_t2srep_caption($jsontext2sql, $strlang='en') {
 	//Phase 2 lot A: the three new forms have their own sentence (contract,
 	//"Spoken" rows); a sequence has no value column and still gets one
 	$strrep=isset($jsontext2sql['representation']) ? trim((string)$jsontext2sql['representation']) : "";
-	if ($strrep=="timeline") {
-		return f_t2srep_caption_timeline($jsontext2sql, $strlang);
-	}
-	if ($strrep=="sequence-strip") {
-		return f_t2srep_caption_sequence($jsontext2sql, $strlang);
+	if ($strrep=="timeline" || $strrep=="sequence-strip") {
+		return f_t2srep_caption_dated($jsontext2sql, $strlang, $inthasmore);
 	}
 	if ($strrep=="trend-columns") {
 		return f_t2srep_caption_trend($jsontext2sql, $strlang);
@@ -909,7 +912,11 @@ function f_t2srep_caption($jsontext2sql, $strlang='en') {
 		}
 	} else {
 		//A metric order that is not a ranking is not worded: it would read as one
-		$strlead=f_t2srep_ucfirst($strcount)." ".$arrnoun['plural'];
+		if ($inthasmore) {
+			$strlead=$intfr ? "Les ".$strcount." ".($intfem ? "premières" : "premiers")." ".$arrnoun['plural'] : "The first ".$strcount." ".$arrnoun['plural'];
+		} else {
+			$strlead=f_t2srep_ucfirst($strcount)." ".$arrnoun['plural'];
+		}
 		if ($strorder=="collection") {
 			$strlead.=$intfr ? " dans l'ordre de la collection" : " in collection order";
 		} elseif ($strorder=="date") {
@@ -1139,16 +1146,18 @@ function f_t2srep_timeline_groups($arrrecords, $strcolumn) {
 	return $arrgroups;
 }
 
-function f_t2srep_mark($arrrecord, $arrcolumns, $fnposter, $strclass) {
+function f_t2srep_mark($arrrecord, $arrcolumns, $fnposter, $strclass, $lngyear=null) {
 	//Purpose: One entity of a timeline: its poster thumbnail (when it has one) and its title,
-	//			linked to its page as a card is
+	//			linked to its page as a card is. $lngyear, when given, is written as data-t2syear:
+	//			the script that appends the next pages (f_t2srep_timeline_more_js()) files the
+	//			mark under its year and the caption counts the span from it.
 	$arrposter=is_callable($fnposter) ? $fnposter($arrrecord) : null;
 	$strtitle=(is_array($arrposter) && isset($arrposter['title']) && $arrposter['title']!="") ? (string)$arrposter['title'] : f_t2srep_label_for_row($arrrecord, $arrcolumns);
 	$strhref=(is_array($arrposter) && isset($arrposter['href']) && $arrposter['href']!="") ? (string)$arrposter['href'] : f_t2srep_entity_href($arrrecord);
 	$strurl=(is_array($arrposter) && isset($arrposter['url'])) ? (string)$arrposter['url'] : "";
 	$strinner=($strurl!="" ? "<img src=\"".f_t2srep_h($strurl)."\" alt=\"\" loading=\"lazy\">" : "<span class=\"t2sTimelineNoPoster\" aria-hidden=\"true\"></span>")
 		."<span class=\"t2sTimelineTitle\">".f_t2srep_h($strtitle)."</span>";
-	return "<li class=\"".$strclass."\">".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\" title=\"".f_t2srep_h($strtitle)."\">".$strinner."</a>" : $strinner)."</li>";
+	return "<li class=\"".$strclass."\"".($lngyear!==null ? " data-t2syear=\"".(int)$lngyear."\"" : "").">".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\" title=\"".f_t2srep_h($strtitle)."\">".$strinner."</a>" : $strinner)."</li>";
 }
 
 function f_t2srep_render_timeline($arrrecords, $arrcolumns, $strlang='en', $fnposter=null, $arrfacts=array()) {
@@ -1165,7 +1174,7 @@ function f_t2srep_render_timeline($arrrecords, $arrcolumns, $strlang='en', $fnpo
 	}
 	$intfr=($strlang=="fr");
 	$arryears=array_keys($arrgroups['years']);
-	$strlabel=($intfr ? "Frise chronologique, de " : "Timeline, from ").$arryears[0].($intfr ? " à " : " to ").$arryears[count($arryears)-1];
+	$strlabel=str_replace(array("{a}", "{b}"), array($arryears[0], $arryears[count($arryears)-1]), f_t2srep_timeline_aria($strlang));
 	$strhtml="<div class=\"t2sTimeline\" role=\"region\" aria-label=\"".f_t2srep_h($strlabel)."\" tabindex=\"0\"><ol class=\"t2sTimelineAxis\">";
 	$lngprevious=null;
 	foreach ($arrgroups['years'] as $lngyear=>$arrindexes) {
@@ -1177,9 +1186,9 @@ function f_t2srep_render_timeline($arrrecords, $arrcolumns, $strlang='en', $fnpo
 					.($lnggap>8 ? "<span>&hellip;</span>" : "")."</li>";
 			}
 		}
-		$strhtml.="<li class=\"t2sTimelineYear\"><span class=\"t2sTimelineYearLabel\">".f_t2srep_h($lngyear)."</span><ul class=\"t2sTimelineMarks\">";
+		$strhtml.="<li class=\"t2sTimelineYear\" data-t2syear=\"".(int)$lngyear."\"><span class=\"t2sTimelineYearLabel\">".f_t2srep_h($lngyear)."</span><ul class=\"t2sTimelineMarks\">";
 		foreach ($arrindexes as $lngi) {
-			$strhtml.=f_t2srep_mark($arrrecords[$lngi], $arrcolumns, $fnposter, "t2sTimelineMark");
+			$strhtml.=f_t2srep_mark($arrrecords[$lngi], $arrcolumns, $fnposter, "t2sTimelineMark", $lngyear);
 		}
 		$strhtml.="</ul></li>";
 		$lngprevious=$lngyear;
@@ -1193,6 +1202,67 @@ function f_t2srep_render_timeline($arrrecords, $arrcolumns, $strlang='en', $fnpo
 		$strhtml.="</ul></div>";
 	}
 	return $strhtml;
+}
+
+function f_t2srep_timeline_aria($strlang='en') {
+	//Purpose: The accessible name of the timeline axis, {a} and {b} the first and last year (the
+	//			script that appends pages rewrites it from the same template)
+	return $strlang=="fr" ? "Frise chronologique, de {a} à {b}" : "Timeline, from {a} to {b}";
+}
+
+function f_t2srep_render_timeline_page($jsontext2sql, $strlang='en', $fnposter=null, $inthasmore=false) {
+	//Purpose: The marks of one more page of a timeline, for the script that appends them
+	//			(f_t2srep_timeline_more_js()): a flat hidden list, each dated mark carrying its year
+	//			in data-t2syear, the undated ones none, and data-has-more on the list. The date
+	//			column is chosen as for the first page, so every page files its rows by the same date.
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	$arrcolumns=f_t2srep_columns($jsontext2sql);
+	$arrfacts=isset($jsontext2sql['summary_facts']) && is_array($jsontext2sql['summary_facts']) ? $jsontext2sql['summary_facts'] : array();
+	$strcolumn=f_t2srep_date_column($arrcolumns, isset($arrfacts['value_column']) ? (string)$arrfacts['value_column'] : "");
+	$strhtml="<ul class=\"t2sTimelinePage\" data-has-more=\"".($inthasmore ? "1" : "0")."\" hidden>";
+	foreach ($arrrecords as $arrrecord) {
+		$lngyear=($strcolumn!="" && isset($arrrecord[$strcolumn])) ? f_t2srep_year($arrrecord[$strcolumn]) : null;
+		$strhtml.=f_t2srep_mark($arrrecord, $arrcolumns, $fnposter, "t2sTimelineMark", $lngyear);
+	}
+	return $strhtml."</ul>";
+}
+
+function f_t2srep_timeline_more_js($arrconfig) {
+	//Purpose: The script that completes a timeline. The API answers one page of rows at a time
+	//			and the timeline draws what it has, so while it is shown this script fetches the
+	//			next pages (the loadmore call of the card infinite scroll, with
+	//			loadmoreview=timeline, answered by f_t2srep_render_timeline_page()) and files each
+	//			mark under its year, opening a year column where needed and redrawing the gaps as
+	//			f_t2srep_render_timeline() does. Like the cards, it loads up to `maxauto` pages on
+	//			its own, then waits for a click on its button. A hidden timeline loads nothing; the
+	//			chips fire a scroll event on a switch, which wakes it. After each page it asks the
+	//			caption to recount (window.f_t2srepcaptionupdate, f_t2srep_caption_live_js()).
+	//Params:	$arrconfig: page (the next page), maxauto, more, loading, suffix (the labels of the
+	//			card loader), nodate (the undated heading), aria (f_t2srep_timeline_aria())
+	//Returns:	A script with no PHP value outside the json_encode()d config
+	return "(function(){var objcfg=".json_encode($arrconfig, JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP).";"
+		."var objbox=document.querySelector('.t2sRepView[data-t2sreps=\"timeline\"] .t2sTimeline');if(!objbox){return;}"
+		."var objview=objbox.parentNode;var objaxis=objbox.querySelector('.t2sTimelineAxis');"
+		."var objbutton=document.getElementById('t2sTimelineMore');var objstatus=document.getElementById('t2sTimelineStatus');"
+		."var intloading=false;var inthasmore=true;var lngnext=objcfg.page;var lngauto=0;"
+		."var objurl=new URL(window.location.href);objurl.searchParams.set('render','card');objurl.searchParams.set('loadmore','1');objurl.searchParams.set('loadmoreview','timeline');"
+		."function f_count(){return objview.querySelectorAll('.t2sTimelineMark').length;}"
+		."function f_status(){var strcount=' ('+f_count()+objcfg.suffix+')';if(objbutton){objbutton.textContent=objcfg.more+strcount;objbutton.style.display=(inthasmore&&!intloading&&lngauto>=objcfg.maxauto)?'inline-block':'none';}if(objstatus){objstatus.textContent=intloading?objcfg.loading+strcount:'';objstatus.style.display=intloading?'block':'none';}}"
+		."function f_year(objitem){return parseInt(objitem.getAttribute('data-t2syear'),10);}"
+		."function f_yearitem(lngyear){var arryears=objaxis.querySelectorAll('.t2sTimelineYear');var i;for(i=0;i<arryears.length;i++){var lng=f_year(arryears[i]);if(lng===lngyear){return arryears[i];}if(lng>lngyear){break;}}"
+			."var objitem=document.createElement('li');objitem.className='t2sTimelineYear';objitem.setAttribute('data-t2syear',String(lngyear));var objlabel=document.createElement('span');objlabel.className='t2sTimelineYearLabel';objlabel.textContent=String(lngyear);var objmarks=document.createElement('ul');objmarks.className='t2sTimelineMarks';objitem.appendChild(objlabel);objitem.appendChild(objmarks);objaxis.insertBefore(objitem,i<arryears.length?arryears[i]:null);return objitem;}"
+		."function f_gaps(){var arrgaps=objaxis.querySelectorAll('.t2sTimelineGap');var i;for(i=0;i<arrgaps.length;i++){objaxis.removeChild(arrgaps[i]);}var arryears=objaxis.querySelectorAll('.t2sTimelineYear');"
+			."for(i=1;i<arryears.length;i++){var lnggap=f_year(arryears[i])-f_year(arryears[i-1])-1;if(lnggap<=0){continue;}var objgap=document.createElement('li');objgap.className='t2sTimelineGap'+(lnggap>8?' t2sTimelineBreak':'');objgap.setAttribute('aria-hidden','true');objgap.style.width=(Math.round(6*Math.min(lnggap,8))/10)+'rem';if(lnggap>8){var objdots=document.createElement('span');objdots.textContent='\\u2026';objgap.appendChild(objdots);}objaxis.insertBefore(objgap,arryears[i]);}"
+			."if(arryears.length){objbox.setAttribute('aria-label',objcfg.aria.replace('{a}',f_year(arryears[0])).replace('{b}',f_year(arryears[arryears.length-1])));}}"
+		."function f_undated(){var objundated=objview.querySelector('.t2sTimelineUndated');if(!objundated){objundated=document.createElement('div');objundated.className='t2sTimelineUndated';var objlabel=document.createElement('span');objlabel.className='t2sTimelineUndatedLabel';objlabel.textContent=objcfg.nodate;var objmarks=document.createElement('ul');objmarks.className='t2sTimelineMarks';objundated.appendChild(objlabel);objundated.appendChild(objmarks);objview.insertBefore(objundated,objbox.nextSibling);}return objundated.querySelector('.t2sTimelineMarks');}"
+		."function f_merge(objpage){var arrmarks=objpage.querySelectorAll('.t2sTimelineMark');var i;for(i=0;i<arrmarks.length;i++){var stryear=arrmarks[i].getAttribute('data-t2syear');if(stryear){f_yearitem(parseInt(stryear,10)).querySelector('.t2sTimelineMarks').appendChild(arrmarks[i]);}else{f_undated().appendChild(arrmarks[i]);}}if(arrmarks.length){f_gaps();}return arrmarks.length;}"
+		."function f_load(intauto){if(!inthasmore||intloading){return;}intloading=true;f_status();objurl.searchParams.set('page',String(lngnext));"
+			."fetch(objurl.toString(),{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(strhtml){var objwrap=document.createElement('div');objwrap.innerHTML=strhtml;var objpage=objwrap.querySelector('.t2sTimelinePage');if(!objpage){inthasmore=false;return;}var lngadded=f_merge(objpage);inthasmore=lngadded>0&&objpage.getAttribute('data-has-more')==='1';lngnext+=1;if(intauto){lngauto+=1;}})"
+			.".catch(function(){inthasmore=false;}).then(function(){intloading=false;f_status();if(window.f_t2srepcaptionupdate){window.f_t2srepcaptionupdate('timeline',inthasmore);}f_maybe();});}"
+		."function f_maybe(){if(!inthasmore||intloading){return;}if(objbox.offsetParent===null){return;}if(lngauto>=objcfg.maxauto){f_status();return;}f_load(true);}"
+		."if(objbutton){objbutton.addEventListener('click',function(){lngauto=0;f_load(false);});}"
+		."window.addEventListener('scroll',f_maybe,{passive:true});f_status();f_maybe();"
+		."})();";
 }
 
 function f_t2srep_trend_metric($arrrecords, $arrcolumns, $arrfacts=array()) {
@@ -1302,62 +1372,125 @@ function f_t2srep_span_words($arrspan, $strlang='en', $intdecade=false) {
 	return $intfr ? "de ".$arrspan['min']." à ".$arrspan['max'] : "from ".$arrspan['min']." to ".$arrspan['max'];
 }
 
-function f_t2srep_caption_timeline($jsontext2sql, $strlang='en') {
-	//Purpose: The caption of a timeline: count and span ("Four films, from 1979 to 1997."), the
-	//			rows with no date counted apart
+function f_t2srep_caption_spec($jsontext2sql, $strlang='en') {
+	//Purpose: The pieces of the caption of a timeline or a sequence, everything but the numbers:
+	//			PHP fills them with the first page (f_t2srep_caption_fill()), the page script with
+	//			every row on screen once more pages have come in (f_t2srep_caption_fill_js()), so the
+	//			two always say the same sentence.
+	//			Timeline: count and span ("Four films, from 1979 to 1997."), the undated rows counted
+	//			apart. Sequence: count, order and span ("Three films in release order, from 1964 to
+	//			1966."), the span reversed when the most recent comes first.
+	//Returns: array or null when the answer is neither a timeline nor a sequence
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']) || !is_array($jsontext2sql['summary_facts'])) {
+		return null;
+	}
+	$strrep=isset($jsontext2sql['representation']) ? trim((string)$jsontext2sql['representation']) : "";
+	if ($strrep!="timeline" && $strrep!="sequence-strip") {
+		return null;
+	}
 	$arrfacts=$jsontext2sql['summary_facts'];
 	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
 	$arrcolumns=f_t2srep_columns($jsontext2sql);
-	$lngcount=(int)$arrfacts['count'];
 	$arrnoun=f_t2srep_noun($arrrecords, $arrcolumns, $strlang);
 	$intfr=($strlang=="fr");
-	$strcolumn=f_t2srep_date_column($arrcolumns, isset($arrfacts['value_column']) ? (string)$arrfacts['value_column'] : "");
-	$arrspan=f_t2srep_year_span($arrrecords, $strcolumn);
-	$strtext=f_t2srep_ucfirst(f_t2srep_count_word($lngcount, $strlang, $arrnoun['gender']))." ".$arrnoun['plural'];
-	$strspan=f_t2srep_span_words($arrspan, $strlang);
-	if ($strspan!="") {
-		$strtext.=", ".$strspan;
+	$arrwords=array();
+	for ($lngi=0; $lngi<=12; $lngi++) {
+		$arrwords[]=f_t2srep_count_word($lngi, $strlang, $arrnoun['gender']);
 	}
-	if ($arrspan['undated']>0 && $arrspan['dated']>0) {
-		$strundated=f_t2srep_count_word($arrspan['undated'], $strlang, $arrnoun['gender']);
-		$strtext.=$intfr ? " ; ".$strundated." sans date" : "; ".$strundated." without a date";
+	$arrspec=array(
+		"rep"=>$strrep,
+		"words"=>$arrwords,
+		"all"=>"{N} ".$arrnoun['plural'],
+		"first"=>$intfr ? "Les {n} ".($arrnoun['gender']=="f" ? "premières" : "premiers")." ".$arrnoun['plural'] : "The first {n} ".$arrnoun['plural'],
+		"order"=>"",
+		"desc"=>false,
+		"range"=>$intfr ? ", de {a} à {b}" : ", from {a} to {b}",
+		"one"=>$intfr ? ", en {a}" : ", in {a}",
+		"undated"=>"",
+		"column"=>"",
+	);
+	if ($strrep=="timeline") {
+		$arrspec['column']=f_t2srep_date_column($arrcolumns, isset($arrfacts['value_column']) ? (string)$arrfacts['value_column'] : "");
+		$arrspec['undated']=$intfr ? " ; {u} sans date" : "; {u} without a date";
+		return $arrspec;
+	}
+	$strorder=isset($arrfacts['order']) ? (string)$arrfacts['order'] : "";
+	$strdirection=isset($arrfacts['order_direction']) ? strtolower((string)$arrfacts['order_direction']) : "";
+	$arrspec['column']=f_t2srep_date_column($arrcolumns);
+	if ($strorder=="collection") {
+		$arrspec['order']=$intfr ? " dans l'ordre de la collection" : " in collection order";
+	} elseif ($strorder=="date" && $strdirection=="desc") {
+		$arrspec['order']=$intfr ? ", du plus récent au plus ancien" : ", most recent first";
+		$arrspec['desc']=true;
+	} elseif ($strorder=="date") {
+		$intrelease=preg_match('/RELEASE|FIRST_AIR/', strtoupper($arrspec['column']))===1;
+		$arrspec['order']=$intrelease ? ($intfr ? " dans l'ordre de sortie" : " in release order") : ($intfr ? " dans l'ordre chronologique" : " in chronological order");
+	}
+	return $arrspec;
+}
+
+function f_t2srep_caption_fill($arrspec, $lngcount, $lngmin, $lngmax, $lngundated, $inthasmore=false) {
+	//Purpose: The caption of a timeline or a sequence from its pieces and its numbers; mirrored
+	//			line for line by f_t2srep_caption_fill_js()
+	//Params:	$lngmin, $lngmax: the first and last year (null with no dated row); $lngundated: the
+	//			rows with no date; $inthasmore: another page may follow, the count is "the first N"
+	$fnword=function ($lngn) use ($arrspec) {
+		return ($lngn>=0 && $lngn<=12) ? $arrspec['words'][$lngn] : number_format($lngn, 0, '.', ',');
+	};
+	$strtext=$inthasmore ? str_replace("{n}", $fnword($lngcount), $arrspec['first']) : str_replace("{N}", f_t2srep_ucfirst($fnword($lngcount)), $arrspec['all']);
+	$strtext.=$arrspec['order'];
+	if ($lngmin!==null) {
+		if ($arrspec['desc'] && $lngmin!=$lngmax) {
+			$strtext.=str_replace(array("{a}", "{b}"), array($lngmax, $lngmin), $arrspec['range']);
+		} elseif ($lngmin==$lngmax) {
+			$strtext.=str_replace("{a}", $lngmin, $arrspec['one']);
+		} else {
+			$strtext.=str_replace(array("{a}", "{b}"), array($lngmin, $lngmax), $arrspec['range']);
+		}
+		if ($arrspec['undated']!="" && $lngundated>0) {
+			$strtext.=str_replace("{u}", $fnword($lngundated), $arrspec['undated']);
+		}
 	}
 	return $strtext.".";
 }
 
-function f_t2srep_caption_sequence($jsontext2sql, $strlang='en') {
-	//Purpose: The caption of a sequence: count, order and span ("Three films in release order,
-	//			from 1964 to 1966.")
-	$arrfacts=$jsontext2sql['summary_facts'];
+function f_t2srep_caption_fill_js() {
+	//Purpose: f_t2srep_caption_fill() in JavaScript, for the page script that recounts the caption
+	//			when more pages come in. A plain string, so the test can run it against the PHP.
+	return "function f_t2srepcaptionfill(objspec,lngcount,lngmin,lngmax,lngundated,inthasmore){"
+		."function f_word(lngn){return (lngn>=0&&lngn<=12)?objspec.words[lngn]:String(lngn).replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');}"
+		."var strtext=inthasmore?objspec.first.replace('{n}',f_word(lngcount)):objspec.all.replace('{N}',f_word(lngcount).charAt(0).toUpperCase()+f_word(lngcount).slice(1));"
+		."strtext+=objspec.order;"
+		."if(lngmin!==null){if(objspec.desc&&lngmin!==lngmax){strtext+=objspec.range.replace('{a}',lngmax).replace('{b}',lngmin);}else if(lngmin===lngmax){strtext+=objspec.one.replace('{a}',lngmin);}else{strtext+=objspec.range.replace('{a}',lngmin).replace('{b}',lngmax);}"
+		."if(objspec.undated!==''&&lngundated>0){strtext+=objspec.undated.replace('{u}',f_word(lngundated));}}"
+		."return strtext+'.';}";
+}
+
+function f_t2srep_caption_dated($jsontext2sql, $strlang='en', $inthasmore=false) {
+	//Purpose: The caption of a timeline or a sequence for the rows of the answer
+	$arrspec=f_t2srep_caption_spec($jsontext2sql, $strlang);
+	if ($arrspec===null) {
+		return "";
+	}
 	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
-	$arrcolumns=f_t2srep_columns($jsontext2sql);
-	$lngcount=(int)$arrfacts['count'];
-	$arrnoun=f_t2srep_noun($arrrecords, $arrcolumns, $strlang);
-	$intfr=($strlang=="fr");
-	$strorder=isset($arrfacts['order']) ? (string)$arrfacts['order'] : "";
-	$strdirection=isset($arrfacts['order_direction']) ? strtolower((string)$arrfacts['order_direction']) : "";
-	$strcolumn=f_t2srep_date_column($arrcolumns);
-	$arrspan=f_t2srep_year_span($arrrecords, $strcolumn);
-	$strtext=f_t2srep_ucfirst(f_t2srep_count_word($lngcount, $strlang, $arrnoun['gender']))." ".$arrnoun['plural'];
-	$intdesc=false;
-	if ($strorder=="collection") {
-		$strtext.=$intfr ? " dans l'ordre de la collection" : " in collection order";
-	} elseif ($strorder=="date" && $strdirection=="desc") {
-		$strtext.=$intfr ? ", du plus récent au plus ancien" : ", most recent first";
-		$intdesc=true;
-	} elseif ($strorder=="date") {
-		$intrelease=preg_match('/RELEASE|FIRST_AIR/', strtoupper($strcolumn))===1;
-		$strtext.=$intrelease ? ($intfr ? " dans l'ordre de sortie" : " in release order") : ($intfr ? " dans l'ordre chronologique" : " in chronological order");
-	}
-	if ($intdesc && $arrspan['min']!==null && $arrspan['min']!=$arrspan['max']) {
-		$strtext.=$intfr ? ", de ".$arrspan['max']." à ".$arrspan['min'] : ", from ".$arrspan['max']." to ".$arrspan['min'];
-	} else {
-		$strspan=f_t2srep_span_words($arrspan, $strlang);
-		if ($strspan!="") {
-			$strtext.=", ".$strspan;
-		}
-	}
-	return $strtext.".";
+	$arrspan=f_t2srep_year_span($arrrecords, $arrspec['column']);
+	return f_t2srep_caption_fill($arrspec, (int)$jsontext2sql['summary_facts']['count'], $arrspan['min'], $arrspan['max'], $arrspan['undated'], $inthasmore);
+}
+
+function f_t2srep_caption_live_js($arrspec) {
+	//Purpose: The script that keeps the caption of a timeline or a sequence true while more pages
+	//			come in: it defines window.f_t2srepcaptionupdate(strrep, inthasmore), which the
+	//			timeline loader (f_t2srep_timeline_more_js()) and the card loader of the search page
+	//			call after each page. It counts what is on screen (the marks of the timeline, the
+	//			cards of the grid) and the span from their data-t2syear, then refills the sentence.
+	//			A call for the other form is ignored: the caption describes the default one.
+	return "(function(){var objspec=".json_encode($arrspec, JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP).";"
+		.f_t2srep_caption_fill_js()
+		."window.f_t2srepcaptionupdate=function(strrep,inthasmore){if(strrep!==objspec.rep){return;}var objcaption=document.getElementById('t2sCaption');if(!objcaption){return;}"
+		."var arritems=strrep==='timeline'?document.querySelectorAll('.t2sRepView[data-t2sreps=\"timeline\"] .t2sTimelineMark'):document.querySelectorAll('#search-poster-card-grid .search-poster-card');"
+		."var lngmin=null;var lngmax=null;var lngundated=0;var i;for(i=0;i<arritems.length;i++){var lngyear=parseInt(arritems[i].getAttribute('data-t2syear')||'',10);if(isNaN(lngyear)){lngundated++;continue;}lngmin=lngmin===null?lngyear:Math.min(lngmin,lngyear);lngmax=lngmax===null?lngyear:Math.max(lngmax,lngyear);}"
+		."if(arritems.length<2){return;}objcaption.textContent=f_t2srepcaptionfill(objspec,arritems.length,lngmin,lngmax,lngundated,inthasmore);};"
+		."})();";
 }
 
 function f_t2srep_caption_trend($jsontext2sql, $strlang='en') {
