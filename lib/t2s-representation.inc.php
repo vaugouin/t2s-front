@@ -181,8 +181,8 @@ function f_t2srep_format_minutes($dblvalue) {
 
 function f_t2srep_format_metric($value, $strunit, $strlang='en') {
 	//Purpose: Mirrors formatMetric(): formats a metric by its unit, never as money by default
-	//Params:	$value: The cell; $strunit: usd | minutes | years | count | ratio | null
-	//			$strlang: UI language (en | fr), for "years"
+	//Params:	$value: The cell; $strunit: usd | minutes | years | count | ratio | percent | null
+	//			$strlang: UI language (en | fr), for "years" and "percent"
 	if ($value===null || trim((string)$value)==="") {
 		return "";
 	}
@@ -202,6 +202,9 @@ function f_t2srep_format_metric($value, $strunit, $strlang='en') {
 		return number_format(round($dblvalue), 0, '.', ',');
 	case "ratio":
 		return "×".number_format($dblvalue, fmod($dblvalue, 1.0)==0.0 ? 0 : 1, '.', '');
+	case "percent":
+		//The value is already a percentage (49.3 is 49.3%)
+		return f_t2srep_percent_value($dblvalue, $strlang);
 	default:
 		//No or unknown unit: a neutral number, NEVER currency (the TOTAL_RUNTIME-in-dollars bug)
 		if (fmod($dblvalue, 1.0)==0.0) {
@@ -279,15 +282,25 @@ function f_t2srep_scalar_metrics($arrrecords, $arrcolumns) {
 	return $arrmetrics;
 }
 
-function f_t2srep_label_for_row($arrrecord, $arrcolumns) {
-	//Purpose: Mirrors text2SqlLabelForRow(): the label column, else a title column, else the first text
+function f_t2srep_label_for_row($arrrecord, $arrcolumns, $strlang='en') {
+	//Purpose: Mirrors text2SqlLabelForRow(): the label column, else a title column, else the first
+	//			text. A gender code in the label column is named, as on the share bar: "Men", not "2".
 	foreach ($arrcolumns as $arrcol) {
 		if (is_array($arrcol) && isset($arrcol['role']) && $arrcol['role']=="label") {
 			$strname=(string)$arrcol['name'];
 			if (isset($arrrecord[$strname]) && trim((string)$arrrecord[$strname])!=="") {
-				return (string)$arrrecord[$strname];
+				$strgender=f_t2srep_gender_label($strname, $arrrecord[$strname], $strlang);
+				return $strgender!==null ? f_t2srep_ucfirst($strgender) : (string)$arrrecord[$strname];
 			}
 			break;
+		}
+	}
+	//A result grouped by gender whose GENDER column is typed "other" names its rows the same way
+	$strgendercolumn=f_t2srep_gender_column($arrcolumns);
+	if ($strgendercolumn!=="" && array_key_exists($strgendercolumn, $arrrecord)) {
+		$strgender=f_t2srep_gender_label($strgendercolumn, $arrrecord[$strgendercolumn], $strlang);
+		if ($strgender!==null) {
+			return f_t2srep_ucfirst($strgender);
 		}
 	}
 	foreach (array("EPISODE_TITLE", "SEASON_TITLE", "TITLE", "MOVIE_TITLE", "SERIE_TITLE", "PERSON_NAME",
@@ -573,7 +586,7 @@ function f_t2srep_render_ranked_bars($arrrecords, $arrcolumns, $strlang, $fnpost
 		$strhtml.="<div class=\"search-poster-card-grid t2sPosterRanking\">";
 		foreach ($arrrecords as $lngi => $arrrecord) {
 			$arrposter=$arrposters[$lngi];
-			$strtitle=isset($arrposter['title']) && $arrposter['title']!="" ? $arrposter['title'] : f_t2srep_label_for_row($arrrecord, $arrcolumns);
+			$strtitle=isset($arrposter['title']) && $arrposter['title']!="" ? $arrposter['title'] : f_t2srep_label_for_row($arrrecord, $arrcolumns, $strlang);
 			$strhref=isset($arrposter['href']) ? (string)$arrposter['href'] : "";
 			//Numbered, as the leaderboards do (rank, poster, title, value)
 			$strhtml.="<div class=\"search-poster-card t2sRankCard\"><div class=\"t2sRankNumber\" aria-hidden=\"true\">".($lngi+1)."</div>";
@@ -589,7 +602,7 @@ function f_t2srep_render_ranked_bars($arrrecords, $arrcolumns, $strlang, $fnpost
 	} else {
 		$strhtml.="<div class=\"t2sBars\">";
 		foreach ($arrrecords as $arrrecord) {
-			$strlabel=f_t2srep_label_for_row($arrrecord, $arrcolumns);
+			$strlabel=f_t2srep_label_for_row($arrrecord, $arrcolumns, $strlang);
 			$value=isset($arrrecord[$arrmetric['name']]) ? $arrrecord[$arrmetric['name']] : null;
 			$strhref=f_t2srep_entity_href($arrrecord);
 			$strlabelhtml=$strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".f_t2srep_h($strlabel)."</a>" : f_t2srep_h($strlabel);
@@ -609,6 +622,8 @@ function f_t2srep_render_table($arrrecords, $arrcolumns, $strlang) {
 	$arrkeys=array();
 	$arrunits=array();
 	$arrmetrics=array();
+	//The gender column of a split by gender shows the word of each code, as the bars do
+	$strgendercolumn=f_t2srep_gender_column($arrcolumns);
 	foreach ($arrcolumns as $arrcol) {
 		if (is_array($arrcol) && isset($arrcol['name'])) {
 			$arrkeys[]=(string)$arrcol['name'];
@@ -644,6 +659,9 @@ function f_t2srep_render_table($arrrecords, $arrcolumns, $strlang) {
 			$value=array_key_exists($strkey, $arrrecord) ? $arrrecord[$strkey] : null;
 			$strunit=isset($arrunits[$strkey]) ? $arrunits[$strkey] : null;
 			$strcell=($strunit || isset($arrmetrics[$strkey])) ? f_t2srep_format_metric($value, $strunit, $strlang) : ($value===null ? "" : (string)$value);
+			if ($strkey===$strgendercolumn && !($strunit || isset($arrmetrics[$strkey])) && f_t2srep_gender_label($strkey, $value, $strlang)!==null) {
+				$strcell=f_t2srep_ucfirst(f_t2srep_gender_label($strkey, $value, $strlang));
+			}
 			$strhref=(isset($arrlinks[$strkey]) && $strcell!=="") ? f_t2srep_entity_href_for($arrrecord, $arrlinks[$strkey]) : "";
 			$strhtml.="<td>".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".f_t2srep_h($strcell)."</a>" : f_t2srep_h($strcell))."</td>";
 		}
@@ -1037,6 +1055,24 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 		$strvalue=f_t2srep_format_value(isset($arrtop['value']) ? $arrtop['value'] : null, $strunit, $strrole, $strlang);
 		$intmin=(isset($arrtop['extreme']) && $arrtop['extreme']=="min");
 		$strlabel=trim((string)$arrtop['label']);
+		//top.label is the raw cell: on a split by gender it is the code (2), named here as on the
+		//bars ("goes to men", "revient aux hommes")
+		$strlabelcolumn=isset($arrfacts['share']['label_column']) ? (string)$arrfacts['share']['label_column'] : "";
+		if ($strlabelcolumn=="") {
+			foreach ($arrcolumns as $arrcol) {
+				if (is_array($arrcol) && isset($arrcol['role']) && $arrcol['role']=="label" && isset($arrcol['name'])) {
+					$strlabelcolumn=(string)$arrcol['name'];
+					break;
+				}
+			}
+		}
+		if ($strlabelcolumn=="") {
+			$strlabelcolumn=f_t2srep_gender_column($arrcolumns);
+		}
+		$strgender=f_t2srep_gender_label($strlabelcolumn, $arrtop['label'], $strlang);
+		if ($strgender!==null) {
+			$strlabel=$strgender;
+		}
 		if ($strunit=="minutes") {
 			if ($intfr) {
 				$strwho=$intmin ? ($intfem ? "la plus courte" : "le plus court") : ($intfem ? "la plus longue" : "le plus long");
@@ -1059,7 +1095,9 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 			if ($intfr) {
 				$strarticle=preg_match('/^[aeiouyéèêàâîôû]/iu', $arrmetric['label']) ? "l'" : ($arrmetric['gender']=="f" ? "la " : "le ");
 				$stradj=$arrmetric['gender']=="f" ? ($intmin ? "la plus basse" : "la plus élevée") : ($intmin ? "le plus bas" : "le plus élevé");
-				$strextreme=$strarticle.$arrmetric['label']." ".$stradj." revient à ".$strlabel;
+				//"revient aux hommes": a gender word is a plural group
+				$strto=$strgender!==null ? "aux ".(preg_match('/s$/', $strgender) ? $strgender : $strgender."s") : "à ".$strlabel;
+				$strextreme=$strarticle.$arrmetric['label']." ".$stradj." revient ".$strto;
 			} else {
 				$strextreme="the ".($intmin ? "lowest" : "highest")." ".$arrmetric['label']." goes to ".$strlabel;
 			}
@@ -1872,7 +1910,7 @@ function f_t2srep_compare_winner_words($arrquantity, $arrrecords, $arrcolumns, $
 	}
 	$intfr=($strlang=="fr");
 	$arrrecord=$arrrecords[$lngindex];
-	$strlabel=(isset($arrwinner['label']) && trim((string)$arrwinner['label'])!=="") ? trim((string)$arrwinner['label']) : f_t2srep_label_for_row($arrrecord, $arrcolumns);
+	$strlabel=(isset($arrwinner['label']) && trim((string)$arrwinner['label'])!=="") ? trim((string)$arrwinner['label']) : f_t2srep_label_for_row($arrrecord, $arrcolumns, $strlang);
 	$value=(isset($arrwinner['value']) && $arrwinner['value']!==null) ? $arrwinner['value'] : (array_key_exists($arrquantity['name'], $arrrecord) ? $arrrecord[$arrquantity['name']] : null);
 	$strvalue=f_t2srep_quantity_value($value, $arrquantity['unit'], $arrquantity['role'], $strlang);
 	$arrword=f_t2srep_quantity_word($arrquantity['name'], $arrrecord, $strlang);
@@ -2041,7 +2079,7 @@ function f_t2srep_caption_fact($jsontext2sql, $strlang='en') {
 		return "";
 	}
 	$arrrecord=$arrrecords[$arrfact['index']];
-	$strlabel=$arrfact['label']!=="" ? $arrfact['label'] : f_t2srep_label_for_row($arrrecord, $arrcolumns);
+	$strlabel=$arrfact['label']!=="" ? $arrfact['label'] : f_t2srep_label_for_row($arrrecord, $arrcolumns, $strlang);
 	$arrword=f_t2srep_quantity_word($arrfact['column'], $arrrecord, $strlang);
 	$strvalue=f_t2srep_quantity_value($arrfact['value'], $arrfact['unit'], $arrfact['role'], $strlang);
 	$strtext=$strlabel.($strlang=="fr" ? " : " : ": ").$arrword['label'].($strvalue!=="" ? ", ".$strvalue : "");
@@ -2357,11 +2395,55 @@ function f_t2srep_percent($dblshare, $strlang='en') {
 	return $strlang=="fr" ? $strn." %" : $strn."%";
 }
 
+function f_t2srep_percent_value($value, $strlang='en') {
+	//Purpose: Mirrors text2SqlPercentValueText(): a value that is already a percentage (unit
+	//			"percent": PERCENTAGE 49.25 is 49.25%), one decimal at most and no trailing ".0":
+	//			"49.3%" / "49.3 %", the sign and its French space as in f_t2srep_percent()
+	if (!f_t2srep_is_number($value)) {
+		return (string)$value;
+	}
+	$strn=f_t2srep_format_number((float)$value, 1);
+	return $strlang=="fr" ? $strn." %" : $strn."%";
+}
+
 function f_t2srep_gender_word($value, $strlang='en') {
 	//Purpose: TMDb's gender code as a word (0 not set, 1 women, 2 men, 3 non-binary), or null
 	$arrwords=array("0"=>array("not set", "non renseigné"), "1"=>array("women", "femmes"), "2"=>array("men", "hommes"), "3"=>array("non-binary", "non binaire"));
+	if ($value===null || is_bool($value)) {
+		return null;
+	}
 	$strkey=trim((string)$value);
 	return isset($arrwords[$strkey]) ? $arrwords[$strkey][$strlang=="fr" ? 1 : 0] : null;
+}
+
+function f_t2srep_gender_label($strcolumn, $value, $strlang='en') {
+	//Purpose: Mirrors text2SqlGenderWord(): the word of a gender code read from a column named
+	//			GENDER (or SEXE), else null. The share bar, the ranked-bar labels, the table cells and
+	//			the caption all name the code through f_t2srep_gender_word() (a cast split by gender
+	//			read "1" and "2"). A label the SQL already spelled out ("Femmes") is no code.
+	if (!preg_match('/GENDER|SEXE/i', (string)$strcolumn)) {
+		return null;
+	}
+	return f_t2srep_gender_word($value, $strlang);
+}
+
+function f_t2srep_gender_column($arrcolumns) {
+	//Purpose: Mirrors text2SqlGenderColumn(): the column that holds the gender codes of a result
+	//			grouped by gender, or "": a label or an "other" column named GENDER (or SEXE; the API
+	//			types GENDER "other", a category), never a metric (GENDER_COUNT), and never on entity
+	//			rows, where a person's own GENDER is no group of people
+	foreach ($arrcolumns as $arrcol) {
+		if (is_array($arrcol) && isset($arrcol['role']) && $arrcol['role']=="entity_id") {
+			return "";
+		}
+	}
+	foreach ($arrcolumns as $arrcol) {
+		if (is_array($arrcol) && isset($arrcol['role']) && isset($arrcol['name']) && ($arrcol['role']=="label" || $arrcol['role']=="other")
+			&& preg_match('/GENDER|SEXE/i', (string)$arrcol['name'])) {
+			return (string)$arrcol['name'];
+		}
+	}
+	return "";
 }
 
 function f_t2srep_share_model($jsontext2sql, $strlang='en') {
@@ -2377,7 +2459,7 @@ function f_t2srep_share_model($jsontext2sql, $strlang='en') {
 	}
 	$intfr=($strlang=="fr");
 	$strkind=(isset($arrshare['kind']) && $arrshare['kind']=="single") ? "single" : "parts";
-	$intgender=preg_match('/GENDER|SEXE/i', isset($arrshare['label_column']) ? (string)$arrshare['label_column'] : "");
+	$strlabelcolumn=isset($arrshare['label_column']) ? (string)$arrshare['label_column'] : "";
 	$dblshown=null;
 	foreach ($arrparts as $arrpart) {
 		if (empty($arrpart['rest']) && $dblshown===null) {
@@ -2392,8 +2474,8 @@ function f_t2srep_share_model($jsontext2sql, $strlang='en') {
 		} elseif ($strkind=="single") {
 			$arrword=f_t2srep_metric_word(isset($arrshare['value_column']) ? $arrshare['value_column'] : "", $strlang);
 			$strlabel=$arrword['label'];
-		} elseif ($intgender && f_t2srep_gender_word(isset($arrpart['label']) ? $arrpart['label'] : null, $strlang)!==null) {
-			$strlabel=f_t2srep_gender_word($arrpart['label'], $strlang);
+		} elseif (f_t2srep_gender_label($strlabelcolumn, isset($arrpart['label']) ? $arrpart['label'] : null, $strlang)!==null) {
+			$strlabel=f_t2srep_gender_label($strlabelcolumn, $arrpart['label'], $strlang);
 		} else {
 			$strlabel=trim((string)(isset($arrpart['label']) ? $arrpart['label'] : ""));
 			if ($strlabel==="") {
@@ -2514,7 +2596,8 @@ function f_t2srep_drill_word($strcolumn, $strlang='en') {
 	//Purpose: How a follow-up names the quantity or the category of a bucket: the column without
 	//			its bin suffix (RUNTIME_BUCKET is RUNTIME), from a table of its own so both fronts
 	//			word it the same (their axis titles differ: "seasons" there, "number of seasons"
-	//			here), else the column name in plain words
+	//			here), else a count alias (f_t2srep_drill_count_word()), else the column name in
+	//			plain words
 	//Returns: array("label"=>..., "gender"=>"m"|"f") (the gender picks the French article)
 	$strname=preg_replace('/_(?:BUCKET|BAND|BIN|RANGE|START|MIN|LOW|FROM|DEBUT)(?:_MINUTES)?$/i', '', (string)$strcolumn);
 	$strname=preg_replace('/_(?:BUCKET|BAND|BIN|RANGE)$/i', '', $strname);
@@ -2538,6 +2621,10 @@ function f_t2srep_drill_word($strcolumn, $strlang='en') {
 		"POPULARITY"=>array("popularity", "popularité", "f"),
 		"NUMBER_OF_SEASONS"=>array("number of seasons", "nombre de saisons", "m"),
 		"NUMBER_OF_EPISODES"=>array("number of episodes", "nombre d'épisodes", "m"),
+		"SEASON_COUNT"=>array("number of seasons", "nombre de saisons", "m"),
+		"NB_SEASONS"=>array("number of seasons", "nombre de saisons", "m"),
+		"EPISODE_COUNT"=>array("number of episodes", "nombre d'épisodes", "m"),
+		"NB_EPISODES"=>array("number of episodes", "nombre d'épisodes", "m"),
 		"AGE"=>array("age", "âge", "m"),
 		"BIRTH_YEAR"=>array("birth year", "année de naissance", "f"),
 		"DEATH_YEAR"=>array("death year", "année de décès", "f"),
@@ -2560,7 +2647,42 @@ function f_t2srep_drill_word($strcolumn, $strlang='en') {
 	if (isset($arrwords[$strkey])) {
 		return array("label"=>$arrwords[$strkey][$strlang=="fr" ? 1 : 0], "gender"=>$arrwords[$strkey][2]);
 	}
+	$arrcount=f_t2srep_drill_count_word($strname, $strlang);
+	if ($arrcount!==null) {
+		return $arrcount;
+	}
 	return array("label"=>strtolower(f_t2srep_pretty_label($strname)), "gender"=>"m");
+}
+
+function f_t2srep_drill_count_word($strname, $strlang='en') {
+	//Purpose: Mirrors text2SqlDrillCountWord(): what a count alias counts, for the columns the
+	//			table of f_t2srep_drill_word() does not list. A column named <NOUN>_COUNT,
+	//			NB_<NOUN>S or NUMBER_OF_<NOUN>S (SERIES_COUNT, NB_FILMS, PERSON_COUNT) is "the number
+	//			of <plural>" / "le nombre de <pluriel>". Only these nouns, whose French plural is
+	//			known; any other count keeps the plain words.
+	//Returns: array("label"=>..., "gender"=>"m"), or null
+	$arrcounted=array(
+		"SEASON"=>array("seasons", "saisons"),
+		"EPISODE"=>array("episodes", "épisodes"),
+		"FILM"=>array("films", "films"),
+		"MOVIE"=>array("films", "films"),
+		"SERIE"=>array("series", "séries"),
+		"PERSON"=>array("people", "personnes"),
+		"PEOPLE"=>array("people", "personnes"),
+		"VOTE"=>array("votes", "votes"),
+	);
+	if (!preg_match('/^(NB_|NUMBER_OF_)?([A-Z]+?)S?(_COUNT)?$/', strtoupper((string)$strname), $arrmatch)) {
+		return null;
+	}
+	$intaffix=($arrmatch[1]!=="" || (isset($arrmatch[3]) && $arrmatch[3]!==""));
+	if (!$intaffix || !isset($arrcounted[$arrmatch[2]])) {
+		return null;
+	}
+	if ($strlang=="fr") {
+		$strfr=$arrcounted[$arrmatch[2]][1];
+		return array("label"=>(preg_match('/^[aeiouyhâàéèêîïôû]/iu', $strfr) ? "nombre d'" : "nombre de ").$strfr, "gender"=>"m");
+	}
+	return array("label"=>"number of ".$arrcounted[$arrmatch[2]][0], "gender"=>"m");
 }
 
 function f_t2srep_drill_question($strquestion, $arrword, $strvalue, $strlang='en') {

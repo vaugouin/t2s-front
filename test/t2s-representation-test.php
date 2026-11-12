@@ -1219,6 +1219,78 @@ foreach ($arrfix as $strkey=>$arrjson) {
 }
 f_check("no em dash in any chain caption or rendering",strpos($strallc,"\u{2014}"),false);
 
+f_group("Percent, gender codes, count aliases");
+//The percent unit (PERCENT*, POURCENT*, PCT columns; the value is already a percentage), the
+//gender codes named outside the share bar, and the count aliases of the drill-down words. The
+//Barbie fixtures are answers that read "1" and "2" and "×49.3"; the PERCENTAGE column of the
+//table one is typed "percent", as the API now sends it. The same checks as voice-agent.
+f_check("percent metric",array(f_t2srep_format_metric(49.25,"percent","en"),f_t2srep_format_metric(50,"percent","en"),f_t2srep_format_metric(49.25,"percent","fr"),
+	f_t2srep_format_metric(0,"percent","en"),f_t2srep_format_metric(100,"percent","fr")),
+	array("49.3%","50%","49.3 %","0%","100 %"));
+f_check("percent never money nor ratio",array(f_t2srep_format_value(49.25,"percent","metric","en"),f_t2srep_format_value(0,"percent","metric","en")),array("49.3%","0%"));
+f_check("ratio unchanged",f_t2srep_format_metric(49.3,"ratio","en"),"×49.3");
+$arrpcttable=$arrfix['lotc-table-gender-percent-barbie-en'];
+$strhtml=f_t2srep_render("table",$arrpcttable,"en");
+f_contains("percent column of the Barbie table",$strhtml,"<td>Women</td><td>33</td><td>49.3%</td>");
+f_contains("percent column of the Barbie table, second row",$strhtml,"<td>Men</td><td>34</td><td>50.8%</td>");
+f_check("gender label",array(f_t2srep_gender_label("GENDER",2,"en"),f_t2srep_gender_label("GENDER","1","fr"),f_t2srep_gender_label("SEXE",3,"fr"),
+	f_t2srep_gender_label("GENRE",1,"fr"),f_t2srep_gender_label("GENDER","Femmes","fr"),f_t2srep_gender_label("GENDER",null,"en")),
+	array("men","femmes","non binaire",null,null,null));
+$arrbarbie=$arrfix['lotc-share-gender-barbie-ranked-fr'];
+$arrbarbierows=f_t2srep_records($arrbarbie['result']);
+$arrbarbiecols=f_t2srep_columns($arrbarbie);
+f_check("gender bar labels fr",array(f_t2srep_label_for_row($arrbarbierows[0],$arrbarbiecols,"fr"),f_t2srep_label_for_row($arrbarbierows[1],$arrbarbiecols,"fr")),array("Femmes","Hommes"));
+f_check("gender bar labels en",array(f_t2srep_label_for_row($arrbarbierows[0],$arrbarbiecols,"en"),f_t2srep_label_for_row($arrbarbierows[1],$arrbarbiecols,"en")),array("Women","Men"));
+$arrlabelsfr=$arrfix['lotc-share-gender-labels-fr'];
+$arrlabelsfrrows=f_t2srep_records($arrlabelsfr['result']);
+f_check("spelled-out labels kept",f_t2srep_label_for_row($arrlabelsfrrows[0],f_t2srep_columns($arrlabelsfr),"fr"),"Femmes");
+$strhtml=f_t2srep_render("ranked-bars",$arrbarbie,"fr");
+f_contains("gender bars fr",$strhtml,"<div class=\"t2sBarLabel\" title=\"Hommes\">Hommes</div>");
+f_contains("gender table fr",f_t2srep_render("table",$arrbarbie,"fr"),"<td>Femmes</td><td>33</td>");
+f_check("gender caption ranked fr",f_t2srep_caption($arrbarbie,"fr"),"Deux lignes ; le role count le plus élevé revient aux hommes, 34.");
+f_check("gender caption ranked en",f_t2srep_caption($arrbarbie,"en"),"Two rows; the highest role count goes to men, 34.");
+$arrbarbieen=$arrfix['lotc-share-gender-barbie-en'];
+f_check("gender caption share en",f_t2srep_caption($arrbarbieen,"en"),"67 people counted in two parts: women 49%, men 51%.");
+f_check("gender caption share fr",f_t2srep_caption($arrfix['lotc-share-gender-barbie-fr'],"fr"),"67 résultats comptés en deux parts : femmes 49 %, hommes 51 %.");
+f_check("gender caption table, three columns",f_t2srep_caption($arrpcttable,"en"),"Two rows; the highest actor count goes to men, 34.");
+$arrlowest=$arrbarbie;
+$arrlowest['summary_facts']['top']=array("label"=>1,"id"=>null,"index"=>0,"value"=>33,"extreme"=>"min");
+f_check("gender lowest fr",f_t2srep_caption($arrlowest,"fr"),"Deux lignes ; le role count le plus bas revient aux femmes, 33.");
+f_check("gender lowest en",f_t2srep_caption($arrlowest,"en"),"Two rows; the lowest role count goes to women, 33.");
+$arrnonbinary=$arrbarbie;
+$arrnonbinary['summary_facts']['top']=array("label"=>3,"id"=>null,"index"=>0,"value"=>5,"extreme"=>"max");
+f_check("gender plural fr",f_t2srep_caption($arrnonbinary,"fr"),"Deux lignes ; le role count le plus élevé revient aux non binaires, 5.");
+//The API types GENDER "other" (a category): the rows are named all the same, never on entity rows
+$arrother=$arrbarbie;
+foreach ($arrother['result_columns'] as $lngi=>$arrcol) {
+	if ($arrcol['name']=="GENDER") {
+		$arrother['result_columns'][$lngi]['role']="other";
+	}
+}
+unset($arrother['summary_facts']['share']);
+$arrothercols=f_t2srep_columns($arrother);
+f_check("gender column typed other",array(f_t2srep_gender_column($arrothercols),f_t2srep_label_for_row($arrbarbierows[1],$arrothercols,"en")),array("GENDER","Men"));
+f_check("no gender column on entity rows",f_t2srep_gender_column(array(array("name"=>"ID_PERSON","role"=>"entity_id"),array("name"=>"GENDER","role"=>"other"))),"");
+f_check("no gender column for a metric",f_t2srep_gender_column(array(array("name"=>"GENDER_COUNT","role"=>"metric"))),"");
+f_check("gender caption, column typed other",f_t2srep_caption($arrother,"en"),"Two rows; the highest role count goes to men, 34.");
+f_contains("gender table, column typed other",f_t2srep_render("table",$arrother,"en"),"<td>Men</td><td>34</td>");
+f_check("drill count aliases",array(
+	f_t2srep_drill_word("SEASON_COUNT","en"),f_t2srep_drill_word("SEASON_COUNT","fr"),f_t2srep_drill_word("NB_SEASONS","fr"),
+	f_t2srep_drill_word("EPISODE_COUNT","fr"),f_t2srep_drill_word("NB_EPISODES","en"),f_t2srep_drill_word("SERIES_COUNT","fr"),
+	f_t2srep_drill_word("NUMBER_OF_FILMS","fr"),f_t2srep_drill_word("PERSON_COUNT","en"),f_t2srep_drill_word("ROLE_COUNT","fr"),
+	f_t2srep_drill_word("SEASONS","en"),f_t2srep_drill_word("VOTE_COUNT","fr")),
+	array(array("label"=>"number of seasons","gender"=>"m"),array("label"=>"nombre de saisons","gender"=>"m"),array("label"=>"nombre de saisons","gender"=>"m"),
+		array("label"=>"nombre d'épisodes","gender"=>"m"),array("label"=>"number of episodes","gender"=>"m"),array("label"=>"nombre de séries","gender"=>"m"),
+		array("label"=>"nombre de films","gender"=>"m"),array("label"=>"number of people","gender"=>"m"),array("label"=>"role count","gender"=>"m"),
+		array("label"=>"seasons","gender"=>"m"),array("label"=>"nombre de votes TMDb","gender"=>"m")));
+$arrsc=$arrfix['lotc-histogram-season-count-en'];
+$arrscmodel=f_t2srep_histogram_model($arrsc['summary_facts'],"en");
+$arrscbins=array_values($arrsc['summary_facts']['histogram']['bins']);
+f_check("drill SEASON_COUNT en",f_t2srep_drill_question($arrsc['question'],f_t2srep_drill_word($arrscmodel['column'],"en"),f_t2srep_drill_bin_value($arrscbins[2],$arrscmodel['histogram'],"en"),"en"),
+	"Among the items counted in \"How are HBO series distributed by number of seasons?\", list those whose number of seasons is 3.");
+f_check("drill SEASON_COUNT fr",f_t2srep_drill_question($arrsc['question'],f_t2srep_drill_word($arrscmodel['column'],"fr"),f_t2srep_drill_bin_value($arrscbins[2],$arrscmodel['histogram'],"fr"),"fr"),
+	"Parmi les éléments comptés dans « How are HBO series distributed by number of seasons? », liste ceux dont le nombre de saisons est 3.");
+
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);
 ?>
