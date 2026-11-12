@@ -39,6 +39,10 @@
  * or their code badge, the chips, and the captions in English and French, word for word those
  * of voice-agent. The flag detection script goes through node --check.
  *
+ * Phase 3 lot C adds hierarchy on the answers to the grouping questions (fixtures p3c-*): the
+ * groups and their leaves as the API reads them, the leaf alone after its parent's entity, the
+ * third level nested, the captions in English and French, word for word those of voice-agent.
+ *
  * Phase 3 lot B adds map on the answers to the map questions of countries (fixtures p3b-*) and
  * the outline html/data/world-110m.json: the shades from the API's steps, the legend, the dots,
  * the countries with no place on the map, the captions in English and French, word for word
@@ -981,6 +985,90 @@ foreach ($arrfix as $strkey=>$arrjson) {
 	}
 }
 f_check("no em dash in any map caption or rendering",strpos($strallm,"\u{2014}"),false);
+
+
+//Phase 3 lot C: hierarchy (fixtures p3c-*; the sentences are voice-agent's, word for word).
+$strp="p3c-hierarchy-";
+f_check("hierarchy caption even en",f_t2srep_caption($arrfix[$strp.'middle-earth-trilogies-en'],"en"),"Six films in two trilogies, three in each.");
+f_check("hierarchy caption even fr",f_t2srep_caption($arrfix[$strp.'middle-earth-trilogies-en'],"fr"),"Six films en deux trilogies, trois dans chacune.");
+f_check("hierarchy caption largest fr",f_t2srep_caption($arrfix[$strp.'mcu-collections-fr'],"fr"),
+	"37 films en douze collections ; la plus grande, The Avengers Collection, en compte six.");
+f_check("hierarchy caption largest en",f_t2srep_caption($arrfix[$strp.'mcu-collections-fr'],"en"),
+	"37 films in twelve collections; the largest, The Avengers Collection, has six.");
+f_check("hierarchy caption shared en",f_t2srep_caption($arrfix[$strp.'italy-regions-en'],"en"),
+	"44 places in 19 regions (five in more than one); the largest, Lazio, has eleven.");
+f_check("hierarchy caption shared fr, more pages",f_t2srep_caption($arrfix[$strp.'italy-regions-fr'],"fr",true),
+	"Les 42 premiers lieux en 20 régions (sept dans plusieurs) ; la plus grande, Lazio, en compte onze.");
+f_check("hierarchy caption masculine level fr",f_t2srep_caption($arrfix[$strp.'ford-states-en'],"fr"),
+	"Douze lieux en neuf États (trois dans plusieurs) ; le plus grand, California, en compte cinq.");
+f_check("hierarchy caption three levels en",f_t2srep_caption($arrfix[$strp.'potter-nations-counties-hand-en'],"en"),
+	"Seven places in five counties and three nations; the largest, England, has five.");
+f_check("hierarchy caption three levels fr",f_t2srep_caption($arrfix[$strp.'potter-nations-counties-hand-en'],"fr"),
+	"Sept lieux dans cinq comtés et trois nations ; la plus grande, England, en compte cinq.");
+f_check("hierarchy caption more pages en",f_t2srep_caption($arrfix[$strp.'middle-earth-trilogies-en'],"en",true),"The first six films in two trilogies, three in each.");
+$arrhme=f_t2srep_hierarchy_model($arrfix[$strp.'middle-earth-trilogies-en'],"en");
+$arrhrow=array();
+foreach ($arrhme['groups'] as $arrg) {
+	$arrhrow[]=array($arrg['name'],$arrg['count'],count($arrg['leaves']));
+}
+f_check("hierarchy groups",$arrhrow,array(array("The Hobbit Collection",3,3),array("The Lord of the Rings Collection",3,3)));
+$arrhl=$arrhme['groups'][1]['leaves'][0];
+f_check("hierarchy leaf with year and its row",array($arrhme['image'],$arrhl['title'],$arrhl['year'],$arrhl['index']),
+	array(true,"The Lord of the Rings: The Fellowship of the Ring","2001",3));
+$arrhmcu=f_t2srep_hierarchy_model($arrfix[$strp.'mcu-collections-fr'],"fr");
+f_check("hierarchy leaf alone after its parent",array($arrhmcu['image'],$arrhmcu['groups'][0]['leaves'][0]['record'],$arrhmcu['groups'][0]['leaves'][0]['year']),
+	array(false,array("ID_MOVIE"=>102899,"MOVIE_TITLE"=>"Ant-Man"),""));
+f_check("hierarchy group record",$arrhmcu['groups'][0]['record'],array("ID_T2S_COLLECTION"=>1776,"COLLECTION_NAME"=>"Ant-Man Collection"));
+f_check("hierarchy no id, no group record",$arrhme['groups'][0]['record'],null);
+$arrhh=f_t2srep_hierarchy_model($arrfix[$strp.'potter-nations-counties-hand-en'],"en");
+$arrhrow=array();
+foreach ($arrhh['groups'] as $arrg) {
+	$arrsubs=array();
+	foreach ($arrg['groups'] as $arrs) {
+		$arrtitles=array();
+		foreach ($arrs['leaves'] as $arrl) {
+			$arrtitles[]=$arrl['title'];
+		}
+		$arrsubs[]=array($arrs['name'],$arrs['count'],$arrtitles);
+	}
+	$arrhrow[]=array($arrg['name'],$arrg['count'],count($arrg['leaves']),$arrsubs);
+}
+f_check("hierarchy three levels",$arrhrow,array(
+	array("England",5,0,array(array("Greater London",2,array("Leadenhall Market","London Zoo")),array("North Yorkshire",1,array("Goathland railway station")),array("Oxfordshire",2,array("Christ Church","New College")))),
+	array("Scotland",1,0,array(array("Highland",1,array("Glen Nevis")))),array("Wales",1,0,array(array("Pembrokeshire",1,array("Pembrokeshire"))))));
+$arrhit=f_t2srep_hierarchy_model($arrfix[$strp.'italy-regions-en'],"en");
+$arrcirella=array();
+foreach ($arrhit['groups'] as $arrg) {
+	foreach ($arrg['leaves'] as $arrl) {
+		if ($arrl['title']=="Cirella") {
+			$arrcirella[]=$arrg['name'];
+		}
+	}
+}
+f_check("hierarchy a shared place under each of its groups",$arrcirella,array("Calabria","Diamante"));
+$arrhother=$arrfix[$strp.'middle-earth-trilogies-en'];
+$arrhother['summary_facts']['hierarchy']['groups'][0]['label']=null;
+$arrho=f_t2srep_hierarchy_model($arrhother,"fr");
+f_check("hierarchy an unnamed group reads Other",array($arrho['groups'][0]['name'],$arrho['groups'][0]['unnamed']),array("Autres",true));
+f_check("hierarchy: no facts, no model",f_t2srep_hierarchy_model($arrfix['lotc-share-hbo-type-en'],"en"),null);
+f_check("hierarchy chips",f_t2srep_options($arrfix[$strp.'italy-regions-en']),array("hierarchy","card-grid","table"));
+$fnhposter=function($r) { return isset($r['ID_MOVIE']) ? array("url"=>isset($r['POSTER_PATH']) ? "https://img.test/w92".$r['POSTER_PATH'] : "","title"=>"","href"=>"movie.php?movieid=".$r['ID_MOVIE']) : null; };
+$strhtml=f_t2srep_render("hierarchy",$arrfix[$strp.'middle-earth-trilogies-en'],"en",$fnhposter);
+f_contains("hierarchy sections and headings",$strhtml,"<div class=\"t2sHier\"><section class=\"t2sHierGroup\"><h3 class=\"t2sHierHead\"><span class=\"t2sHierName\">The Hobbit Collection</span> <span class=\"t2sHierCount\">3</span></h3><ul class=\"t2sHierLeaves\">");
+f_contains("hierarchy leaf: poster, title, year, link",$strhtml,"<li class=\"t2sHierLeaf\"><a class=\"t2sHierLink\" href=\"movie.php?movieid=49051\"><img class=\"t2sHierThumb\" src=\"https://img.test/w92/yHA9Fc37VmpUA5UncTxxo3rTGVA.jpg\" alt=\"\" loading=\"lazy\"><span class=\"t2sHierText\"><span class=\"t2sHierTitle\">The Hobbit: An Unexpected Journey</span><span class=\"t2sHierSub\">2012</span></span></a></li>");
+$strhtml=f_t2srep_render("hierarchy",$arrfix[$strp.'mcu-collections-fr'],"fr",$fnhposter);
+f_contains("hierarchy group linked to its page",$strhtml,"<span class=\"t2sHierName\"><a href=\"t2scollection.php?collectionid=1776\">Ant-Man Collection</a></span>");
+f_contains("hierarchy leaf without its parent's poster",$strhtml,"<li class=\"t2sHierLeaf\"><a class=\"t2sHierLink\" href=\"movie.php?movieid=102899\"><span class=\"t2sHierText\"><span class=\"t2sHierTitle\">Ant-Man</span></span></a></li>");
+$strhtml=f_t2srep_render("hierarchy",$arrfix[$strp.'potter-nations-counties-hand-en'],"en",$fnhposter);
+f_contains("hierarchy third level nested",$strhtml,"<section class=\"t2sHierGroup\"><h3 class=\"t2sHierHead\"><span class=\"t2sHierName\">England</span> <span class=\"t2sHierCount\">5</span></h3><section class=\"t2sHierGroup t2sHierInner\"><h4 class=\"t2sHierHead\"><span class=\"t2sHierName\">Greater London</span> <span class=\"t2sHierCount\">2</span></h4><ul class=\"t2sHierLeaves\">");
+f_contains("hierarchy place picture and page",$strhtml,"<a class=\"t2sHierLink\" href=\"location.php?locationid=8390\"><img class=\"t2sHierThumb\" src=\"https://");
+$strallh="";
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"p3c-")===0) {
+		$strallh.=f_t2srep_caption($arrjson,"en").f_t2srep_caption($arrjson,"fr").f_t2srep_render("hierarchy",$arrjson,"en").f_t2srep_render("hierarchy",$arrjson,"fr");
+	}
+}
+f_check("no em dash in any hierarchy caption or rendering",strpos($strallh,"\u{2014}"),false);
 
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);

@@ -8,7 +8,7 @@ Current version: see [VERSION](VERSION).
 
 ## What it does
 
-- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card, a Yes / No verdict, a histogram, a share bar, a list of countries with their flags, the same countries shaded on a world map, or a scatter plot of two quantities, depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server).
+- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card, a Yes / No verdict, a histogram, a share bar, a list of countries with their flags, the same countries shaded on a world map, a scatter plot of two quantities, or the rows under their groups (by trilogy, by region), depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server).
 - **Detail pages** for movies, series, seasons, episodes and persons, with collapsible sections (cast, crew, images, videos, external identifiers, Wikidata properties, Wikipedia sections, watch providers, release dates).
 - **Entity pages**: collections, companies, networks, genres, keywords, lists, awards, nominations, locations, movements, groups, source works, technical properties, topics, characters, jobs, languages.
 - **Image galleries** (`images.php`, `season-images.php`, `episode-images.php`).

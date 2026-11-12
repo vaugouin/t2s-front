@@ -61,12 +61,12 @@ define('T2SREP_POSTER_RANKING_MAX', 12);
 function f_t2srep_known() {
 	//Purpose: The representations this front draws, in the contract's vocabulary
 	return array("entity-page", "card-grid", "value-cards", "sequence-strip", "timeline", "trend-columns",
-		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "number-card", "stat-strip", "ranked-bars", "table");
+		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "hierarchy", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_module_reps() {
 	//Purpose: The representations drawn by this module; the others keep the card renderer
-	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map",
+	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "hierarchy",
 		"number-card", "stat-strip", "ranked-bars", "table");
 }
 
@@ -699,6 +699,10 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 	if ($strrep=="map") {
 		return f_t2srep_render_map($jsontext2sql, $strlang);
 	}
+	//Phase 3 lot C
+	if ($strrep=="hierarchy") {
+		return f_t2srep_render_hierarchy($jsontext2sql, $strlang, $fnposter);
+	}
 	return f_t2srep_render_scalar_cards($arrrecords, $arrcolumns, $strlang);
 }
 
@@ -950,6 +954,10 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	//Phase 3 lot B: the flag-list sentence, placed on the map
 	if ($strrepb=="map") {
 		return f_t2srep_caption_flags($jsontext2sql, $strlang, $inthasmore, true);
+	}
+	//Phase 3 lot C
+	if ($strrepb=="hierarchy") {
+		return f_t2srep_caption_hierarchy($jsontext2sql, $strlang, $inthasmore);
 	}
 	if ($lngcount<2) {
 		return "";
@@ -3211,4 +3219,238 @@ function f_t2srep_caption_scatter($jsontext2sql, $strlang='en', $inthasmore=fals
 		}
 	}
 	return $strtext.".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phase 3 lot C: hierarchy, the rows under their groups
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_hierarchy_kind($strkind) {
+	//Purpose: What a level groups (summary_facts.hierarchy.levels[].kind), as voice-agent's
+	//			T2S_HIERARCHY_KINDS: array(English plural, French plural, French gender)
+	$arrkinds=array(
+		"trilogy"=>array("trilogies", "trilogies", "f"), "saga"=>array("sagas", "sagas", "f"), "franchise"=>array("franchises", "franchises", "f"),
+		"universe"=>array("universes", "univers", "m"), "collection"=>array("collections", "collections", "f"), "region"=>array("regions", "régions", "f"),
+		"state"=>array("states", "États", "m"), "nation"=>array("nations", "nations", "f"), "country"=>array("countries", "pays", "m"),
+		"province"=>array("provinces", "provinces", "f"), "county"=>array("counties", "comtés", "m"), "department"=>array("departments", "départements", "m"),
+		"city"=>array("cities", "villes", "f"), "actor"=>array("actors", "acteurs", "m"), "director"=>array("directors", "réalisateurs", "m"),
+		"company"=>array("companies", "sociétés", "f"), "network"=>array("networks", "chaînes", "f"), "genre"=>array("genres", "genres", "m"),
+		"person"=>array("people", "personnes", "f"), "group"=>array("groups", "groupes", "m"),
+	);
+	$strkind=(string)$strkind;
+	return isset($arrkinds[$strkind]) ? $arrkinds[$strkind] : $arrkinds["group"];
+}
+
+function f_t2srep_hierarchy_leaf_noun($stridcolumn, $arrrecords) {
+	//Purpose: The leaves' noun, as text2SqlHierarchyLeafNoun(): films and series mixed are
+	//			titles, one type alone takes its own noun
+	$arrleaves=array(
+		"ID_MOVIE"=>array("films", "films", "m"), "ID_SERIE"=>array("series", "séries", "f"), "ID_CONTENT"=>array("titles", "titres", "m"),
+		"ID_PERSON"=>array("people", "personnes", "f"), "ID_LOCATION"=>array("places", "lieux", "m"),
+		"ID_T2S_COLLECTION"=>array("collections", "collections", "f"), "ID_COLLECTION"=>array("collections", "collections", "f"),
+		"ID_COMPANY"=>array("companies", "sociétés", "f"), "ID_NETWORK"=>array("networks", "chaînes", "f"),
+	);
+	$strkey=strtoupper((string)$stridcolumn);
+	if ($strkey=="ID_CONTENT") {
+		$arrtypes=array();
+		foreach ($arrrecords as $arrrecord) {
+			$arrtypes[is_array($arrrecord) && isset($arrrecord['CONTENT_TYPE']) ? (string)$arrrecord['CONTENT_TYPE'] : ""]=true;
+		}
+		if (count($arrtypes)==1 && isset($arrtypes['movie'])) {
+			$strkey="ID_MOVIE";
+		} elseif (count($arrtypes)==1 && isset($arrtypes['serie'])) {
+			$strkey="ID_SERIE";
+		}
+	}
+	return isset($arrleaves[$strkey]) ? $arrleaves[$strkey] : array("results", "résultats", "m");
+}
+
+function f_t2srep_hierarchy_model($jsontext2sql, $strlang='en') {
+	//Purpose: Mirrors text2SqlHierarchyModel(): the API's groups (summary_facts.hierarchy), never
+	//			regrouped here. A group: name, unnamed, count, record (the group's own entity when
+	//			its level has an id), groups, leaves; a leaf: index, record, title, year. The leaf's
+	//			record is the whole row when the leaf is the row's own entity (leaf.image), else its
+	//			id and name alone, so a film beside its collection never takes the collection's
+	//			poster nor its page.
+	//Returns: array("image"=>bool, "groups"=>array(...)), or null without the facts
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['hierarchy']) || !is_array($jsontext2sql['summary_facts']['hierarchy'])) {
+		return null;
+	}
+	$arrfacts=$jsontext2sql['summary_facts']['hierarchy'];
+	if (!isset($arrfacts['groups']) || !is_array($arrfacts['groups']) || !isset($arrfacts['levels']) || !is_array($arrfacts['levels']) || !count($arrfacts['levels'])
+		|| !isset($arrfacts['leaf']) || !is_array($arrfacts['leaf'])) {
+		return null;
+	}
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	$stridcolumn=isset($arrfacts['leaf']['id_column']) ? (string)$arrfacts['leaf']['id_column'] : "";
+	$strlabelcolumn=isset($arrfacts['leaf']['label_column']) ? (string)$arrfacts['leaf']['label_column'] : "";
+	$intimage=!empty($arrfacts['leaf']['image']);
+	$arrlevels=array_values($arrfacts['levels']);
+	$fnleaf=function($lngindex) use ($arrrecords, $stridcolumn, $strlabelcolumn, $intimage) {
+		if (!is_int($lngindex) || !isset($arrrecords[$lngindex]) || !is_array($arrrecords[$lngindex])) {
+			return null;
+		}
+		$arrfull=$arrrecords[$lngindex];
+		if ($intimage) {
+			$arrrecord=$arrfull;
+		} else {
+			$arrrecord=array();
+			foreach (array($stridcolumn, $strlabelcolumn, "CONTENT_TYPE") as $strkey) {
+				if ($strkey!="" && isset($arrfull[$strkey])) {
+					$arrrecord[$strkey]=$arrfull[$strkey];
+				}
+			}
+		}
+		$lngyear=null;
+		if ($intimage) {
+			$lngyear=f_t2srep_year(isset($arrfull['DAT_RELEASE']) ? $arrfull['DAT_RELEASE'] : (isset($arrfull['DAT_FIRST_AIR']) ? $arrfull['DAT_FIRST_AIR'] : null));
+		}
+		return array("index"=>$lngindex, "record"=>$arrrecord,
+			"title"=>($strlabelcolumn!="" && isset($arrfull[$strlabelcolumn])) ? (string)$arrfull[$strlabelcolumn] : "",
+			"year"=>$lngyear===null ? "" : (string)$lngyear);
+	};
+	$fngroup=function($arrgroup, $lngdepth) use (&$fngroup, $fnleaf, $arrlevels, $strlang) {
+		$arrlevel=isset($arrlevels[$lngdepth]) && is_array($arrlevels[$lngdepth]) ? $arrlevels[$lngdepth] : array();
+		$intunnamed=!isset($arrgroup['label']) || $arrgroup['label']===null || trim((string)$arrgroup['label'])==="";
+		$stridcol=isset($arrlevel['id_column']) ? (string)$arrlevel['id_column'] : "";
+		$arrrecord=null;
+		if (!$intunnamed && $stridcol!="" && isset($arrgroup['id']) && $arrgroup['id']!==null && (string)$arrgroup['id']!=="") {
+			$arrrecord=array($stridcol=>$arrgroup['id'], (isset($arrlevel['column']) ? (string)$arrlevel['column'] : "")=>$arrgroup['label']);
+		}
+		$arrsubs=array();
+		if (isset($arrgroup['groups']) && is_array($arrgroup['groups'])) {
+			foreach ($arrgroup['groups'] as $arrsub) {
+				$arrsubs[]=$fngroup($arrsub, $lngdepth+1);
+			}
+		}
+		$arrleaves=array();
+		if (isset($arrgroup['rows']) && is_array($arrgroup['rows'])) {
+			foreach ($arrgroup['rows'] as $lngindex) {
+				$arrleaf=$fnleaf(is_numeric($lngindex) ? (int)$lngindex : null);
+				if ($arrleaf!==null) {
+					$arrleaves[]=$arrleaf;
+				}
+			}
+		}
+		return array("name"=>$intunnamed ? ($strlang=="fr" ? "Autres" : "Other") : (string)$arrgroup['label'], "unnamed"=>$intunnamed,
+			"count"=>isset($arrgroup['count']) ? (int)$arrgroup['count'] : 0, "record"=>$arrrecord, "groups"=>$arrsubs, "leaves"=>$arrleaves);
+	};
+	$arrgroups=array();
+	foreach ($arrfacts['groups'] as $arrgroup) {
+		$arrgroups[]=$fngroup(is_array($arrgroup) ? $arrgroup : array(), 0);
+	}
+	return array("image"=>$intimage, "groups"=>$arrgroups);
+}
+
+function f_t2srep_render_hierarchy($jsontext2sql, $strlang='en', $fnposter=null) {
+	//Purpose: Mirrors renderHierarchy(): one section per outer group, an h3 with its name (linked
+	//			to its page when the level has an id the site has a page for) and its count, a
+	//			third level as h4 sections, the leaves as compact rows in a grid that falls to one
+	//			column on a phone: a small poster or face when the leaf is the row's own entity, the
+	//			title linked as a card is, the year of a film or a series. Real headings and lists,
+	//			no collapsing, no script.
+	$arrmodel=f_t2srep_hierarchy_model($jsontext2sql, $strlang);
+	$arrcolumns=f_t2srep_columns($jsontext2sql);
+	if ($arrmodel===null) {
+		return f_t2srep_render_table(f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array()), $arrcolumns, $strlang);
+	}
+	$fnsection=function($arrgroup, $lngdepth) use (&$fnsection, $arrmodel, $arrcolumns, $fnposter) {
+		$strtag=$lngdepth==0 ? "h3" : "h4";
+		$strname=f_t2srep_h($arrgroup['name']);
+		$strhref="";
+		if (is_array($arrgroup['record'])) {
+			foreach (array_keys($arrgroup['record']) as $strkey) {
+				if (strpos(strtoupper((string)$strkey), "ID_")===0) {
+					$strhref=f_t2srep_entity_href_for($arrgroup['record'], $strkey);
+				}
+			}
+		}
+		$strhtml="<section class=\"t2sHierGroup".($lngdepth>0 ? " t2sHierInner" : "")."\"><".$strtag." class=\"t2sHierHead\">"
+			."<span class=\"t2sHierName".($arrgroup['unnamed'] ? " isUnnamed" : "")."\">".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".$strname."</a>" : $strname)."</span> "
+			."<span class=\"t2sHierCount\">".(int)$arrgroup['count']."</span></".$strtag.">";
+		if (count($arrgroup['groups'])) {
+			foreach ($arrgroup['groups'] as $arrsub) {
+				$strhtml.=$fnsection($arrsub, $lngdepth+1);
+			}
+			return $strhtml."</section>";
+		}
+		$strhtml.="<ul class=\"t2sHierLeaves\">";
+		foreach ($arrgroup['leaves'] as $arrleaf) {
+			$arrmedia=f_t2srep_entity_media($arrleaf['record'], $arrcolumns, $fnposter);
+			$strtitle=$arrleaf['title']!="" ? $arrleaf['title'] : $arrmedia['title'];
+			$strurl=$arrmedia['url'];
+			if ($strurl=="" && isset($arrleaf['record']['WIKIPEDIA_IMAGE_PATH']) && preg_match('#^https://#', (string)$arrleaf['record']['WIKIPEDIA_IMAGE_PATH'])) {
+				//A place shows its picture, as its card does
+				$strurl=(string)$arrleaf['record']['WIKIPEDIA_IMAGE_PATH'];
+			}
+			$strinner="";
+			if ($arrmodel['image']) {
+				$strinner.=$strurl!="" ? "<img class=\"t2sHierThumb\" src=\"".f_t2srep_h($strurl)."\" alt=\"\" loading=\"lazy\">" : "<span class=\"t2sHierThumb isEmpty\" aria-hidden=\"true\"></span>";
+			}
+			$strinner.="<span class=\"t2sHierText\"><span class=\"t2sHierTitle\">".f_t2srep_h($strtitle)."</span>"
+				.($arrleaf['year']!="" ? "<span class=\"t2sHierSub\">".f_t2srep_h($arrleaf['year'])."</span>" : "")."</span>";
+			$strhref=$arrmedia['href'];
+			$strhtml.="<li class=\"t2sHierLeaf\">".($strhref!="" ? "<a class=\"t2sHierLink\" href=\"".f_t2srep_h($strhref)."\">".$strinner."</a>" : $strinner)."</li>";
+		}
+		return $strhtml."</ul></section>";
+	};
+	$strhtml="<div class=\"t2sHier\">";
+	foreach ($arrmodel['groups'] as $arrgroup) {
+		$strhtml.=$fnsection($arrgroup, 0);
+	}
+	return $strhtml."</div>";
+}
+
+function f_t2srep_caption_hierarchy($jsontext2sql, $strlang='en', $inthasmore=false) {
+	//Purpose: Mirrors text2SqlHierarchySummary(): "Six films in two trilogies, three in each." /
+	//			"37 films en douze collections ; la plus grande, The Avengers Collection, en compte
+	//			six."; three levels "Seven places in five counties and three nations; ..."; leaves
+	//			shared "(five in more than one)" / "(cinq dans plusieurs)"; "the first N" while
+	//			another page may follow
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['hierarchy']) || !is_array($jsontext2sql['summary_facts']['hierarchy'])) {
+		return "";
+	}
+	$arrfacts=$jsontext2sql['summary_facts']['hierarchy'];
+	if (!isset($arrfacts['levels']) || !is_array($arrfacts['levels']) || !count($arrfacts['levels']) || !isset($arrfacts['groups']) || !is_array($arrfacts['groups'])
+		|| !isset($arrfacts['leaf']) || !is_array($arrfacts['leaf'])) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	$arrlevels=array_values($arrfacts['levels']);
+	$arrnoun=f_t2srep_hierarchy_leaf_noun(isset($arrfacts['leaf']['id_column']) ? $arrfacts['leaf']['id_column'] : "",
+		f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array()));
+	$strgender=$arrnoun[2];
+	$strplural=$intfr ? $arrnoun[1] : $arrnoun[0];
+	$strn=f_t2srep_count_word(isset($arrfacts['leaf']['count']) ? (int)$arrfacts['leaf']['count'] : 0, $strlang, $strgender);
+	if ($inthasmore) {
+		$strlead=$intfr ? "les ".$strn." ".($strgender=="f" ? "premières" : "premiers")." ".$strplural : "the first ".$strn." ".$strplural;
+	} else {
+		$strlead=$strn." ".$strplural;
+	}
+	$arrouter=f_t2srep_hierarchy_kind(isset($arrlevels[0]['kind']) ? $arrlevels[0]['kind'] : "");
+	$strouter=f_t2srep_count_word(isset($arrlevels[0]['count']) ? (int)$arrlevels[0]['count'] : 0, $strlang, $arrouter[2])." ".($intfr ? $arrouter[1] : $arrouter[0]);
+	if (count($arrlevels)>1) {
+		$arrinner=f_t2srep_hierarchy_kind(isset($arrlevels[1]['kind']) ? $arrlevels[1]['kind'] : "");
+		$strinner=f_t2srep_count_word(isset($arrlevels[1]['count']) ? (int)$arrlevels[1]['count'] : 0, $strlang, $arrinner[2])." ".($intfr ? $arrinner[1] : $arrinner[0]);
+		$strlead.=$intfr ? " dans ".$strinner." et ".$strouter : " in ".$strinner." and ".$strouter;
+	} else {
+		$strlead.=$intfr ? " en ".$strouter : " in ".$strouter;
+	}
+	$lngshared=isset($arrfacts['shared']) ? (int)$arrfacts['shared'] : 0;
+	if ($lngshared>0) {
+		$strlead.=$intfr ? " (".f_t2srep_count_word($lngshared, $strlang, $strgender)." dans plusieurs)" : " (".f_t2srep_count_word($lngshared, $strlang, $strgender)." in more than one)";
+	}
+	$lnglargest=isset($arrfacts['largest']) && is_numeric($arrfacts['largest']) ? (int)$arrfacts['largest'] : -1;
+	$arrtop=($lnglargest>=0 && isset($arrfacts['groups'][$lnglargest]) && is_array($arrfacts['groups'][$lnglargest])) ? $arrfacts['groups'][$lnglargest] : null;
+	$strtail="";
+	if ($arrtop!==null) {
+		$strk=f_t2srep_count_word(isset($arrtop['count']) ? (int)$arrtop['count'] : 0, $strlang, $strgender);
+		if (!empty($arrfacts['even'])) {
+			$strtail=$intfr ? ", ".$strk." dans ".($arrouter[2]=="f" ? "chacune" : "chacun") : ", ".$strk." in each";
+		} else {
+			$strname=(!isset($arrtop['label']) || $arrtop['label']===null || trim((string)$arrtop['label'])==="") ? ($intfr ? "Autres" : "Other") : (string)$arrtop['label'];
+			$strtail=$intfr ? " ; ".($arrouter[2]=="f" ? "la plus grande" : "le plus grand").", ".$strname.", en compte ".$strk : "; the largest, ".$strname.", has ".$strk;
+		}
+	}
+	return f_t2srep_ucfirst($strlead).$strtail.".";
 }
