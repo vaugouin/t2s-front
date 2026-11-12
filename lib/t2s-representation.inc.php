@@ -666,11 +666,13 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 		return f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
 	}
 	$arrfacts=isset($jsontext2sql['summary_facts']) && is_array($jsontext2sql['summary_facts']) ? $jsontext2sql['summary_facts'] : array();
+	//The question a bucket of a histogram, a trend or a share asks its follow-up from (drill-down)
+	$strquestion=isset($jsontext2sql['question']) ? (string)$jsontext2sql['question'] : "";
 	if ($strrep=="timeline") {
 		return f_t2srep_render_timeline($arrrecords, $arrcolumns, $strlang, $fnposter, $arrfacts);
 	}
 	if ($strrep=="trend-columns") {
-		return f_t2srep_render_trend_columns($arrrecords, $arrcolumns, $strlang, $arrfacts);
+		return f_t2srep_render_trend_columns($arrrecords, $arrcolumns, $strlang, $arrfacts, $strquestion);
 	}
 	if ($strrep=="compare-cards") {
 		return f_t2srep_render_compare_cards($arrrecords, $arrcolumns, $strlang, $fnposter, $arrfacts);
@@ -683,7 +685,7 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 	}
 	//Phase 2 lot C
 	if ($strrep=="histogram") {
-		return f_t2srep_render_histogram($arrrecords, $arrcolumns, $strlang, $arrfacts);
+		return f_t2srep_render_histogram($arrrecords, $arrcolumns, $strlang, $arrfacts, $strquestion);
 	}
 	if ($strrep=="share-bar") {
 		return f_t2srep_render_share_bar($jsontext2sql, $strlang);
@@ -1409,13 +1411,14 @@ function f_t2srep_trend_peak($arrrecords, $strmetric, $arrfacts=array()) {
 	return $lngpeak;
 }
 
-function f_t2srep_render_trend_columns($arrrecords, $arrcolumns, $strlang='en', $arrfacts=array()) {
+function f_t2srep_render_trend_columns($arrrecords, $arrcolumns, $strlang='en', $arrfacts=array(), $strquestion="") {
 	//Purpose: The trend: one vertical column per row, in row order (a missing
 	//			period is not filled in), x the period ("1980s" / "années 1980" for a decade),
 	//			height the metric, the value formatted by its unit. Pure HTML and CSS; each column
 	//			carries its period and value as text, so a screen reader reads "1980s: 11". Over
 	//			twelve columns the values above the bars are hidden from sight (still read, and in
-	//			the tooltip), and the extremum keeps its value.
+	//			the tooltip), and the extremum keeps its value. With the question, a column is a link
+	//			to its follow-up (drill-down): "... list those whose release year is 2027."
 	$strperiod=f_t2srep_date_column($arrcolumns);
 	$arrmetric=f_t2srep_trend_metric($arrrecords, $arrcolumns, $arrfacts);
 	if ($strperiod=="" || $arrmetric===null || count($arrrecords)==0) {
@@ -1444,10 +1447,15 @@ function f_t2srep_render_trend_columns($arrrecords, $arrcolumns, $strlang='en', 
 		if (f_t2srep_is_number($value) && $dblmax>0 && (float)$value>0) {
 			$lngpct=max(1, (int)round(((float)$value/$dblmax)*100));
 		}
-		$strhtml.="<li class=\"t2sTrendCol".($lngi==$lngpeak ? " t2sTrendPeak" : "")."\" title=\"".f_t2srep_h($strperiodlabel.": ".$strvalue)."\">"
-			."<span class=\"t2sTrendValue\">".f_t2srep_h($strvalue)."</span>"
+		$strinner="<span class=\"t2sTrendValue\">".f_t2srep_h($strvalue)."</span>"
 			."<span class=\"t2sTrendTrack\" aria-hidden=\"true\"><span class=\"t2sTrendBar\" style=\"height:".$lngpct."%\"></span></span>"
-			."<span class=\"t2sTrendLabel\">".f_t2srep_h($strperiodlabel)."</span></li>";
+			."<span class=\"t2sTrendLabel\">".f_t2srep_h($strperiodlabel)."</span>";
+		$strfollowup=f_t2srep_drill_question($strquestion, f_t2srep_drill_word($strperiod, $strlang),
+			f_t2srep_drill_period_value($lngyear, $intdecade, isset($arrrecord[$strperiod]) ? $arrrecord[$strperiod] : "", $strlang), $strlang);
+		if ($strfollowup!=="") {
+			$strinner=f_t2srep_drill_link(f_t2srep_drill_href($strfollowup), $strinner, "t2sDrill", $strperiodlabel.($intfr ? " : " : ": ").$strvalue.". ".$strfollowup);
+		}
+		$strhtml.="<li class=\"t2sTrendCol".($lngi==$lngpeak ? " t2sTrendPeak" : "")."\" title=\"".f_t2srep_h($strperiodlabel.": ".$strvalue)."\">".$strinner."</li>";
 	}
 	return $strhtml."</ol></div></figure>";
 }
@@ -2269,11 +2277,12 @@ function f_t2srep_histogram_axis_name($arrmodel, $strlang='en') {
 	return f_t2srep_ucfirst($arrword['label']).$strunit.$strstep;
 }
 
-function f_t2srep_render_histogram($arrrecords, $arrcolumns, $strlang='en', $arrfacts=array()) {
+function f_t2srep_render_histogram($arrrecords, $arrcolumns, $strlang='en', $arrfacts=array(), $strquestion="") {
 	//Purpose: The histogram: one column per bin, in bin order, the columns touching; an empty bin
 	//			the API filled in keeps its slot (a dashed base). Every column carries its range and
 	//			its count as text, so a screen reader reads "120 to 149 min: 5"; the counts show over
 	//			the columns up to twelve bins, the peak's always. A long axis scrolls in its box.
+	//			With the question, a bin that holds rows is a link to its follow-up (drill-down).
 	$arrmodel=f_t2srep_histogram_model($arrfacts, $strlang);
 	if ($arrmodel===null) {
 		return f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
@@ -2283,13 +2292,19 @@ function f_t2srep_render_histogram($arrrecords, $arrcolumns, $strlang='en', $arr
 	$straxis=f_t2srep_histogram_axis_name($arrmodel, $strlang);
 	$strhtml="<figure class=\"t2sHisto".($intfew ? "" : " t2sHistoDense")."\" role=\"group\" aria-label=\"".f_t2srep_h($straxis)."\">"
 		."<div class=\"t2sHistoScroll\" tabindex=\"0\"><ol class=\"t2sHistoCols\" style=\"min-width:".(count($arrmodel['bars'])*($intfew ? 40 : 14))."px\">";
+	$arrbins=isset($arrmodel['histogram']['bins']) && is_array($arrmodel['histogram']['bins']) ? array_values($arrmodel['histogram']['bins']) : array();
+	$arrword=f_t2srep_drill_word($arrmodel['column'], $strlang);
 	foreach ($arrmodel['bars'] as $lngi=>$arrbar) {
 		$strtext=$arrbar['range'].($strlang=="fr" ? " : " : ": ").$arrbar['valuetext'];
-		$strhtml.="<li class=\"t2sHistoCol".($arrbar['peak'] ? " t2sHistoPeak" : "").($arrbar['empty'] ? " t2sHistoEmpty" : "")."\" title=\"".f_t2srep_h($strtext)."\">"
-			."<span class=\"t2sSrOnly\">".f_t2srep_h($strtext)."</span>"
+		$strinner="<span class=\"t2sSrOnly\">".f_t2srep_h($strtext)."</span>"
 			."<span class=\"t2sHistoValue\" aria-hidden=\"true\">".((($intfew && !$arrbar['empty']) || $arrbar['peak']) ? f_t2srep_h($arrbar['valuetext']) : "")."</span>"
 			."<span class=\"t2sHistoTrack\" aria-hidden=\"true\"><span class=\"t2sHistoBar\" style=\"height:".$arrbar['pct']."%\"></span></span>"
-			."<span class=\"t2sHistoLabel\" aria-hidden=\"true\">".(($lngi % $lngevery==0 || $arrbar['peak']) ? f_t2srep_h($arrbar['axis']) : "")."</span></li>";
+			."<span class=\"t2sHistoLabel\" aria-hidden=\"true\">".(($lngi % $lngevery==0 || $arrbar['peak']) ? f_t2srep_h($arrbar['axis']) : "")."</span>";
+		$strfollowup=$arrbar['empty'] ? "" : f_t2srep_drill_question($strquestion, $arrword, f_t2srep_drill_bin_value(isset($arrbins[$lngi]) ? $arrbins[$lngi] : null, $arrmodel['histogram'], $strlang), $strlang);
+		if ($strfollowup!=="") {
+			$strinner=f_t2srep_drill_link(f_t2srep_drill_href($strfollowup), $strinner, "t2sDrill", $strtext.". ".$strfollowup);
+		}
+		$strhtml.="<li class=\"t2sHistoCol".($arrbar['peak'] ? " t2sHistoPeak" : "").($arrbar['empty'] ? " t2sHistoEmpty" : "")."\" title=\"".f_t2srep_h($strtext)."\">".$strinner."</li>";
 	}
 	$strhtml.="</ol></div><figcaption class=\"t2sHistoAxis\">".f_t2srep_h($straxis)."</figcaption>";
 	if ($arrmodel['unbinned']>0) {
@@ -2405,24 +2420,50 @@ function f_t2srep_render_share_bar($jsontext2sql, $strlang='en') {
 	//Purpose: The share bar: one 100% bar, a segment per part in the API's order, its percentage
 	//			written on every segment of 12% or more; the legend below lists every part with its
 	//			swatch, label, count and percentage, so nothing rests on the colour. A part whose row
-	//			names an entity links to its page.
+	//			names an entity links to its page. A part asks its follow-up (drill-down): the
+	//			segment and the legend name link to it, the numbers when the name opens the entity;
+	//			never one share alone nor its rest. summary_facts.share.shape "pie" draws the
+	//			parts as a ring (f_t2srep_pie_svg()) beside the same legend; any other shape, or
+	//			none, the bar.
 	$arrmodel=f_t2srep_share_model($jsontext2sql, $strlang);
 	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
 	if ($arrmodel===null) {
 		return f_t2srep_render_table($arrrecords, f_t2srep_columns($jsontext2sql), $strlang);
 	}
+	$intpie=(isset($jsontext2sql['summary_facts']['share']['shape']) && $jsontext2sql['summary_facts']['share']['shape']==="pie");
 	$strbar="";
 	$strlegend="";
+	$arrdrillhrefs=array();
 	foreach ($arrmodel['segments'] as $lngi=>$arrsegment) {
 		$strhue=$arrsegment['rest'] ? "rest" : (string)($lngi % 8);
 		$strname=f_t2srep_ucfirst($arrsegment['label']);
-		$strbar.="<span class=\"t2sShareSeg\" data-hue=\"".$strhue."\" style=\"flex-grow:".f_t2srep_h((string)max($arrsegment['share'], 0.0001))."\" title=\"".f_t2srep_h($strname." ".$arrsegment['pcttext'])."\">"
-			.($arrsegment['share']>=0.12 ? f_t2srep_h($arrsegment['pcttext']) : "")."</span>";
+		$strnumbers=$arrsegment['valuetext']!=="" ? $arrsegment['valuetext']." · ".$arrsegment['pcttext'] : $arrsegment['pcttext'];
+		$strfollowup=f_t2srep_drill_share_question($jsontext2sql, $arrsegment, $strlang);
+		$strdrillhref=f_t2srep_drill_href($strfollowup);
+		$strdrilllabel=$strname.($strlang=="fr" ? " : " : ": ").$strnumbers.". ".$strfollowup;
+		$arrdrillhrefs[$lngi]=$strdrillhref;
+		$strseginner=$arrsegment['share']>=0.12 ? f_t2srep_h($arrsegment['pcttext']) : "";
+		$strsegstyle=" data-hue=\"".$strhue."\" style=\"flex-grow:".f_t2srep_h((string)max($arrsegment['share'], 0.0001))."\"";
+		if ($strdrillhref!="") {
+			$strbar.="<a class=\"t2sShareSeg t2sDrill\"".$strsegstyle." href=\"".f_t2srep_h($strdrillhref)."\" tabindex=\"-1\" title=\"".f_t2srep_h($strname." ".$arrsegment['pcttext'])."\">".$strseginner."</a>";
+		} else {
+			$strbar.="<span class=\"t2sShareSeg\"".$strsegstyle." title=\"".f_t2srep_h($strname." ".$arrsegment['pcttext'])."\">".$strseginner."</span>";
+		}
 		$strhref=($arrsegment['index']!==null && isset($arrrecords[$arrsegment['index']])) ? f_t2srep_entity_href($arrrecords[$arrsegment['index']]) : "";
-		$strnamehtml=$strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".f_t2srep_h($strname)."</a>" : f_t2srep_h($strname);
+		if ($strhref!="") {
+			$strnamehtml="<a href=\"".f_t2srep_h($strhref)."\">".f_t2srep_h($strname)."</a>";
+		} elseif ($strdrillhref!="") {
+			$strnamehtml=f_t2srep_drill_link($strdrillhref, f_t2srep_h($strname), "t2sDrill", $strdrilllabel);
+		} else {
+			$strnamehtml=f_t2srep_h($strname);
+		}
+		$strnumbershtml=($strhref!="" && $strdrillhref!="") ? f_t2srep_drill_link($strdrillhref, f_t2srep_h($strnumbers), "t2sDrill", $strdrilllabel) : f_t2srep_h($strnumbers);
 		$strlegend.="<li class=\"t2sShareItem\"><span class=\"t2sShareSwatch\" data-hue=\"".$strhue."\" aria-hidden=\"true\"></span>"
 			."<span class=\"t2sShareName\">".$strnamehtml."</span>"
-			."<span class=\"t2sShareNumbers\">".f_t2srep_h($arrsegment['valuetext']!=="" ? $arrsegment['valuetext']." · ".$arrsegment['pcttext'] : $arrsegment['pcttext'])."</span></li>";
+			."<span class=\"t2sShareNumbers\">".$strnumbershtml."</span></li>";
+	}
+	if ($intpie) {
+		return "<div class=\"t2sShare t2sSharePie\">".f_t2srep_pie_svg($arrmodel['segments'], $arrdrillhrefs)."<ul class=\"t2sShareLegend\">".$strlegend."</ul></div>";
 	}
 	return "<div class=\"t2sShare\"><div class=\"t2sShareBar\" aria-hidden=\"true\">".$strbar."</div><ul class=\"t2sShareLegend\">".$strlegend."</ul></div>";
 }
@@ -2457,6 +2498,181 @@ function f_t2srep_caption_share($jsontext2sql, $strlang='en') {
 		$strlist.=$intfr ? " et ".($lngk-3)." ".($lngk-3==1 ? "autre" : "autres") : " and ".($lngk-3)." more";
 	}
 	return f_t2srep_ucfirst($strlead).($intfr ? " : " : ": ").$strlist.".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Drill-down on the bucketed views: a histogram bin, a trend column, a share part asks a
+ * follow-up question built from the original question and the bucket, in the UI language, with
+ * no model call: "Among the items counted in "<question>", list those whose number of seasons is 3."
+ * Mirrors voice-agent (text2SqlDrillWord(), text2SqlDrillQuestion(), text2SqlDrillBinValue(),
+ * text2SqlDrillPeriodValue(), text2SqlDrillShareQuestion()): the same words and the same rules,
+ * change both. Here a bucket is a link to the search page with the follow-up as its question;
+ * voice-agent sends it as a typed question.
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_drill_word($strcolumn, $strlang='en') {
+	//Purpose: How a follow-up names the quantity or the category of a bucket: the column without
+	//			its bin suffix (RUNTIME_BUCKET is RUNTIME), from a table of its own so both fronts
+	//			word it the same (their axis titles differ: "seasons" there, "number of seasons"
+	//			here), else the column name in plain words
+	//Returns: array("label"=>..., "gender"=>"m"|"f") (the gender picks the French article)
+	$strname=preg_replace('/_(?:BUCKET|BAND|BIN|RANGE|START|MIN|LOW|FROM|DEBUT)(?:_MINUTES)?$/i', '', (string)$strcolumn);
+	$strname=preg_replace('/_(?:BUCKET|BAND|BIN|RANGE)$/i', '', $strname);
+	if ($strname=="") {
+		$strname=(string)$strcolumn;
+	}
+	if (preg_match('/^(duree|duration|runtime)/i', $strname)) {
+		$strname="RUNTIME";
+	}
+	$arrwords=array(
+		"RUNTIME"=>array("runtime", "durée", "f"),
+		"BUDGET"=>array("budget", "budget", "m"),
+		"REVENUE"=>array("revenue", "box-office", "m"),
+		"IMDB_RATING"=>array("IMDb rating", "note IMDb", "f"),
+		"IMDB_RATING_WEIGHTED"=>array("IMDb rating", "note IMDb", "f"),
+		"IMDB_RATING_ADJUSTED"=>array("IMDb rating", "note IMDb", "f"),
+		"RATING"=>array("rating", "note", "f"),
+		"IMDB_VOTES"=>array("number of IMDb votes", "nombre de votes IMDb", "m"),
+		"VOTE_AVERAGE"=>array("TMDb rating", "note TMDb", "f"),
+		"VOTE_COUNT"=>array("number of TMDb votes", "nombre de votes TMDb", "m"),
+		"POPULARITY"=>array("popularity", "popularité", "f"),
+		"NUMBER_OF_SEASONS"=>array("number of seasons", "nombre de saisons", "m"),
+		"NUMBER_OF_EPISODES"=>array("number of episodes", "nombre d'épisodes", "m"),
+		"AGE"=>array("age", "âge", "m"),
+		"BIRTH_YEAR"=>array("birth year", "année de naissance", "f"),
+		"DEATH_YEAR"=>array("death year", "année de décès", "f"),
+		"RELEASE_YEAR"=>array("release year", "année de sortie", "f"),
+		"FIRST_AIR_YEAR"=>array("first air year", "année de première diffusion", "f"),
+		"YEAR"=>array("year", "année", "f"),
+		"ANNEE"=>array("year", "année", "f"),
+		"DECADE"=>array("decade", "décennie", "f"),
+		"DECENNIE"=>array("decade", "décennie", "f"),
+		"DAT_RELEASE"=>array("release date", "date de sortie", "f"),
+		"DAT_FIRST_AIR"=>array("first air date", "date de première diffusion", "f"),
+		"STATUS"=>array("status", "statut", "m"),
+		"SERIE_TYPE"=>array("type", "type", "m"),
+		"TYPE"=>array("type", "type", "m"),
+		"GENDER"=>array("gender", "genre", "m"),
+		"GENRE_NAME"=>array("genre", "genre", "m"),
+		"ORIGINAL_LANGUAGE"=>array("original language", "langue originale", "f"),
+	);
+	$strkey=strtoupper($strname);
+	if (isset($arrwords[$strkey])) {
+		return array("label"=>$arrwords[$strkey][$strlang=="fr" ? 1 : 0], "gender"=>$arrwords[$strkey][2]);
+	}
+	return array("label"=>strtolower(f_t2srep_pretty_label($strname)), "gender"=>"m");
+}
+
+function f_t2srep_drill_question($strquestion, $arrword, $strvalue, $strlang='en') {
+	//Purpose: The follow-up of a bucket: 'Among the items counted in "<question>", list those
+	//			whose <word> is <value>.' / 'Parmi les éléments comptés dans « <question> », liste
+	//			ceux dont <le|la|l'><word> est <value>.'; "" with no question or no value. Chosen on
+	//			the live API among three wordings: "counted in" keeps the conditions of the original
+	//			question (the films announced, not every film of the year), and "list" asks for the
+	//			rows, not another distribution.
+	$strquestion=trim(preg_replace('/\s+/u', ' ', (string)$strquestion));
+	$strvalue=trim((string)$strvalue);
+	if ($strquestion==="" || $strvalue==="" || !is_array($arrword) || !isset($arrword['label']) || $arrword['label']==="") {
+		return "";
+	}
+	if ($strlang=="fr") {
+		$strarticle=preg_match('/^[aeiouyhâàéèêîïôû]/iu', $arrword['label']) ? "l'" : ($arrword['gender']=="f" ? "la " : "le ");
+		return "Parmi les éléments comptés dans « ".$strquestion." », liste ceux dont ".$strarticle.$arrword['label']." est ".$strvalue.".";
+	}
+	return "Among the items counted in \"".$strquestion."\", list those whose ".$arrword['label']." is ".$strvalue.".";
+}
+
+function f_t2srep_drill_href($strfollowup) {
+	//Purpose: The search page asking the follow-up: relative, so the URL prefix (language, private
+	//			mode) of the page is kept, as the samples page links its questions; "" with no question
+	return $strfollowup==="" ? "" : "index.php?search=".rawurlencode($strfollowup);
+}
+
+function f_t2srep_drill_bin_value($arrbin, $arrhistogram, $strlang='en') {
+	//Purpose: The bucket of a histogram bin in a follow-up: its exact value for a step of 1 (or a
+	//			bin whose end is its start), "between <low> and <high>" / "entre <low> et <high>"
+	//			otherwise (the end: the bin's own, else start + width - 1 for whole numbers, else
+	//			start + width), a text bin its label; "<n> minutes" on a runtime. "" for an empty bin.
+	if (!is_array($arrbin) || !empty($arrbin['empty']) || !(isset($arrbin['value']) && f_t2srep_is_number($arrbin['value']) && (float)$arrbin['value']>0)) {
+		return "";
+	}
+	if (isset($arrbin['label']) && $arrbin['label']!==null && trim((string)$arrbin['label'])!=="") {
+		return trim((string)$arrbin['label']);
+	}
+	$low=isset($arrbin['low']) ? $arrbin['low'] : null;
+	if (!f_t2srep_is_number($low)) {
+		return "";
+	}
+	$strunit=isset($arrhistogram['unit']) ? (string)$arrhistogram['unit'] : "";
+	$high=isset($arrbin['high']) && f_t2srep_is_number($arrbin['high']) ? (float)$arrbin['high'] : null;
+	$width=isset($arrhistogram['width']) && f_t2srep_is_number($arrhistogram['width']) ? (float)$arrhistogram['width'] : null;
+	if ($high===null && $width!==null && $width>0 && $width!=1) {
+		$high=(floor((float)$low)==(float)$low && floor($width)==$width) ? (float)$low+$width-1 : (float)$low+$width;
+	}
+	$strsuffix=$strunit=="minutes" ? " minutes" : "";
+	$strlow=f_t2srep_bin_value($low, $strunit);
+	if ($high===null || $high==(float)$low) {
+		return $strlow.$strsuffix;
+	}
+	$strhigh=f_t2srep_bin_value($high, $strunit);
+	return ($strlang=="fr" ? "entre ".$strlow." et " : "between ".$strlow." and ").$strhigh.$strsuffix;
+}
+
+function f_t2srep_drill_period_value($lngyear, $intdecade, $strraw, $strlang='en') {
+	//Purpose: The bucket of a trend column in a follow-up: the year, "the 1980s" / "les années
+	//			1980" for a decade, the cell as is when it holds no year
+	if ($lngyear===null) {
+		return trim((string)$strraw);
+	}
+	if ($intdecade) {
+		return $strlang=="fr" ? "les années ".$lngyear : "the ".$lngyear."s";
+	}
+	return (string)$lngyear;
+}
+
+function f_t2srep_drill_share_question($jsontext2sql, $arrsegment, $strlang='en') {
+	//Purpose: The follow-up of a share part, "" when the part asks none: one share alone, the rest
+	//			of a share, no question or no label column
+	$arrshare=(is_array($jsontext2sql) && isset($jsontext2sql['summary_facts']['share']) && is_array($jsontext2sql['summary_facts']['share'])) ? $jsontext2sql['summary_facts']['share'] : null;
+	if ($arrshare===null || (isset($arrshare['kind']) && $arrshare['kind']=="single") || !empty($arrsegment['rest'])
+		|| !isset($arrshare['label_column']) || (string)$arrshare['label_column']==="") {
+		return "";
+	}
+	$strquestion=isset($jsontext2sql['question']) ? (string)$jsontext2sql['question'] : "";
+	return f_t2srep_drill_question($strquestion, f_t2srep_drill_word($arrshare['label_column'], $strlang), $arrsegment['label'], $strlang);
+}
+
+function f_t2srep_drill_link($strhref, $strinner, $strclass, $strlabel, $inttabindex=true) {
+	//Purpose: A bucket as a link to its follow-up: focusable, named for a screen reader by what it
+	//			shows and the question it asks; $inttabindex false keeps it out of the tab order (a
+	//			second way to the same link, in a drawing hidden from screen readers)
+	return "<a class=\"".f_t2srep_h($strclass)."\" href=\"".f_t2srep_h($strhref)."\""
+		.($inttabindex ? " aria-label=\"".f_t2srep_h($strlabel)."\"" : " tabindex=\"-1\"")
+		." title=\"".f_t2srep_h($strlabel)."\">".$strinner."</a>";
+}
+
+function f_t2srep_pie_svg($arrsegments, $arrhrefs) {
+	//Purpose: The pie of a share bar asked as a pie: an SVG ring, one arc per part in the order and
+	//			hues of the bar, from the top, clockwise. The ring is a circle of circumference 100,
+	//			so an arc of share s is a dash of s*100. Hidden from screen readers: the legend says
+	//			it all. An arc whose part asks a follow-up links to it (out of the tab order, the
+	//			legend holds the focusable link). Mirrors renderSharePie() of voice-agent.
+	$strsvg="<svg class=\"t2sPie\" viewBox=\"0 0 42 42\" aria-hidden=\"true\" focusable=\"false\">"
+		."<circle class=\"t2sPieHole\" cx=\"21\" cy=\"21\" r=\"15.91549\"></circle>";
+	$dblstart=0;
+	$lngcount=count($arrsegments);
+	foreach ($arrsegments as $lngi=>$arrsegment) {
+		$dbllen=max(0, (float)$arrsegment['share'])*100;
+		$strhue=$arrsegment['rest'] ? "rest" : (string)($lngi % 8);
+		$dbldash=$lngcount>1 ? max($dbllen-0.6, min($dbllen, 0.4)) : $dbllen;
+		$strcircle="<circle class=\"t2sPieSeg\" data-hue=\"".$strhue."\" cx=\"21\" cy=\"21\" r=\"15.91549\""
+			." stroke-dasharray=\"".round($dbldash, 3)." ".round(100-$dbldash, 3)."\" stroke-dashoffset=\"".round(25-$dblstart, 3)."\">"
+			."<title>".f_t2srep_h(f_t2srep_ucfirst($arrsegment['label'])." ".$arrsegment['pcttext'])."</title></circle>";
+		$strhref=isset($arrhrefs[$lngi]) ? $arrhrefs[$lngi] : "";
+		$strsvg.=$strhref!="" ? "<a class=\"t2sPieLink\" href=\"".f_t2srep_h($strhref)."\" tabindex=\"-1\">".$strcircle."</a>" : $strcircle;
+		$dblstart+=$dbllen;
+	}
+	return $strsvg."</svg>";
 }
 
 function f_t2srep_flag_emoji($strcode) {

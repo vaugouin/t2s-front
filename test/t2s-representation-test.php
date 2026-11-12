@@ -773,12 +773,84 @@ $arrgm=f_t2srep_share_model($arrfix['lotc-share-gender-codes-en'],"fr");
 f_check("gender codes named fr",array($arrgm['segments'][0]['label'],$arrgm['segments'][1]['label'],$arrgm['segments'][2]['label']),array("femmes","hommes","non binaire"));
 f_check("percent below one",array(f_t2srep_percent(0.004,"en"),f_t2srep_percent(0.004,"fr"),f_t2srep_percent(0,"en")),array("<1%","<1 %","0%"));
 $strhtml=f_t2srep_render("share-bar",$arrst,"en");
-f_contains("share legend: label, count, percentage",$strhtml,"<span class=\"t2sShareName\">Scripted</span><span class=\"t2sShareNumbers\">182 · 49%</span>");
+f_contains("share legend: label, count, percentage",$strhtml,">Scripted</a></span><span class=\"t2sShareNumbers\">182 · 49%</span>");
 f_contains("share bar hidden from screen readers (the legend says it)",$strhtml,"<div class=\"t2sShareBar\" aria-hidden=\"true\">");
-f_contains("a wide segment shows its percentage",$strhtml,"title=\"Scripted 49%\">49%</span>");
+f_contains("a wide segment shows its percentage",$strhtml,"title=\"Scripted 49%\">49%</a>");
 $strhtml=f_t2srep_render("share-bar",$arrfix['lotc-share-single-en'],"en");
 f_contains("one share: the rest striped",$strhtml,"data-hue=\"rest\"");
 f_contains("one share: the rest in the legend",$strhtml,"<span class=\"t2sShareName\">The rest</span><span class=\"t2sShareNumbers\">26%</span>");
+
+f_group("Drill-down: the follow-up a bucket asks");
+//Word for word the follow-ups of voice-agent (tools/check-result-representations.mjs, "drill"):
+//chosen on the live API (2026-11-12), each returned the entities of the bucket as a card grid.
+$arrseasons=$arrfix['lotc-histogram-seasons-en'];
+$strfollow="Among the items counted in \"How are HBO series distributed by number of seasons?\", list those whose number of seasons is 3.";
+$strhtml=f_t2srep_render("histogram",$arrseasons,"en");
+f_contains("histogram bin links to its follow-up",$strhtml,"href=\"".f_t2srep_h(f_t2srep_drill_href($strfollow))."\"");
+f_contains("histogram bin link named by its count and its question",$strhtml,"aria-label=\"3: 33. ".f_t2srep_h($strfollow)."\"");
+f_check("follow-up link is relative to the search page (prefix and private mode kept)",substr(f_t2srep_drill_href($strfollow),0,17),"index.php?search=");
+$strbond=f_t2srep_render("histogram",$arrfix['lotc-histogram-bond-runtime-en'],"en");
+f_check("empty bins are no links",substr_count($strbond,"t2sHistoEmpty\" title=\"10 to 19 min: 0\"><span class=\"t2sSrOnly\">"),1);
+$arrkubrick=$arrfix['lotc-histogram-runtime-range-fr'];
+f_check("histogram range fr",f_t2srep_drill_question($arrkubrick['question'],f_t2srep_drill_word($arrkubrick['summary_facts']['histogram']['column'],"fr"),
+	f_t2srep_drill_bin_value($arrkubrick['summary_facts']['histogram']['bins'][2],$arrkubrick['summary_facts']['histogram'],"fr"),"fr"),
+	"Parmi les éléments comptés dans « Combien de films de Stanley Kubrick y a-t-il dans chaque tranche de durée de 30 minutes ? », liste ceux dont la durée est entre 60 et 89 minutes.");
+f_check("bin values",array(
+	f_t2srep_drill_bin_value(array("low"=>0,"high"=>null,"value"=>1),array("unit"=>"minutes","width"=>10),"en"),
+	f_t2srep_drill_bin_value(array("low"=>50000000,"high"=>99999999,"value"=>1),array("unit"=>"usd","width"=>50000000),"en"),
+	f_t2srep_drill_bin_value(array("low"=>3.8,"high"=>null,"value"=>1),array("unit"=>null,"width"=>0.1),"fr"),
+	f_t2srep_drill_bin_value(array("low"=>3,"high"=>null,"value"=>4),array("unit"=>"count","width"=>1),"en"),
+	f_t2srep_drill_bin_value(array("low"=>null,"label"=>"under 90","value"=>2),array("unit"=>"minutes"),"en"),
+	f_t2srep_drill_bin_value(array("low"=>30,"high"=>null,"value"=>0,"empty"=>true),array("unit"=>"minutes","width"=>30),"en")),
+	array("between 0 and 9 minutes","between \$50M and \$100M","entre 3.8 et 3.9","3","under 90",""));
+$arrpieen=$arrfix['lotc-share-pie-status-en'];
+$arrpieenmodel=f_t2srep_share_model($arrpieen,"en");
+f_check("share part en",f_t2srep_drill_share_question($arrpieen,$arrpieenmodel['segments'][1],"en"),
+	"Among the items counted in \"Show the split of the HBO series by status as a pie\", list those whose status is Canceled.");
+$arrpiefr=$arrfix['lotc-share-pie-status-fr'];
+$arrpiefrmodel=f_t2srep_share_model($arrpiefr,"fr");
+f_check("share part fr",f_t2srep_drill_share_question($arrpiefr,$arrpiefrmodel['segments'][1],"fr"),
+	"Parmi les éléments comptés dans « Montre la répartition des séries HBO par statut en camembert », liste ceux dont le statut est Canceled.");
+$arrsinglemodel=f_t2srep_share_model($arrfix['lotc-share-single-en'],"en");
+f_check("one share and its rest ask nothing",array(f_t2srep_drill_share_question($arrfix['lotc-share-single-en'],$arrsinglemodel['segments'][0],"en"),
+	f_t2srep_drill_share_question($arrfix['lotc-share-single-en'],$arrsinglemodel['segments'][1],"en")),array("",""));
+f_check("one share alone has no link",strpos(f_t2srep_render("share-bar",$arrfix['lotc-share-single-en'],"en"),"t2sDrill"),false);
+$arrperyear=$arrfix['lota-trend-films-per-year-fr'];
+$strhtml=f_t2srep_render("trend-columns",$arrperyear,"fr");
+f_contains("trend column links to its follow-up fr",$strhtml,"href=\"".f_t2srep_h(f_t2srep_drill_href(
+	"Parmi les éléments comptés dans « Combien de films sont sortis chaque année depuis 2000 ? », liste ceux dont l'année de sortie est 2000."))."\"");
+$arrdecades=$arrfix['lota-trend-woody-allen-decades-en'];
+f_contains("trend decade en",f_t2srep_render("trend-columns",$arrdecades,"en"),f_t2srep_h("Among the items counted in \"How many films did Woody Allen direct per decade?\", list those whose decade is the 1980s."));
+f_contains("trend decade fr",f_t2srep_render("trend-columns",$arrfix['lota-trend-woody-allen-decades-fr'],"fr"),
+	f_t2srep_h("Parmi les éléments comptés dans « Combien de films Woody Allen a-t-il réalisés par décennie ? », liste ceux dont la décennie est les années 1980."));
+f_check("no question, no follow-up",f_t2srep_drill_question("  ",array("label"=>"status","gender"=>"m"),"Ended","en"),"");
+$arrnoquestion=$arrseasons;
+unset($arrnoquestion['question']);
+f_check("an answer without its question draws no link",strpos(f_t2srep_render("histogram",$arrnoquestion,"en"),"t2sDrill"),false);
+f_check("drill words",array(f_t2srep_drill_word("RUNTIME_BUCKET","fr"),f_t2srep_drill_word("NUMBER_OF_EPISODES","fr"),f_t2srep_drill_word("ORIGIN_COUNTRY","en")),
+	array(array("label"=>"durée","gender"=>"f"),array("label"=>"nombre d'épisodes","gender"=>"m"),array("label"=>"origin country","gender"=>"m")));
+
+f_group("Pie on request: summary_facts.share.shape");
+$arrpie=$arrpieen;
+$arrpie['summary_facts']['share']['shape']="pie";
+$strhtml=f_t2srep_render("share-bar",$arrpie,"en");
+f_contains("a pie when asked",$strhtml,"<div class=\"t2sShare t2sSharePie\"><svg class=\"t2sPie\" viewBox=\"0 0 42 42\" aria-hidden=\"true\" focusable=\"false\">");
+f_check("one arc per part",substr_count($strhtml,"class=\"t2sPieSeg\""),count($arrpieenmodel['segments']));
+f_contains("the first arc from the top",$strhtml,"data-hue=\"0\" cx=\"21\" cy=\"21\" r=\"15.91549\" stroke-dasharray=\"73.27 26.73\" stroke-dashoffset=\"25\"");
+f_contains("the second arc after the first",$strhtml,"stroke-dashoffset=\"-48.87\"");
+f_contains("an arc links to the follow-up",$strhtml,"<a class=\"t2sPieLink\" href=\"".f_t2srep_h(f_t2srep_drill_href(f_t2srep_drill_share_question($arrpieen,$arrpieenmodel['segments'][1],"en")))."\" tabindex=\"-1\">");
+f_contains("the legend of the bar stays",$strhtml,"<ul class=\"t2sShareLegend\">");
+f_check("no bar beside the pie",strpos($strhtml,"t2sShareBar"),false);
+$arrpie['summary_facts']['share']['shape']="bar";
+f_contains("shape bar: the bar",f_t2srep_render("share-bar",$arrpie,"en"),"<div class=\"t2sShareBar\" aria-hidden=\"true\">");
+$arrpie['summary_facts']['share']['shape']="treemap";
+f_contains("an unknown shape: the bar",f_t2srep_render("share-bar",$arrpie,"en"),"<div class=\"t2sShareBar\" aria-hidden=\"true\">");
+f_contains("no shape (an older API): the bar",f_t2srep_render("share-bar",$arrpieen,"en"),"<div class=\"t2sShareBar\" aria-hidden=\"true\">");
+$arrsinglepie=$arrfix['lotc-share-single-en'];
+$arrsinglepie['summary_facts']['share']['shape']="pie";
+$strhtml=f_t2srep_render("share-bar",$arrsinglepie,"en");
+f_check("one share as a pie: two arcs, no link",array(substr_count($strhtml,"class=\"t2sPieSeg\""),strpos($strhtml,"t2sPieLink")),array(2,false));
+f_contains("one share as a pie: the rest arc",$strhtml,"data-hue=\"rest\" cx=\"21\"");
 
 f_group("Phase 2 lot C: flag-list");
 $arrfk=$arrfix['lotc-flags-codes-kurosawa-en'];
