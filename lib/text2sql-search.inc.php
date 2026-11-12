@@ -966,9 +966,10 @@ if ($intdbavailable) {
 					}
 					//No chips on an entity page or a one-row scalar, as voice-agent; a fact, a verdict
 					//or one share alone on one row has them (the fact, the Yes / No or the bar, the
-					//card, the table)
+					//card, the table), and so has a lineage, whose works come from the API's walk
+					//and not from the one row
 					$strt2sdefault=trim((string)$jsontext2sql['representation']);
-					if (count($arrt2soptions)>1 && ($lngrowcount>1 || ($lngrowcount==1 && ($strt2sdefault=="fact-card" || $strt2sdefault=="verdict" || $strt2sdefault=="share-bar")))) {
+					if (count($arrt2soptions)>1 && ($lngrowcount>1 || ($lngrowcount==1 && ($strt2sdefault=="fact-card" || $strt2sdefault=="verdict" || $strt2sdefault=="share-bar" || $strt2sdefault=="chain")))) {
 						$arrt2shrefs=array();
 						$arrt2slabels=array();
 						foreach ($arrt2soptions as $strt2soption) {

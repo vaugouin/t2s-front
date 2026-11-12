@@ -2328,3 +2328,155 @@ span.t2sScatterDot {
 .t2sHierLeaf .t2sHierLink {
   padding: 6px 10px 6px 6px;
 }
+
+/* Phase 3 lot E: chain, the lineage of adaptations and remakes. An ordered list of generations,
+   left to right on a desktop (it scrolls inside its box when wider, never the page) and top to
+   bottom on a phone, an arrow between two; the works of one generation stacked; each work a card
+   with its links into it. The starting point is outlined and badged. Same markup as voice-agent. */
+.t2sChain {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0 0 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  contain: inline-size;
+}
+.t2sChainGen {
+  display: flex;
+  align-items: flex-start;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.t2sChainArrow {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0 8px;
+  color: var(--text-secondary);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.t2sChainArrow::before {
+  content: "\2192";
+}
+.t2sChainWorks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;
+}
+.t2sChainWork {
+  min-width: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.t2sChainWork.isAnchor {
+  border: 2px solid var(--accent-primary);
+}
+.t2sChainCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+a.t2sChainCard:hover .t2sChainTitle,
+a.t2sChainCard:focus-visible .t2sChainTitle {
+  text-decoration: underline;
+}
+.t2sChainThumb {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 72px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+}
+.t2sChainThumb.isEmpty {
+  display: block;
+  border: 1px dashed var(--border);
+}
+.t2sChainText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.t2sChainTitle {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.t2sChainMeta {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.t2sChainBadge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.t2sChainStart {
+  align-self: flex-start;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.t2sChainLinks {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+.t2sChainLink {
+  overflow-wrap: anywhere;
+}
+.t2sChainLink + .t2sChainLink {
+  margin-top: 3px;
+}
+.t2sChainLink.isCycle {
+  font-style: italic;
+}
+@media (max-width: 600px) {
+  .t2sChain {
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: visible;
+  }
+  .t2sChainGen {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .t2sChainArrow {
+    padding: 4px 0;
+    text-align: center;
+  }
+  .t2sChainArrow::before {
+    content: "\2193";
+  }
+  .t2sChainWorks {
+    width: auto;
+  }
+}

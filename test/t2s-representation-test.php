@@ -39,6 +39,11 @@
  * or their code badge, the chips, and the captions in English and French, word for word those
  * of voice-agent. The flag detection script goes through node --check.
  *
+ * Phase 3 lot E adds chain on the answers to the lineage questions (fixtures p3e-*, the walk of the
+ * API run on the live graph): the generations, the cards and their links, the badges, the starting
+ * point, the cut walk and the loop, the captions in English and French, word for word those of
+ * voice-agent.
+ *
  * Phase 3 lot C adds hierarchy on the answers to the grouping questions (fixtures p3c-*): the
  * groups and their leaves as the API reads them, the leaf alone after its parent's entity, the
  * third level nested, the captions in English and French, word for word those of voice-agent.
@@ -1069,6 +1074,78 @@ foreach ($arrfix as $strkey=>$arrjson) {
 	}
 }
 f_check("no em dash in any hierarchy caption or rendering",strpos($strallh,"\u{2014}"),false);
+
+//Phase 3 lot E: chain (fixtures p3e-*; the sentences are voice-agent's, word for word).
+f_check("chain caption p3e-chain-departed-en",f_t2srep_caption($arrfix['p3e-chain-departed-en'],"en"),'Five works from Infernal Affairs (2002) to The Clan (2022); The Departed remakes Infernal Affairs.');
+f_check("chain caption p3e-chain-fistful-en",f_t2srep_caption($arrfix['p3e-chain-fistful-en'],"en"),'Three works from Red Harvest (1927) to A Fistful of Dollars (1964); A Fistful of Dollars draws on two of them.');
+f_check("chain caption p3e-chain-fistful-fr",f_t2srep_caption($arrfix['p3e-chain-fistful-fr'],"fr"),'Trois œuvres, de La Moisson rouge (1927) à Pour une poignée de dollars (1964) ; Pour une poignée de dollars en reprend deux.');
+f_check("chain caption p3e-chain-last-man-standing-en",f_t2srep_caption($arrfix['p3e-chain-last-man-standing-en'],"en"),'Three works from Red Harvest (1927) to Last Man Standing (1996); Last Man Standing remakes Yojimbo.');
+f_check("chain caption p3e-chain-magnificent-seven-1960-en",f_t2srep_caption($arrfix['p3e-chain-magnificent-seven-1960-en'],"en"),'Five works from Seven Samurai (1954) to The Magnificent Seven (2016); The Magnificent Seven (1960) remakes Seven Samurai.');
+f_check("chain caption p3e-chain-magnificent-seven-2016-en",f_t2srep_caption($arrfix['p3e-chain-magnificent-seven-2016-en'],"en"),'Three films from Seven Samurai (1954) to The Magnificent Seven (2016); The Magnificent Seven (2016) draws on two of them.');
+f_check("chain caption p3e-chain-nosferatu-en",f_t2srep_caption($arrfix['p3e-chain-nosferatu-en'],"en"),'Three works from Dracula (1897) to Nosferatu (2024); Nosferatu (2024) draws on two of them.');
+f_check("chain caption p3e-chain-nosferatu-fr",f_t2srep_caption($arrfix['p3e-chain-nosferatu-fr'],"fr"),'Trois œuvres, de Dracula (1897) à Nosferatu (2024) ; Nosferatu (2024) en reprend deux.');
+f_check("chain caption p3e-chain-red-harvest-cut-hand-en",f_t2srep_caption($arrfix['p3e-chain-red-harvest-cut-hand-en'],"en"),'Five works from Red Harvest (1927) to Last Man Standing (1996) (the lineage goes on beyond five works); Red Harvest directly inspired three of them.');
+f_check("chain caption p3e-chain-red-harvest-cut-hand-fr",f_t2srep_caption($arrfix['p3e-chain-red-harvest-cut-hand-fr'],"fr"),'Cinq œuvres, de La Moisson rouge (1927) à Dernier recours (1996) (la filiation continue au-delà de cinq œuvres) ; La Moisson rouge en a inspiré directement trois.');
+f_check("chain caption p3e-chain-red-harvest-en",f_t2srep_caption($arrfix['p3e-chain-red-harvest-en'],"en"),'Nine works from Red Harvest (1927) to Django (2023); Red Harvest directly inspired three of them.');
+f_check("chain caption p3e-chain-ring-hand-en",f_t2srep_caption($arrfix['p3e-chain-ring-hand-en'],"en"),'Three films from Dog Day Afternoon (1975) to The Dog (2013); Terrorism and Kebab remakes Dog Day Afternoon.');
+f_check("chain caption p3e-chain-scarface-en",f_t2srep_caption($arrfix['p3e-chain-scarface-en'],"en"),'Three works from Scarface (1930) to Scarface (1983); Scarface (1983) draws on two of them.');
+f_check("chain caption p3e-chain-seven-samurai-en",f_t2srep_caption($arrfix['p3e-chain-seven-samurai-en'],"en"),'Six works from Seven Samurai (1954) to The Magnificent Seven (2016); Seven Samurai directly inspired three of them.');
+f_check("chain caption p3e-chain-seven-samurai-fr",f_t2srep_caption($arrfix['p3e-chain-seven-samurai-fr'],"fr"),'Six œuvres, des Sept Samouraïs (1954) aux Sept Mercenaires (2016) ; Les Sept Samouraïs en a inspiré directement trois.');
+f_check("chain caption p3e-chain-star-is-born-en",f_t2srep_caption($arrfix['p3e-chain-star-is-born-en'],"en"),'Four films from A Star Is Born (1937) to A Star Is Born (2018); A Star Is Born (2018) draws on three of them.');
+f_check("chain caption p3e-chain-star-is-born-fr",f_t2srep_caption($arrfix['p3e-chain-star-is-born-fr'],"fr"),'Quatre films, d\'Une étoile est née (1937) à A Star is Born (2018) ; A Star is Born en reprend trois.');
+$strp="p3e-chain-";
+$arrm=f_t2srep_chain_model($arrfix[$strp.'star-is-born-en'],"en");
+f_check("chain generations by year",array_map(function($g){return array_map(function($c){return $c['year'];},$g);},$arrm['generations']),array(array("1937"),array("1954","1976"),array("2018")));
+f_check("chain links of the 2018 card",array_map(function($l){return $l['text'];},$arrm['generations'][2][0]['links']),
+	array("Remake of A Star Is Born (1937)","Remake of A Star Is Born (1954)","Remake of A Star Is Born (1976)"));
+f_check("chain anchor and label",array($arrm['generations'][2][0]['anchor'],$arrm['generations'][2][0]['label'],$arrm['generations'][0][0]['anchor']),array(true,"A Star Is Born (2018)",false));
+f_check("chain record of a film",$arrm['generations'][0][0]['record'],array("ID_MOVIE"=>22692,"MOVIE_TITLE"=>"A Star Is Born","POSTER_PATH"=>"/90EfCmXXWOs5dy7rHTNvGT9T8Kz.jpg"));
+$arrm=f_t2srep_chain_model($arrfix[$strp.'last-man-standing-en'],"en");
+f_check("chain badge of a novel",array($arrm['generations'][0][0]['badge'],$arrm['generations'][1][0]['badge']),array("Book","Film"));
+f_check("chain record of a source work",array_keys($arrm['generations'][0][0]['record']),array("ID_SOURCE_WORK","SOURCE_WORK_NAME","WIKIPEDIA_IMAGE_PATH"));
+f_check("chain adaptation link en",$arrm['generations'][1][0]['links'][0]['text'],"Adapted from Red Harvest");
+f_check("chain badge fr",f_t2srep_chain_model($arrfix[$strp.'last-man-standing-en'],"fr")['generations'][0][0]['badge'],"Livre");
+$arrm=f_t2srep_chain_model($arrfix[$strp.'fistful-fr'],"fr");
+f_check("chain links fr, contracted and elided",array_map(function($l){return $l['text'];},$arrm['generations'][2][0]['links']),
+	array("Adaptation de La Moisson rouge","Remake du Garde du corps"));
+$arrm=f_t2srep_chain_model($arrfix[$strp.'seven-samurai-fr'],"fr");
+f_check("chain link fr des",$arrm['generations'][1][0]['links'][0]['text'],"Remake des Sept Samouraïs");
+f_check("chain series badge fr",$arrm['generations'][1][1]['badge'],"Série");
+$arrm=f_t2srep_chain_model($arrfix[$strp.'ring-hand-en'],"en");
+f_check("chain loop marked",$arrm['generations'][0][0]['links'],array(array("text"=>"Remake of The Dog (a loop in the data)","cycle"=>true)));
+f_check("chain loop fr",f_t2srep_chain_model($arrfix[$strp.'ring-hand-en'],"fr")['generations'][0][0]['links'][0]['text'],"Remake de The Dog (une boucle dans les données)");
+f_check("chain de before a vowel, Le, Les",array(f_t2srep_chain_de("Une étoile est née"),f_t2srep_chain_de("Le Garde du corps"),f_t2srep_chain_de("Les Sept Samouraïs"),f_t2srep_chain_de("Dracula"),f_t2srep_chain_de("Écran")),
+	array("d'Une étoile est née","du Garde du corps","des Sept Samouraïs","de Dracula","d'Écran"));
+f_check("chain a before Le, Les",array(f_t2srep_chain_a("Les Sept Mercenaires (2016)"),f_t2srep_chain_a("Le Garde du corps"),f_t2srep_chain_a("Dracula")),array("aux Sept Mercenaires (2016)","au Garde du corps","à Dracula"));
+f_check("chain model null without the facts",f_t2srep_chain_model($arrfix['p3c-hierarchy-middle-earth-trilogies-en'],"en"),null);
+f_check("chain caption empty without the facts",f_t2srep_caption_chain($arrfix['p3c-hierarchy-middle-earth-trilogies-en'],"en"),"");
+$arrone=$arrfix[$strp.'last-man-standing-en'];
+$arrone['summary_facts']['chain']['edges']=array_slice($arrone['summary_facts']['chain']['edges'],0,1);
+f_check("chain of one link is no chain",f_t2srep_chain_model($arrone,"en"),null);
+$arrdepth=$arrfix[$strp.'red-harvest-en'];
+$arrdepth['summary_facts']['chain']['truncated']=true;
+$arrdepth['summary_facts']['chain']['truncated_by']="depth";
+f_check("chain caption cut by depth en",f_t2srep_caption($arrdepth,"en"),"Nine works from Red Harvest (1927) to Django (2023) (the lineage goes on beyond four generations); Red Harvest directly inspired three of them.");
+$arrdepth['summary_facts']['chain']['truncated_by']="time";
+f_check("chain caption cut by time fr",f_t2srep_caption_chain($arrdepth,"fr"),"Neuf œuvres, de Red Harvest (1927) à Django (2023) (le parcours s'est arrêté avant la fin) ; Red Harvest en a inspiré directement trois.");
+f_check("chain known and drawn here",array(in_array("chain",f_t2srep_known(),true),in_array("chain",f_t2srep_module_reps(),true)),array(true,true));
+f_check("chain options",f_t2srep_options($arrfix[$strp.'departed-en']),array("chain","card-grid","table"));
+$fncposter=function($r) { return isset($r['ID_MOVIE']) ? array("url"=>isset($r['POSTER_PATH']) ? "https://img.test/w92".$r['POSTER_PATH'] : "","title"=>"","href"=>"movie.php?movieid=".$r['ID_MOVIE']) : null; };
+$strhtml=f_t2srep_render("chain",$arrfix[$strp.'last-man-standing-en'],"en",$fncposter);
+f_contains("chain list of generations",$strhtml,"<ol class=\"t2sChain\"><li class=\"t2sChainGen\"><ul class=\"t2sChainWorks\"><li class=\"t2sChainWork\">");
+f_contains("chain source work card: picture, badge, page",$strhtml,"<a class=\"t2sChainCard\" href=\"sourcework.php?sourceworkid=6848\" aria-label=\"Red Harvest, 1927\"><img class=\"t2sChainThumb\" src=\"https://upload.wikimedia.org/");
+f_contains("chain arrow between generations",$strhtml,"<li class=\"t2sChainGen\"><span class=\"t2sChainArrow\" aria-hidden=\"true\"></span><ul class=\"t2sChainWorks\">");
+f_contains("chain starting point",$strhtml,"<li class=\"t2sChainWork isAnchor\"><a class=\"t2sChainCard\" href=\"movie.php?movieid=9333\" aria-label=\"Last Man Standing, 1996\"><img class=\"t2sChainThumb\" src=\"https://img.test/w92/2cWqlkXaKKdl32Waep4FwCQnyH0.jpg\" alt=\"\" loading=\"lazy\"><span class=\"t2sChainText\"><span class=\"t2sChainTitle\">Last Man Standing</span><span class=\"t2sChainMeta\"><span class=\"t2sChainYear\">1996</span> <span class=\"t2sChainBadge\">Film</span></span><span class=\"t2sChainStart\">Starting point</span></span></a><ul class=\"t2sChainLinks\"><li class=\"t2sChainLink\">Remake of Yojimbo</li></ul></li>");
+f_contains("chain starting point fr",f_t2srep_render("chain",$arrfix[$strp.'fistful-fr'],"fr",$fncposter),"<span class=\"t2sChainStart\">Point de départ</span>");
+f_contains("chain loop line",f_t2srep_render("chain",$arrfix[$strp.'ring-hand-en'],"en"),"<li class=\"t2sChainLink isCycle\">Remake of The Dog (a loop in the data)</li>");
+f_contains("chain without facts falls back to the table",f_t2srep_render("chain",$arrone,"en"),"<table");
+$strallc="";
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"p3e-")===0) {
+		$strallc.=f_t2srep_caption($arrjson,"en").f_t2srep_caption($arrjson,"fr").f_t2srep_render("chain",$arrjson,"en").f_t2srep_render("chain",$arrjson,"fr");
+	}
+}
+f_check("no em dash in any chain caption or rendering",strpos($strallc,"\u{2014}"),false);
 
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);

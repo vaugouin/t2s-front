@@ -61,12 +61,12 @@ define('T2SREP_POSTER_RANKING_MAX', 12);
 function f_t2srep_known() {
 	//Purpose: The representations this front draws, in the contract's vocabulary
 	return array("entity-page", "card-grid", "value-cards", "sequence-strip", "timeline", "trend-columns",
-		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "hierarchy", "number-card", "stat-strip", "ranked-bars", "table");
+		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "hierarchy", "chain", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_module_reps() {
 	//Purpose: The representations drawn by this module; the others keep the card renderer
-	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "hierarchy",
+	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "hierarchy", "chain",
 		"number-card", "stat-strip", "ranked-bars", "table");
 }
 
@@ -703,6 +703,10 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 	if ($strrep=="hierarchy") {
 		return f_t2srep_render_hierarchy($jsontext2sql, $strlang, $fnposter);
 	}
+	//Phase 3 lot E
+	if ($strrep=="chain") {
+		return f_t2srep_render_chain($jsontext2sql, $strlang, $fnposter);
+	}
 	return f_t2srep_render_scalar_cards($arrrecords, $arrcolumns, $strlang);
 }
 
@@ -958,6 +962,10 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	//Phase 3 lot C
 	if ($strrepb=="hierarchy") {
 		return f_t2srep_caption_hierarchy($jsontext2sql, $strlang, $inthasmore);
+	}
+	//Phase 3 lot E: a chain stands on any number of rows (the walk holds it, not the rows)
+	if ($strrepb=="chain") {
+		return f_t2srep_caption_chain($jsontext2sql, $strlang);
 	}
 	if ($lngcount<2) {
 		return "";
@@ -3453,4 +3461,305 @@ function f_t2srep_caption_hierarchy($jsontext2sql, $strlang='en', $inthasmore=fa
 		}
 	}
 	return f_t2srep_ucfirst($strlead).$strtail.".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phase 3 lot E: chain, the lineage of adaptations and remakes from the API's walk
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_chain_facts($jsontext2sql) {
+	//Purpose: summary_facts.chain when it holds two links at least, else null. The chain comes
+	//			from the API's lineage walk; the rows are never read to build it.
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['chain']) || !is_array($jsontext2sql['summary_facts']['chain'])) {
+		return null;
+	}
+	$arrchain=$jsontext2sql['summary_facts']['chain'];
+	if (!isset($arrchain['nodes']) || !is_array($arrchain['nodes']) || !isset($arrchain['edges']) || !is_array($arrchain['edges']) || count($arrchain['edges'])<2) {
+		return null;
+	}
+	return $arrchain;
+}
+
+function f_t2srep_chain_de($strtitle) {
+	//Purpose: French "de" before a title, elided or contracted as voice-agent does: du Garde du
+	//			corps, des Sept Samouraïs, d'Une étoile est née
+	$strtitle=(string)$strtitle;
+	if (strpos($strtitle, "Le ")===0) {
+		return "du ".substr($strtitle, 3);
+	}
+	if (strpos($strtitle, "Les ")===0) {
+		return "des ".substr($strtitle, 4);
+	}
+	if (preg_match('/^[aeiouyàâäéèêëîïôöùûüœæ]/iu', $strtitle)) {
+		return "d'".$strtitle;
+	}
+	return "de ".$strtitle;
+}
+
+function f_t2srep_chain_a($strtitle) {
+	//Purpose: French "à" before a title, contracted: au, aux
+	$strtitle=(string)$strtitle;
+	if (strpos($strtitle, "Le ")===0) {
+		return "au ".substr($strtitle, 3);
+	}
+	if (strpos($strtitle, "Les ")===0) {
+		return "aux ".substr($strtitle, 4);
+	}
+	return "à ".$strtitle;
+}
+
+function f_t2srep_chain_fold($strtext) {
+	//Purpose: Lower case for comparing titles, with mbstring when the PHP carries it
+	return function_exists('mb_strtolower') ? mb_strtolower((string)$strtext, 'UTF-8') : strtolower((string)$strtext);
+}
+
+function f_t2srep_chain_labels($arrnodes) {
+	//Purpose: The label of each node (its title, with its year when another work of the chain
+	//			shares the title) and its dated label (the title and the year whenever known)
+	//Returns: array(labels, dated labels), by node index
+	$arrseen=array();
+	foreach ($arrnodes as $arrnode) {
+		$strkey=f_t2srep_chain_fold(isset($arrnode['title']) ? $arrnode['title'] : "");
+		$arrseen[$strkey]=isset($arrseen[$strkey]) ? $arrseen[$strkey]+1 : 1;
+	}
+	$arrlabels=array();
+	$arrdated=array();
+	foreach ($arrnodes as $lngi=>$arrnode) {
+		$strtitle=isset($arrnode['title']) ? (string)$arrnode['title'] : "";
+		$intyear=isset($arrnode['year']) && $arrnode['year']!==null && (string)$arrnode['year']!=="";
+		$strdated=$intyear ? $strtitle." (".$arrnode['year'].")" : $strtitle;
+		$arrdated[$lngi]=$strdated;
+		$arrlabels[$lngi]=($arrseen[f_t2srep_chain_fold($strtitle)]>1 && $intyear) ? $strdated : $strtitle;
+	}
+	return array($arrlabels, $arrdated);
+}
+
+function f_t2srep_chain_badge($arrnode, $strlang='en') {
+	//Purpose: The small badge of a work: Film, Series, or the kind of a source work
+	$intfr=($strlang=="fr");
+	$strtype=isset($arrnode['type']) ? (string)$arrnode['type'] : "";
+	if ($strtype=="movie") {
+		return "Film";
+	}
+	if ($strtype=="serie") {
+		return $intfr ? "Série" : "Series";
+	}
+	$arrkinds=array("literary"=>array("Book", "Livre"), "comic"=>array("Comic", "BD"), "stage"=>array("Play", "Pièce"),
+		"game"=>array("Game", "Jeu"), "folklore"=>array("Tale", "Conte"), "screen"=>array("Film", "Film"));
+	$strkind=isset($arrnode['source_type']) ? (string)$arrnode['source_type'] : "";
+	return isset($arrkinds[$strkind]) ? $arrkinds[$strkind][$intfr ? 1 : 0] : ($intfr ? "Œuvre" : "Work");
+}
+
+function f_t2srep_chain_model($jsontext2sql, $strlang='en') {
+	//Purpose: Mirrors text2SqlChainModel(): the generations of summary_facts.chain.layers, each a
+	//			list of cards {index, type, id, title, year, label, anchor, badge, record, links}.
+	//			`record` is what a card of that entity carries (its id, its title, its pictures),
+	//			`links` one line per link into the work, in the API's order ("Remake of A Star Is
+	//			Born (1937)" / "Remake d'Une étoile est née (1937)"), a link closing a cycle marked
+	//Returns: array("generations"=>array(...)), or null without a chain of two links
+	$arrchain=f_t2srep_chain_facts($jsontext2sql);
+	if ($arrchain===null) {
+		return null;
+	}
+	$intfr=($strlang=="fr");
+	$arrnodes=array_values($arrchain['nodes']);
+	$arrnamed=f_t2srep_chain_labels($arrnodes);
+	$arrlabels=$arrnamed[0];
+	$arrlinks=array();
+	foreach ($arrchain['edges'] as $arredge) {
+		if (!is_array($arredge) || !isset($arredge['from']) || !isset($arredge['to']) || !isset($arrnodes[(int)$arredge['from']])) {
+			continue;
+		}
+		$strfrom=$arrlabels[(int)$arredge['from']];
+		$strkind=isset($arredge['kind']) ? (string)$arredge['kind'] : "";
+		if ($strkind=="remake") {
+			$strtext=$intfr ? "Remake ".f_t2srep_chain_de($strfrom) : "Remake of ".$strfrom;
+		} elseif ($strkind=="adaptation") {
+			$strtext=$intfr ? "Adaptation ".f_t2srep_chain_de($strfrom) : "Adapted from ".$strfrom;
+		} else {
+			$strtext=$intfr ? "D'après ".$strfrom : "Based on ".$strfrom;
+		}
+		$intcycle=!empty($arredge['cycle']);
+		if ($intcycle) {
+			$strtext.=$intfr ? " (une boucle dans les données)" : " (a loop in the data)";
+		}
+		$arrlinks[(int)$arredge['to']][]=array("text"=>$strtext, "cycle"=>$intcycle);
+	}
+	$arrlayers=(isset($arrchain['layers']) && is_array($arrchain['layers'])) ? $arrchain['layers'] : array(array_keys($arrnodes));
+	$arrgenerations=array();
+	foreach ($arrlayers as $arrlayer) {
+		$arrcards=array();
+		foreach ((array)$arrlayer as $lngindex) {
+			$lngindex=(int)$lngindex;
+			if (!isset($arrnodes[$lngindex]) || !is_array($arrnodes[$lngindex])) {
+				continue;
+			}
+			$arrnode=$arrnodes[$lngindex];
+			$strtype=isset($arrnode['type']) ? (string)$arrnode['type'] : "";
+			$strtitle=isset($arrnode['title']) ? (string)$arrnode['title'] : "";
+			$strposter=isset($arrnode['poster_path']) ? $arrnode['poster_path'] : null;
+			if ($strtype=="movie") {
+				$arrrecord=array("ID_MOVIE"=>$arrnode['id'], "MOVIE_TITLE"=>$strtitle, "POSTER_PATH"=>$strposter);
+			} elseif ($strtype=="serie") {
+				$arrrecord=array("ID_SERIE"=>$arrnode['id'], "SERIE_TITLE"=>$strtitle, "POSTER_PATH"=>$strposter);
+			} else {
+				$arrrecord=array("ID_SOURCE_WORK"=>$arrnode['id'], "SOURCE_WORK_NAME"=>$strtitle, "POSTER_PATH"=>$strposter,
+					"WIKIPEDIA_IMAGE_PATH"=>isset($arrnode['wikipedia_image_path']) ? $arrnode['wikipedia_image_path'] : null);
+			}
+			$arrrecord=array_filter($arrrecord, function($value) { return $value!==null && $value!==""; });
+			$arrcards[]=array("index"=>$lngindex, "type"=>$strtype, "id"=>isset($arrnode['id']) ? $arrnode['id'] : null, "title"=>$strtitle,
+				"year"=>(isset($arrnode['year']) && $arrnode['year']!==null) ? (string)$arrnode['year'] : "", "label"=>$arrlabels[$lngindex],
+				"anchor"=>!empty($arrnode['anchor']), "badge"=>f_t2srep_chain_badge($arrnode, $strlang), "record"=>$arrrecord,
+				"links"=>isset($arrlinks[$lngindex]) ? $arrlinks[$lngindex] : array());
+		}
+		if (count($arrcards)) {
+			$arrgenerations[]=$arrcards;
+		}
+	}
+	return array("generations"=>$arrgenerations);
+}
+
+function f_t2srep_render_chain($jsontext2sql, $strlang='en', $fnposter=null) {
+	//Purpose: Mirrors renderChain(): an ordered list of generations, left to right on a desktop
+	//			and top to bottom on a phone, an arrow between two; the works of a generation
+	//			stacked (a fork), each a card (picture, title, year, badge) opening its page as a
+	//			card does, with one line per link into it; the starting point outlined and badged.
+	//			No graph layout, no script.
+	$arrmodel=f_t2srep_chain_model($jsontext2sql, $strlang);
+	if ($arrmodel===null) {
+		return f_t2srep_render_table(f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array()), f_t2srep_columns($jsontext2sql), $strlang);
+	}
+	$intfr=($strlang=="fr");
+	$strhtml="<ol class=\"t2sChain\">";
+	foreach ($arrmodel['generations'] as $lnggen=>$arrcards) {
+		$strhtml.="<li class=\"t2sChainGen\">".($lnggen>0 ? "<span class=\"t2sChainArrow\" aria-hidden=\"true\"></span>" : "")."<ul class=\"t2sChainWorks\">";
+		foreach ($arrcards as $arrcard) {
+			$arrmedia=f_t2srep_entity_media($arrcard['record'], array(), $fnposter);
+			$strurl=$arrmedia['url'];
+			if ($strurl=="" && isset($arrcard['record']['WIKIPEDIA_IMAGE_PATH']) && preg_match('#^https://#', (string)$arrcard['record']['WIKIPEDIA_IMAGE_PATH'])) {
+				$strurl=(string)$arrcard['record']['WIKIPEDIA_IMAGE_PATH'];
+			}
+			$strhref=$arrmedia['href'];
+			$strname=$arrcard['year']!="" ? $arrcard['title'].", ".$arrcard['year'] : $arrcard['title'];
+			$strinner=($strurl!="" ? "<img class=\"t2sChainThumb\" src=\"".f_t2srep_h($strurl)."\" alt=\"\" loading=\"lazy\">" : "<span class=\"t2sChainThumb isEmpty\" aria-hidden=\"true\"></span>")
+				."<span class=\"t2sChainText\"><span class=\"t2sChainTitle\">".f_t2srep_h($arrcard['title'])."</span>"
+				."<span class=\"t2sChainMeta\">".($arrcard['year']!="" ? "<span class=\"t2sChainYear\">".f_t2srep_h($arrcard['year'])."</span> " : "")
+				."<span class=\"t2sChainBadge\">".f_t2srep_h($arrcard['badge'])."</span></span>"
+				.($arrcard['anchor'] ? "<span class=\"t2sChainStart\">".($intfr ? "Point de départ" : "Starting point")."</span>" : "")."</span>";
+			$strhtml.="<li class=\"t2sChainWork".($arrcard['anchor'] ? " isAnchor" : "")."\">"
+				.($strhref!="" ? "<a class=\"t2sChainCard\" href=\"".f_t2srep_h($strhref)."\" aria-label=\"".f_t2srep_h($strname)."\">".$strinner."</a>"
+					: "<span class=\"t2sChainCard\" role=\"group\" aria-label=\"".f_t2srep_h($strname)."\">".$strinner."</span>");
+			if (count($arrcard['links'])) {
+				$strhtml.="<ul class=\"t2sChainLinks\">";
+				foreach ($arrcard['links'] as $arrlink) {
+					$strhtml.="<li class=\"t2sChainLink".($arrlink['cycle'] ? " isCycle" : "")."\">".f_t2srep_h($arrlink['text'])."</li>";
+				}
+				$strhtml.="</ul>";
+			}
+			$strhtml.="</li>";
+		}
+		$strhtml.="</ul></li>";
+	}
+	return $strhtml."</ol>";
+}
+
+function f_t2srep_caption_chain($jsontext2sql, $strlang='en') {
+	//Purpose: Mirrors text2SqlChainSummary(): the works, their span, and the starting point's own
+	//			link. "Three works from Red Harvest (1927) to Last Man Standing (1996); Last Man
+	//			Standing remakes Yojimbo." / "Trois œuvres, de La Moisson rouge (1927) à Dernier
+	//			recours (1996) ; Dernier recours est un remake du Garde du corps."; several sources
+	//			"draws on three of them" / "en reprend trois"; walking down "directly inspired three
+	//			of them" / "en a inspiré directement trois"; a cut walk says where it stopped. The
+	//			chain is not paged: no "first N".
+	$arrchain=f_t2srep_chain_facts($jsontext2sql);
+	if ($arrchain===null) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	$arrnodes=array_values($arrchain['nodes']);
+	$arredges=array_values($arrchain['edges']);
+	$arrtypes=array();
+	foreach ($arrnodes as $arrnode) {
+		$arrtypes[isset($arrnode['type']) ? (string)$arrnode['type'] : ""]=true;
+	}
+	if (count($arrtypes)==1 && isset($arrtypes['movie'])) {
+		$strnoun="films";
+		$strgender="m";
+	} elseif (count($arrtypes)==1 && isset($arrtypes['serie'])) {
+		$strnoun=$intfr ? "séries" : "series";
+		$strgender="f";
+	} else {
+		$strnoun=$intfr ? "œuvres" : "works";
+		$strgender="f";
+	}
+	$arrnamed=f_t2srep_chain_labels($arrnodes);
+	$arrlabels=$arrnamed[0];
+	$arrdated=$arrnamed[1];
+	$strcount=f_t2srep_ucfirst(f_t2srep_count_word(isset($arrchain['count']) ? (int)$arrchain['count'] : count($arrnodes), $strlang, $strgender));
+	$lngearliest=(isset($arrchain['earliest']) && is_numeric($arrchain['earliest'])) ? (int)$arrchain['earliest'] : null;
+	$lnglatest=(isset($arrchain['latest']) && is_numeric($arrchain['latest'])) ? (int)$arrchain['latest'] : null;
+	$lnganchor=(isset($arrchain['anchor']) && is_array($arrchain['anchor']) && count($arrchain['anchor'])) ? (int)$arrchain['anchor'][0] : null;
+	if ($lngearliest!==null && $lnglatest!==null && $lngearliest!=$lnglatest && isset($arrdated[$lngearliest]) && isset($arrdated[$lnglatest])) {
+		$strs1=$intfr ? $strcount." ".$strnoun.", ".f_t2srep_chain_de($arrdated[$lngearliest])." ".f_t2srep_chain_a($arrdated[$lnglatest])
+			: $strcount." ".$strnoun." from ".$arrdated[$lngearliest]." to ".$arrdated[$lnglatest];
+	} else {
+		$stranchor=($lnganchor!==null && isset($arrlabels[$lnganchor])) ? $arrlabels[$lnganchor] : "";
+		$strs1=$intfr ? $strcount." ".$strnoun." dans la filiation ".f_t2srep_chain_de($stranchor) : $strcount." ".$strnoun." in the lineage of ".$stranchor;
+	}
+	if (!empty($arrchain['truncated'])) {
+		$strby=isset($arrchain['truncated_by']) ? (string)$arrchain['truncated_by'] : "";
+		if ($strby=="nodes") {
+			$lngmax=isset($arrchain['max_nodes']) ? (int)$arrchain['max_nodes'] : 0;
+			$strs1.=$intfr ? " (la filiation continue au-delà de ".f_t2srep_count_word($lngmax, $strlang, "f")." œuvres)"
+				: " (the lineage goes on beyond ".f_t2srep_count_word($lngmax, $strlang)." works)";
+		} elseif ($strby=="depth") {
+			$lngmax=isset($arrchain['max_depth']) ? (int)$arrchain['max_depth'] : 0;
+			$strs1.=$intfr ? " (la filiation continue au-delà de ".f_t2srep_count_word($lngmax, $strlang, "f")." générations)"
+				: " (the lineage goes on beyond ".f_t2srep_count_word($lngmax, $strlang)." generations)";
+		} else {
+			$strs1.=$intfr ? " (le parcours s'est arrêté avant la fin)" : " (the walk stopped early)";
+		}
+	}
+	$strs2="";
+	if ($lnganchor!==null && isset($arrnodes[$lnganchor])) {
+		$arrverbs=$intfr ? array("remake"=>"est un remake", "adaptation"=>"est une adaptation", "based_on"=>"s'inspire")
+			: array("remake"=>"remakes", "adaptation"=>"is adapted from", "based_on"=>"is based on");
+		$fnrel=function($lngchild, $lngparent, $strkind) use ($arrlabels, $arrverbs, $intfr) {
+			$strverb=isset($arrverbs[$strkind]) ? $arrverbs[$strkind] : $arrverbs['based_on'];
+			return $arrlabels[$lngchild]." ".$strverb." ".($intfr ? f_t2srep_chain_de($arrlabels[$lngparent]) : $arrlabels[$lngparent]);
+		};
+		$arrparents=array();
+		$arrchildren=array();
+		foreach ($arredges as $arredge) {
+			if (!is_array($arredge) || !empty($arredge['cycle'])) {
+				continue;
+			}
+			if ((int)$arredge['to']==$lnganchor) {
+				$arrparents[]=$arredge;
+			}
+			if ((int)$arredge['from']==$lnganchor) {
+				$arrchildren[]=$arredge;
+			}
+		}
+		$strdirection=isset($arrchain['direction']) ? (string)$arrchain['direction'] : "";
+		if ($strdirection!="down" && count($arrparents)) {
+			if (count($arrparents)==1) {
+				$strs2=$fnrel($lnganchor, (int)$arrparents[0]['from'], isset($arrparents[0]['kind']) ? (string)$arrparents[0]['kind'] : "");
+			} else {
+				$strs2=$intfr ? $arrlabels[$lnganchor]." en reprend ".f_t2srep_count_word(count($arrparents), $strlang, $strgender)
+					: $arrlabels[$lnganchor]." draws on ".f_t2srep_count_word(count($arrparents), $strlang)." of them";
+			}
+		} elseif (count($arrchildren)) {
+			if (count($arrchildren)==1) {
+				$strs2=$fnrel((int)$arrchildren[0]['to'], $lnganchor, isset($arrchildren[0]['kind']) ? (string)$arrchildren[0]['kind'] : "");
+			} else {
+				$strs2=$intfr ? $arrlabels[$lnganchor]." en a inspiré directement ".f_t2srep_count_word(count($arrchildren), $strlang, $strgender)
+					: $arrlabels[$lnganchor]." directly inspired ".f_t2srep_count_word(count($arrchildren), $strlang)." of them";
+			}
+		}
+	}
+	if ($strs2!="") {
+		return $intfr ? $strs1." ; ".$strs2."." : $strs1."; ".$strs2.".";
+	}
+	return $strs1.".";
 }
