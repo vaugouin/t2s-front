@@ -906,9 +906,7 @@ $arrworld=f_t2srep_world_map();
 f_check("map outline",array($arrworld['width'],$arrworld['height'],count($arrworld['shapes']),isset($arrworld['dots']['702'],$arrworld['dots']['344'],$arrworld['dots']['470'],$arrworld['dots']['492'],$arrworld['dots']['438'],$arrworld['dots']['048'],$arrworld['dots']['020']),
 	$arrworld['alpha2']['250'],$arrworld['alpha2']['826']),array(2000,863,173,true,"FR","GB"));
 //The line ending normalised: a Windows checkout may write the final newline as CRLF
-f_check("map outline, the same bytes as voice-agent",hash("sha256",str_replace("
-","
-",file_get_contents(__DIR__."/../html/data/world-110m.json"))),"4d1092a11836585a3ec2747559f81b365163bd0e095803a2635c507c7e5aa9cc");
+f_check("map outline, the same bytes as voice-agent",hash("sha256",str_replace("\r\n","\n",file_get_contents(__DIR__."/../html/data/world-110m.json"))),"4d1092a11836585a3ec2747559f81b365163bd0e095803a2635c507c7e5aa9cc");
 f_check("map caption en",f_t2srep_caption($arrfix['p3b-map-films-2020-en'],"en"),
 	"The first 50 countries by number of films on the map; United States leads with 3,957 films.");
 f_check("map caption fr",f_t2srep_caption($arrfix['p3b-map-coproductions-france-fr'],"fr"),
