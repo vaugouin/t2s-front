@@ -46,6 +46,9 @@
  * Phase 3 lot A adds `scatter` (one dot per entity over two quantities, from
  * summary_facts.scatter: a hand-written SVG grid with the dots and tick labels in HTML laid over
  * it, the first tap showing a point under the plot, f_t2srep_scatter_js()), with its caption.
+ * Phase 3 lot B adds `map` (the countries of summary_facts.countries shaded on a world outline,
+ * html/data/world-110m.json, pre-projected, read on the server: no library and no script needed
+ * to draw it; f_t2srep_map_js() writes the country under the finger in a line under the map).
  *
  * Side-effect free on purpose, so test/t2s-representation-test.php loads it alone: no database,
  * no global, no echo. The one lookup that needs global-light (the poster URL of an entity row,
@@ -58,12 +61,12 @@ define('T2SREP_POSTER_RANKING_MAX', 12);
 function f_t2srep_known() {
 	//Purpose: The representations this front draws, in the contract's vocabulary
 	return array("entity-page", "card-grid", "value-cards", "sequence-strip", "timeline", "trend-columns",
-		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "number-card", "stat-strip", "ranked-bars", "table");
+		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_module_reps() {
 	//Purpose: The representations drawn by this module; the others keep the card renderer
-	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter",
+	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map",
 		"number-card", "stat-strip", "ranked-bars", "table");
 }
 
@@ -692,6 +695,10 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 	if ($strrep=="scatter") {
 		return f_t2srep_render_scatter($jsontext2sql, $strlang, $fnposter);
 	}
+	//Phase 3 lot B
+	if ($strrep=="map") {
+		return f_t2srep_render_map($jsontext2sql, $strlang);
+	}
 	return f_t2srep_render_scalar_cards($arrrecords, $arrcolumns, $strlang);
 }
 
@@ -939,6 +946,10 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	//Phase 3 lot A
 	if ($strrepb=="scatter") {
 		return f_t2srep_caption_scatter($jsontext2sql, $strlang, $inthasmore);
+	}
+	//Phase 3 lot B: the flag-list sentence, placed on the map
+	if ($strrepb=="map") {
+		return f_t2srep_caption_flags($jsontext2sql, $strlang, $inthasmore, true);
 	}
 	if ($lngcount<2) {
 		return "";
@@ -2533,11 +2544,12 @@ function f_t2srep_flags_js() {
 		."for(var i=0;i<d.length;i+=4){if(d[i+3]>0&&(Math.abs(d[i]-d[i+1])>40||Math.abs(d[i+1]-d[i+2])>40||Math.abs(d[i]-d[i+2])>40)){document.documentElement.classList.add('t2sFlagEmojiOk');return;}}}catch(e){}})();";
 }
 
-function f_t2srep_caption_flags($jsontext2sql, $strlang='en', $inthasmore=false) {
+function f_t2srep_caption_flags($jsontext2sql, $strlang='en', $inthasmore=false, $intonmap=false) {
 	//Purpose: With a count: "The first 13 countries by number of films; Japan leads with 93
 	//			films." / "Les 13 premiers pays par nombre de films ; Japon arrive en tête avec 93
 	//			films."; without: "Four countries: Angola, Australia, Namibia and South Africa." /
-	//			"Quatre pays : Angola, Australie, Namibie et Afrique du Sud."
+	//			"Quatre pays : Angola, Australie, Namibie et Afrique du Sud." On the map ($intonmap,
+	//			phase 3 lot B), "on the map" / "sur la carte" after the lead, as voice-agent.
 	$arrmodel=f_t2srep_flag_model($jsontext2sql, $strlang);
 	if ($arrmodel===null) {
 		return "";
@@ -2546,6 +2558,7 @@ function f_t2srep_caption_flags($jsontext2sql, $strlang='en', $inthasmore=false)
 	$lngn=count($arrmodel['items']);
 	$strntext=($lngn<=12 && $lngn>1) ? f_t2srep_count_word($lngn, $strlang, "m") : (string)$lngn;
 	$strcountries=$intfr ? "pays" : ($lngn==1 ? "country" : "countries");
+	$strwhere=$intonmap ? ($intfr ? " sur la carte" : " on the map") : "";
 	$arrfacts=$jsontext2sql['summary_facts'];
 	$strorder=isset($arrfacts['order']) ? (string)$arrfacts['order'] : "";
 	$arrtop=null;
@@ -2567,7 +2580,7 @@ function f_t2srep_caption_flags($jsontext2sql, $strlang='en', $inthasmore=false)
 		}
 		$arrnoun=f_t2srep_counted_noun($arrmodel['valuecolumn'], $arrtop['value'], $strlang);
 		$strcount=$arrtop['valuetext']." ".$arrnoun['word'];
-		return f_t2srep_ucfirst($strlead).($intfr ? " ; ".$arrtop['name']." arrive en tête avec ".$strcount : "; ".$arrtop['name']." leads with ".$strcount).".";
+		return f_t2srep_ucfirst($strlead).$strwhere.($intfr ? " ; ".$arrtop['name']." arrive en tête avec ".$strcount : "; ".$arrtop['name']." leads with ".$strcount).".";
 	}
 	$arrnames=array();
 	foreach ($arrmodel['items'] as $arritem) {
@@ -2585,7 +2598,227 @@ function f_t2srep_caption_flags($jsontext2sql, $strlang='en', $inthasmore=false)
 		$strlist=implode("", $arrshown);
 	}
 	$strlead=$inthasmore ? ($intfr ? "les ".$strntext." premiers pays" : "the first ".$strntext." countries") : f_t2srep_count_word($lngn, $strlang, "m")." ".$strcountries;
-	return f_t2srep_ucfirst($strlead).($intfr ? " : " : ": ").$strlist.".";
+	return f_t2srep_ucfirst($strlead).$strwhere.($intfr ? " : " : ": ").$strlist.".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phase 3 lot B: map of countries. Mirror of voice-agent (text2SqlMapModel(), renderMap()): the
+ * same shades, legend, notes and caption, word for word. The outline, html/data/world-110m.json,
+ * is Natural Earth 1:110m (public domain) from the npm package world-atlas 2.0.2 (ISC), projected
+ * once in Equal Earth by tools/build-world-map.py, the same bytes as voice-agent's: no library,
+ * no tile server, no third-party request. The shading steps are the API's (summary_facts.map).
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_world_map($strpath=null) {
+	//Purpose: The world outline, decoded once per request, or null when the file cannot be read
+	//Params:	$strpath: Another file (tests); default html/data/world-110m.json
+	static $arrcache=array();
+	$strpath=$strpath!==null ? $strpath : __DIR__."/../html/data/world-110m.json";
+	if (!array_key_exists($strpath, $arrcache)) {
+		$strjson=is_readable($strpath) ? file_get_contents($strpath) : false;
+		$arrworld=$strjson!==false ? json_decode($strjson, true) : null;
+		$arrcache[$strpath]=(is_array($arrworld) && isset($arrworld['shapes']) && is_array($arrworld['shapes'])) ? $arrworld : null;
+	}
+	return $arrcache[$strpath];
+}
+
+function f_t2srep_map_tone($lngstep, $lngsteps) {
+	//Purpose: Mirrors text2SqlMapTone(): the tone (0 to 4, dim to bright) of a step among k steps
+	if ($lngsteps<=1) {
+		return 4;
+	}
+	return (int)round($lngstep*4/($lngsteps-1));
+}
+
+function f_t2srep_map_step_text($arrstep) {
+	//Purpose: Mirrors text2SqlMapStepText(): "39-55", or "2" for a one-value step
+	$strlo=f_t2srep_plain_number($arrstep['min']);
+	return ((float)$arrstep['min']==(float)$arrstep['max']) ? $strlo : $strlo."-".f_t2srep_plain_number($arrstep['max']);
+}
+
+function f_t2srep_map_model($jsontext2sql, $strlang='en', $arrworld=null) {
+	//Purpose: Mirrors text2SqlMapModel(): which country takes which shade, the legend, the hint
+	//			line and the countries the outline has no place for
+	//Returns: array(width, height, land, countries, rows, legend, legendtitle, hint, offtext), or
+	//			null without the facts or the outline
+	$arrflags=f_t2srep_flag_model($jsontext2sql, $strlang);
+	if ($arrworld===null) {
+		$arrworld=f_t2srep_world_map();
+	}
+	if ($arrflags===null || !is_array($arrworld) || !isset($arrworld['shapes']) || !is_array($arrworld['shapes']) || !isset($jsontext2sql['summary_facts']['map']) || !is_array($jsontext2sql['summary_facts']['map'])) {
+		return null;
+	}
+	$arrlist=array_values($jsontext2sql['summary_facts']['countries']['countries']);
+	$arrfacts=$jsontext2sql['summary_facts']['map'];
+	$intfr=($strlang=="fr");
+	$arrshapes=$arrworld['shapes'];
+	$arrdots=isset($arrworld['dots']) && is_array($arrworld['dots']) ? $arrworld['dots'] : array();
+	$dblwidth=isset($arrworld['width']) && (float)$arrworld['width']>0 ? (float)$arrworld['width'] : 1;
+	$dblheight=isset($arrworld['height']) && (float)$arrworld['height']>0 ? (float)$arrworld['height'] : 1;
+	$arrsteps=array();
+	foreach ((isset($arrfacts['steps']) && is_array($arrfacts['steps']) ? $arrfacts['steps'] : array()) as $arrstep) {
+		if (is_array($arrstep) && isset($arrstep['min'], $arrstep['max']) && f_t2srep_is_number($arrstep['min']) && f_t2srep_is_number($arrstep['max'])) {
+			$arrsteps[]=$arrstep;
+		}
+	}
+	$arrgroups=array();
+	$arroff=array();
+	$arrrows=array();
+	foreach ($arrflags['items'] as $lngi=>$arritem) {
+		$strnumeric=isset($arrlist[$lngi]['numeric']) ? (string)$arrlist[$lngi]['numeric'] : "";
+		$strplaced=($strnumeric!=="" && (isset($arrshapes[$strnumeric]) || isset($arrdots[$strnumeric]))) ? $strnumeric : "";
+		$arrrows[]=array("name"=>$arritem['name'], "valuetext"=>$arritem['valuetext'], "onmap"=>$strplaced!=="");
+		if ($strplaced==="") {
+			$arroff[]=$arritem;
+			continue;
+		}
+		if (!isset($arrgroups[$strplaced])) {
+			$arrgroups[$strplaced]=array("numeric"=>$strplaced, "names"=>array(), "value"=>null);
+		}
+		if ($arritem['name']!=="" && !in_array($arritem['name'], $arrgroups[$strplaced]['names'], true)) {
+			$arrgroups[$strplaced]['names'][]=$arritem['name'];
+		}
+		if ($arritem['value']!==null) {
+			$arrgroups[$strplaced]['value']=($arrgroups[$strplaced]['value']===null ? 0 : $arrgroups[$strplaced]['value'])+$arritem['value'];
+		}
+	}
+	$strvaluecolumn=$arrflags['valuecolumn'];
+	$arrcountries=array();
+	$intwithvalues=false;
+	foreach ($arrgroups as $arrgroup) {
+		$strnumeric=(string)$arrgroup['numeric'];
+		$lngtone=null;
+		if (count($arrsteps)>0 && $arrgroup['value']!==null) {
+			$lngstep=count($arrsteps)-1;
+			foreach ($arrsteps as $lngk=>$arrstep) {
+				if ($arrgroup['value']<=(float)$arrstep['max']) {
+					$lngstep=$lngk;
+					break;
+				}
+			}
+			$lngtone=f_t2srep_map_tone($lngstep, count($arrsteps));
+		}
+		$strname=implode(", ", $arrgroup['names']);
+		$strvaluetext=$arrgroup['value']===null ? "" : f_t2srep_plain_number($arrgroup['value']);
+		if ($strvaluetext!=="") {
+			$intwithvalues=true;
+			$arrnoun=f_t2srep_counted_noun($strvaluecolumn, $arrgroup['value'], $strlang);
+			$strlabel=$strname.($intfr ? " : " : ": ").$strvaluetext." ".$arrnoun['word'];
+		} else {
+			$strlabel=$strname;
+		}
+		$arrat=isset($arrdots[$strnumeric]) && is_array($arrdots[$strnumeric]) ? $arrdots[$strnumeric] : null;
+		$arrcountries[]=array(
+			"numeric"=>$strnumeric,
+			"name"=>$strname,
+			"value"=>$arrgroup['value'],
+			"valuetext"=>$strvaluetext,
+			"label"=>$strlabel,
+			"tone"=>$lngtone,
+			"shape"=>isset($arrshapes[$strnumeric]) ? (string)$arrshapes[$strnumeric] : "",
+			"dot"=>$arrat!==null ? array("left"=>round($arrat[0]/$dblwidth*10000)/100, "top"=>round($arrat[1]/$dblheight*10000)/100) : null,
+		);
+	}
+	$arrkeys=array();
+	foreach (array_keys($arrshapes) as $key) {
+		if (!isset($arrgroups[(string)$key])) {
+			$arrkeys[]=(string)$key;
+		}
+	}
+	sort($arrkeys, SORT_STRING);
+	$strland="";
+	foreach ($arrkeys as $strkey) {
+		$strland.=$arrshapes[$strkey];
+	}
+	$strland.=isset($arrworld['other']) ? (string)$arrworld['other'] : "";
+	$arrlegend=array();
+	foreach ($arrsteps as $lngk=>$arrstep) {
+		$arrlegend[]=array("text"=>f_t2srep_map_step_text($arrstep), "tone"=>f_t2srep_map_tone($lngk, count($arrsteps)));
+	}
+	$stroff="";
+	if (count($arroff)>0) {
+		$arrnames=array();
+		foreach ($arroff as $arritem) {
+			$arrnames[]=$arritem['valuetext']!=="" ? $arritem['name']." (".$arritem['valuetext'].")" : $arritem['name'];
+		}
+		$stroff=($intfr ? "Hors carte : " : "Not on the map: ").implode(", ", $arrnames).".";
+	}
+	$strlegendtitle="";
+	if (count($arrsteps)>0) {
+		$arrword=f_t2srep_metric_word($strvaluecolumn, $strlang);
+		$strlegendtitle=f_t2srep_ucfirst($arrword['label']);
+	}
+	return array(
+		"width"=>$dblwidth,
+		"height"=>$dblheight,
+		"land"=>$strland,
+		"countries"=>$arrcountries,
+		"rows"=>$arrrows,
+		"legend"=>$arrlegend,
+		"legendtitle"=>$strlegendtitle,
+		"hint"=>$intwithvalues
+			? ($intfr ? "Touchez ou survolez un pays pour voir son nombre." : "Tap or hover over a country to see its count.")
+			: ($intfr ? "Touchez ou survolez un pays pour voir son nom." : "Tap or hover over a country to see its name."),
+		"offtext"=>$stroff,
+	);
+}
+
+function f_t2srep_render_map($jsontext2sql, $strlang='en', $arrworld=null) {
+	//Purpose: Mirrors renderMap(): one SVG for the land and the shaded countries, the small
+	//			countries as dots laid over it by percentage (so a dot keeps its size at any width),
+	//			a line under the map for the country under the finger (f_t2srep_map_js(); without
+	//			script each country and dot keeps its title), the legend, the countries the map has
+	//			no place for, and a visually hidden table. Without the outline, the flag list.
+	$arrmodel=f_t2srep_map_model($jsontext2sql, $strlang, $arrworld);
+	if ($arrmodel===null) {
+		return f_t2srep_render_flag_list($jsontext2sql, $strlang);
+	}
+	$intfr=($strlang=="fr");
+	$strsvg="<svg class=\"t2sMapSvg\" viewBox=\"0 0 ".$arrmodel['width']." ".$arrmodel['height']."\" role=\"img\" aria-label=\"".($intfr ? "Carte du monde" : "World map")."\">"
+		."<path class=\"t2sMapLand\" d=\"".f_t2srep_h($arrmodel['land'])."\"/>";
+	$strdots="";
+	foreach ($arrmodel['countries'] as $arrcountry) {
+		$strtone=$arrcountry['tone']===null ? "t2sMapOn" : "t2sMapTone".$arrcountry['tone'];
+		$strlabel=f_t2srep_h($arrcountry['label']);
+		if ($arrcountry['shape']!=="") {
+			$strsvg.="<path class=\"t2sMapCountry ".$strtone."\" d=\"".f_t2srep_h($arrcountry['shape'])."\" tabindex=\"0\" aria-label=\"".$strlabel."\" data-t2smap=\"".f_t2srep_h($arrcountry['numeric'])."\">"
+				."<title>".$strlabel."</title></path>";
+		}
+		if ($arrcountry['dot']!==null) {
+			$strdots.="<span class=\"t2sMapDot ".$strtone."\" role=\"button\" tabindex=\"0\" style=\"left:".$arrcountry['dot']['left']."%;top:".$arrcountry['dot']['top']."%\""
+				." title=\"".$strlabel."\" aria-label=\"".$strlabel."\" data-t2smap=\"".f_t2srep_h($arrcountry['numeric'])."\"></span>";
+		}
+	}
+	$strhtml="<div class=\"t2sMap\"><div class=\"t2sMapFrame\">".$strsvg."</svg>".$strdots."</div>"
+		."<p class=\"t2sMapTip\" aria-live=\"polite\">".f_t2srep_h($arrmodel['hint'])."</p>";
+	if (count($arrmodel['legend'])>0) {
+		$strhtml.="<div class=\"t2sMapLegend\"><span class=\"t2sMapLegendTitle\">".f_t2srep_h($arrmodel['legendtitle'])."</span>";
+		foreach ($arrmodel['legend'] as $arrstep) {
+			$strhtml.="<span class=\"t2sMapLegendItem\"><span class=\"t2sMapSwatch t2sMapTone".$arrstep['tone']."\" aria-hidden=\"true\"></span><span>".f_t2srep_h($arrstep['text'])."</span></span>";
+		}
+		$strhtml.="</div>";
+	}
+	if ($arrmodel['offtext']!=="") {
+		$strhtml.="<p class=\"t2sMapOff\">".f_t2srep_h($arrmodel['offtext'])."</p>";
+	}
+	$strhtml.="<div class=\"t2sSrOnly\"><table><thead><tr><th scope=\"col\">".($intfr ? "Pays" : "Country")."</th><th scope=\"col\">"
+		.f_t2srep_h($arrmodel['legendtitle']!=="" ? $arrmodel['legendtitle'] : ($intfr ? "Sur la carte" : "On the map"))."</th></tr></thead><tbody>";
+	foreach ($arrmodel['rows'] as $arrrow) {
+		$strvalue=$arrrow['valuetext']!=="" ? $arrrow['valuetext'] : ($arrrow['onmap'] ? ($intfr ? "oui" : "yes") : ($intfr ? "hors carte" : "not on the map"));
+		$strhtml.="<tr><td>".f_t2srep_h($arrrow['name'])."</td><td>".f_t2srep_h($strvalue)."</td></tr>";
+	}
+	return $strhtml."</tbody></table></div></div>";
+}
+
+function f_t2srep_map_js() {
+	//Purpose: As voice-agent: hovering, focusing or tapping a country or a dot outlines it (with
+	//			its dot or shape) and writes its name and count, its aria-label, in the line under
+	//			the map. A plain string with no PHP value in it.
+	return "(function(){function show(el){var root=el.closest('.t2sMap');if(!root){return;}var tip=root.querySelector('.t2sMapTip');"
+		."if(tip){tip.textContent=el.getAttribute('aria-label')||'';}var old=root.querySelectorAll('.isSelected'),i;for(i=0;i<old.length;i++){old[i].classList.remove('isSelected');}"
+		."var marks=root.querySelectorAll('[data-t2smap=\"'+el.getAttribute('data-t2smap')+'\"]');for(i=0;i<marks.length;i++){marks[i].classList.add('isSelected');}}"
+		."function find(ev){var t=ev.target;return t&&t.closest?t.closest('.t2sMap [data-t2smap]'):null;}"
+		."['mouseover','focusin','click'].forEach(function(n){document.addEventListener(n,function(ev){var el=find(ev);if(el){show(el);}});});})();";
 }
 
 /* ---------------------------------------------------------------------------------------------

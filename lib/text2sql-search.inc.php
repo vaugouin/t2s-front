@@ -995,6 +995,10 @@ if ($intdbavailable) {
 								//The first tap on a dot shows it under the plot, the second opens its page
 								echo "<script>".f_t2srep_scatter_js()."</script>";
 							}
+							if ($strt2soption=="map") {
+								//The country under the finger or the pointer, written under the map
+								echo "<script>".f_t2srep_map_js()."</script>";
+							}
 							if ($strt2soption=="timeline" && $intt2shasmore) {
 								//The rest of the rows, page after page, while the timeline is shown
 								echo "<div id=\"t2sTimelineStatus\" class=\"muted\" style=\"display:none; margin-top:12px;\"></div>";

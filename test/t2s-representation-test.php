@@ -39,6 +39,11 @@
  * or their code badge, the chips, and the captions in English and French, word for word those
  * of voice-agent. The flag detection script goes through node --check.
  *
+ * Phase 3 lot B adds map on the answers to the map questions of countries (fixtures p3b-*) and
+ * the outline html/data/world-110m.json: the shades from the API's steps, the legend, the dots,
+ * the countries with no place on the map, the captions in English and French, word for word
+ * those of voice-agent. The hover script goes through node --check.
+ *
  * Phase 3 lot A adds scatter on the 1.1.20 answers of the scatter evaluations reclassified with
  * the API module of that lot (fixtures p3a-*): the axes, their ticks and titles (money, minutes,
  * years, a log axis of votes), the points and the highest one, the rendering, the chips, and the
@@ -895,6 +900,89 @@ foreach ($arrfix as $strkey=>$arrjson) {
 }
 //A film title of the data carries one (Thriller\u{2014}A Cruel Documentary): the check is on our words
 f_check("no em dash in any phase 3 caption or rendering",strpos(str_replace("Thriller\u{2014}A Cruel Documentary","",$strallp),"\u{2014}"),false);
+
+//Phase 3 lot B: map of countries (fixtures p3b-*, the outline html/data/world-110m.json).
+$arrworld=f_t2srep_world_map();
+f_check("map outline",array($arrworld['width'],$arrworld['height'],count($arrworld['shapes']),isset($arrworld['dots']['702'],$arrworld['dots']['344'],$arrworld['dots']['470'],$arrworld['dots']['492'],$arrworld['dots']['438'],$arrworld['dots']['048'],$arrworld['dots']['020']),
+	$arrworld['alpha2']['250'],$arrworld['alpha2']['826']),array(2000,863,173,true,"FR","GB"));
+//The line ending normalised: a Windows checkout may write the final newline as CRLF
+f_check("map outline, the same bytes as voice-agent",hash("sha256",str_replace("
+","
+",file_get_contents(__DIR__."/../html/data/world-110m.json"))),"4d1092a11836585a3ec2747559f81b365163bd0e095803a2635c507c7e5aa9cc");
+f_check("map caption en",f_t2srep_caption($arrfix['p3b-map-films-2020-en'],"en"),
+	"The first 50 countries by number of films on the map; United States leads with 3,957 films.");
+f_check("map caption fr",f_t2srep_caption($arrfix['p3b-map-coproductions-france-fr'],"fr"),
+	"Les 50 premiers pays par nombre de films sur la carte ; Italie arrive en tête avec 2,514 films.");
+f_check("map caption series",f_t2srep_caption($arrfix['p3b-map-netflix-series-en'],"en"),
+	"The first 50 countries by number of series on the map; United States leads with 1,047 series.");
+f_check("map caption without counts",f_t2srep_caption($arrfix['p3b-map-country-locations-en'],"en"),
+	"50 countries on the map: Indonesia, England, France, Italy, Mexico and 45 more.");
+$arrflagjson=$arrfix['p3b-map-films-2020-en'];
+$arrflagjson['representation']="flag-list";
+f_check("map: the flag caption unchanged",f_t2srep_caption($arrflagjson,"en"),"The first 50 countries by number of films; United States leads with 3,957 films.");
+$arrmf=f_t2srep_map_model($arrfix['p3b-map-films-2020-en'],"en");
+f_check("map legend",array($arrmf['legendtitle'],$arrmf['legend']),array("Number of films",array(array("text"=>"39-55","tone"=>0),array("text"=>"57-98","tone"=>1),
+	array("text"=>"99-134","tone"=>2),array("text"=>"177-316","tone"=>3),array("text"=>"401-3,957","tone"=>4))));
+$arrmn=f_t2srep_map_model($arrfix['p3b-map-netflix-series-en'],"fr");
+f_check("map legend fr, one value a step",array($arrmn['legendtitle'],$arrmn['legend'][0]['text']),array("Nombre de séries","2"));
+f_check("map top country",array($arrmf['countries'][0]['numeric'],$arrmf['countries'][0]['label'],$arrmf['countries'][0]['tone'],$arrmf['countries'][0]['dot']),
+	array("840","United States: 3,957 films",4,null));
+$arrmff=f_t2srep_map_model($arrfix['p3b-map-films-2020-fr'],"fr");
+f_check("map label fr",$arrmff['countries'][0]['label'],"États-Unis : 3,957 films");
+$arrdotted=array();
+foreach ($arrmf['countries'] as $arrc) {
+	if ($arrc['dot']!==null) {
+		$arrdotted[]=array($arrc['name'],$arrc['dot']['left']>0 && $arrc['dot']['left']<100 && $arrc['dot']['top']>0 && $arrc['dot']['top']<100);
+	}
+}
+f_check("map small countries are dots",$arrdotted,array(array("Hong Kong",true),array("Singapore",true)));
+f_check("map every country placed",count($arrmf['countries']),50);
+$arrml=f_t2srep_map_model($arrfix['p3b-map-country-locations-en'],"en");
+$arruk=null;
+foreach ($arrml['countries'] as $arrc) {
+	if ($arrc['numeric']==="826") {
+		$arruk=array($arrc['name'],$arrc['tone']);
+	}
+}
+f_check("map locations: one country, its places named together, no shade",$arruk,array("England, Scotland",null));
+f_check("map locations: not on the map",$arrml['offtext'],"Not on the map: Milan, Russian Empire, Venice, Soviet Union, Ancient Rome, Hamburg.");
+f_check("map locations: no legend, the name hint",array($arrml['legend'],$arrml['legendtitle'],$arrml['hint']),array(array(),"","Tap or hover over a country to see its name."));
+$arrsu=$arrfix['p3b-map-films-2020-fr'];
+$arrsu['summary_facts']['countries']['countries'][1]=array_merge($arrsu['summary_facts']['countries']['countries'][1],array("code"=>"SU","numeric"=>null,"name"=>array("en"=>"Soviet Union","fr"=>"Union soviétique")));
+$arrmsu=f_t2srep_map_model($arrsu,"fr");
+f_check("map off map fr, with the count",$arrmsu['offtext'],"Hors carte : Union soviétique (1,127).");
+$arrtones=array();
+foreach (array(1,2,3,4,5) as $lngn) {
+	$arrrow=array();
+	for ($lngi=0;$lngi<$lngn;$lngi++) {
+		$arrrow[]=f_t2srep_map_tone($lngi,$lngn);
+	}
+	$arrtones[]=$arrrow;
+}
+f_check("map tones",$arrtones,array(array(4),array(0,4),array(0,2,4),array(0,1,3,4),array(0,1,2,3,4)));
+f_check("map: no facts, no model",f_t2srep_map_model($arrfix['lotc-share-hbo-type-en'],"en"),null);
+f_check("map chips",f_t2srep_options($arrfix['p3b-map-films-2020-en']),array("map","flag-list","ranked-bars","table"));
+$strhtml=f_t2srep_render("map",$arrfix['p3b-map-films-2020-en'],"en");
+f_contains("map svg",$strhtml,"<svg class=\"t2sMapSvg\" viewBox=\"0 0 2000 863\" role=\"img\" aria-label=\"World map\"><path class=\"t2sMapLand\" d=\"M");
+f_contains("map country shaded and named",$strhtml,"<path class=\"t2sMapCountry t2sMapTone4\" d=\"".$arrworld['shapes']['840']."\" tabindex=\"0\" aria-label=\"United States: 3,957 films\" data-t2smap=\"840\"><title>United States: 3,957 films</title></path>");
+f_contains("map dot placed by percent",$strhtml,"class=\"t2sMapDot t2sMapTone");
+f_check("map: one shaded country per country, the dots apart",array(substr_count($strhtml,"<path class=\"t2sMapCountry"),substr_count($strhtml,"class=\"t2sMapDot")),array(48,2));
+f_contains("map hint line",$strhtml,"<p class=\"t2sMapTip\" aria-live=\"polite\">Tap or hover over a country to see its count.</p>");
+f_contains("map legend",$strhtml,"<span class=\"t2sMapLegendTitle\">Number of films</span><span class=\"t2sMapLegendItem\"><span class=\"t2sMapSwatch t2sMapTone0\" aria-hidden=\"true\"></span><span>39-55</span></span>");
+f_contains("map hidden table",$strhtml,"<div class=\"t2sSrOnly\"><table><thead><tr><th scope=\"col\">Country</th><th scope=\"col\">Number of films</th></tr></thead><tbody><tr><td>United States</td><td>3,957</td></tr>");
+$strhtml=f_t2srep_render("map",$arrfix['p3b-map-country-locations-en'],"en");
+f_contains("map off-map note",$strhtml,"<p class=\"t2sMapOff\">Not on the map: Milan, Russian Empire, Venice, Soviet Union, Ancient Rome, Hamburg.</p>");
+f_contains("map without counts: one tone",$strhtml,"<path class=\"t2sMapCountry t2sMapOn\"");
+f_check("map without counts: no legend",strpos($strhtml,"t2sMapLegend"),false);
+f_contains("map without the outline: the flag list",f_t2srep_render_map($arrfix['p3b-map-films-2020-en'],"en",array("nothing")),"<ul class=\"t2sFlags\">");
+f_nodecheck("the map hover script",f_t2srep_map_js());
+$strallm="";
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"p3b-")===0) {
+		$strallm.=f_t2srep_caption($arrjson,"en").f_t2srep_caption($arrjson,"fr").f_t2srep_render("map",$arrjson,"en").f_t2srep_render("map",$arrjson,"fr");
+	}
+}
+f_check("no em dash in any map caption or rendering",strpos($strallm,"\u{2014}"),false);
 
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);

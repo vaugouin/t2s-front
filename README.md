@@ -8,7 +8,7 @@ Current version: see [VERSION](VERSION).
 
 ## What it does
 
-- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card, a Yes / No verdict, a histogram, a share bar, a list of countries with their flags or a scatter plot of two quantities, depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server).
+- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card, a Yes / No verdict, a histogram, a share bar, a list of countries with their flags, the same countries shaded on a world map, or a scatter plot of two quantities, depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server).
 - **Detail pages** for movies, series, seasons, episodes and persons, with collapsible sections (cast, crew, images, videos, external identifiers, Wikidata properties, Wikipedia sections, watch providers, release dates).
 - **Entity pages**: collections, companies, networks, genres, keywords, lists, awards, nominations, locations, movements, groups, source works, technical properties, topics, characters, jobs, languages.
 - **Image galleries** (`images.php`, `season-images.php`, `episode-images.php`).
@@ -22,12 +22,14 @@ t2s-front/
   html/                 web root
     app/                one small PHP file per page, plus the images used with a relative path
     css/                the dark theme stylesheet
+    data/               world-110m.json, the world outline of the map (built, see below)
     images/             images used with an absolute path (/images/...)
     apple-touch-icon.png, favicon.ico
   lib/                  the code of every page (<page>.inc.php) and the shared libraries
     database/           credentials: only *.example files are tracked
   plugins/              optional, ignored by git: one folder per plugin
   test/                 plain PHP test scripts
+  tools/                build-world-map.py, which builds html/data/world-110m.json
   .env.example          runtime configuration template
   VERSION               version of the front
 ```
@@ -36,6 +38,7 @@ The layout is not a preference, the code depends on it:
 
 - Each page in `html/app/` is a three-line file: `include(__DIR__."/../../lib/<page>.inc.php");`. `lib/` must therefore sit beside `html/`, two levels above the page.
 - `lib/env.inc.php` loads `lib/../.env`, so `.env` sits beside `html/` and `lib/`.
+- `lib/t2s-representation.inc.php` reads the world outline from `lib/../html/data/world-110m.json`.
 - The stylesheet is linked as `../css/...` and the shared images as `/images/...`, so the page folder, `css/` and `images/` must be exposed one level under the web root.
 
 `lib/`, `plugins/` and `.env` must stay outside the web root.
@@ -224,6 +227,7 @@ php test/work-properties-format-test.php
 |---|---|---|
 | [PhotoSwipe](https://photoswipe.com) 5.4.4 | Lightbox of the image galleries. Not vendored: loaded from the jsDelivr CDN as an ES module, version pinned in `lib/image-gallery.inc.php` | MIT |
 | YouTube embedded player | Trailers and videos (`yt-player.php`), loaded from youtube.com | YouTube terms of service |
+| [Natural Earth](https://www.naturalearthdata.com) 1:110m countries, through the npm package [world-atlas](https://github.com/topojson/world-atlas) 2.0.2 | The world outline of the map of countries, `html/data/world-110m.json` (about 47 KB): projected once, offline, in Equal Earth by `tools/build-world-map.py` into one SVG path per ISO 3166-1 numeric code, Antarctica left out, with a dot for each country too small at that scale (from the package's 1:50m file, or entered by hand for a territory drawn inside another country). The page draws it on the server: no map library, no tile server, no request to a third party. Rebuild, from the files of the `world-atlas-2.0.2.tgz` tarball: `uv run --no-project --with pycountry==26.2.16 python tools/build-world-map.py <package>/countries-110m.json <package>/countries-50m.json html/data/world-110m.json` (the ISO numeric to alpha-2 table comes from the iso-codes data of pycountry) | Natural Earth: public domain; world-atlas: ISC |
 
 Images and data:
 
