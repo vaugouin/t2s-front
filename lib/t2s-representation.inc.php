@@ -43,6 +43,10 @@
  * is the code in a badge unless the browser draws flag emoji, f_t2srep_flags_js()). All three
  * are drawn here, each with its caption in f_t2srep_caption().
  *
+ * Phase 3 lot A adds `scatter` (one dot per entity over two quantities, from
+ * summary_facts.scatter: a hand-written SVG grid with the dots and tick labels in HTML laid over
+ * it, the first tap showing a point under the plot, f_t2srep_scatter_js()), with its caption.
+ *
  * Side-effect free on purpose, so test/t2s-representation-test.php loads it alone: no database,
  * no global, no echo. The one lookup that needs global-light (the poster URL of an entity row,
  * for the poster ranking) is handed in as a callable by the page.
@@ -54,12 +58,12 @@ define('T2SREP_POSTER_RANKING_MAX', 12);
 function f_t2srep_known() {
 	//Purpose: The representations this front draws, in the contract's vocabulary
 	return array("entity-page", "card-grid", "value-cards", "sequence-strip", "timeline", "trend-columns",
-		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "number-card", "stat-strip", "ranked-bars", "table");
+		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
 function f_t2srep_module_reps() {
 	//Purpose: The representations drawn by this module; the others keep the card renderer
-	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list",
+	return array("timeline", "trend-columns", "compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter",
 		"number-card", "stat-strip", "ranked-bars", "table");
 }
 
@@ -684,6 +688,10 @@ function f_t2srep_render($strrep, $jsontext2sql, $strlang='en', $fnposter=null) 
 	if ($strrep=="flag-list") {
 		return f_t2srep_render_flag_list($jsontext2sql, $strlang);
 	}
+	//Phase 3 lot A
+	if ($strrep=="scatter") {
+		return f_t2srep_render_scatter($jsontext2sql, $strlang, $fnposter);
+	}
 	return f_t2srep_render_scalar_cards($arrrecords, $arrcolumns, $strlang);
 }
 
@@ -927,6 +935,10 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	}
 	if ($strrepb=="flag-list") {
 		return f_t2srep_caption_flags($jsontext2sql, $strlang, $inthasmore);
+	}
+	//Phase 3 lot A
+	if ($strrepb=="scatter") {
+		return f_t2srep_caption_scatter($jsontext2sql, $strlang, $inthasmore);
 	}
 	if ($lngcount<2) {
 		return "";
@@ -2574,4 +2586,396 @@ function f_t2srep_caption_flags($jsontext2sql, $strlang='en', $inthasmore=false)
 	}
 	$strlead=$inthasmore ? ($intfr ? "les ".$strntext." premiers pays" : "the first ".$strntext." countries") : f_t2srep_count_word($lngn, $strlang, "m")." ".$strcountries;
 	return f_t2srep_ucfirst($strlead).($intfr ? " : " : ": ").$strlist.".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phase 3 lot A: scatter. Mirror of voice-agent (text2SqlScatterWords(), text2SqlScatterTicks(),
+ * text2SqlScatterModel(), text2SqlScatterSummary(), renderScatter()): the same ticks, words and
+ * sentences, word for word. The points are the API's (summary_facts.scatter), never re-read from
+ * the rows.
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_scatter_words($arraxis, $strlang='en') {
+	//Purpose: How an axis is named: array("name", "without", "of"). "budget", "a budget" /
+	//			"budget", "budget", "du budget": the name, the object of "without" / "sans", and
+	//			the French "de" form ("recettes en fonction du budget")
+	//			[EN name, EN without, FR name, FR sans, FR de]
+	$arrwords=array(
+		"budget"=>array("budget", "a budget", "budget", "budget", "du budget"),
+		"revenue"=>array("box-office revenue", "box-office revenue", "recettes", "recettes", "des recettes"),
+		"profit"=>array("profit", "a profit", "bénéfice", "bénéfice", "du bénéfice"),
+		"runtime"=>array("runtime", "a runtime", "durée", "durée", "de la durée"),
+		"seasons"=>array("number of seasons", "a season count", "nombre de saisons", "nombre de saisons", "du nombre de saisons"),
+		"episodes"=>array("number of episodes", "an episode count", "nombre d'épisodes", "nombre d'épisodes", "du nombre d'épisodes"),
+		"popularity"=>array("popularity", "a popularity", "popularité", "popularité", "de la popularité"),
+		"age"=>array("age", "an age", "âge", "âge", "de l'âge"),
+		"rating_imdb"=>array("IMDb rating", "an IMDb rating", "note IMDb", "note IMDb", "de la note IMDb"),
+		"rating_tmdb"=>array("TMDb rating", "a TMDb rating", "note TMDb", "note TMDb", "de la note TMDb"),
+		"rating"=>array("rating", "a rating", "note", "note", "de la note"),
+		"votes_imdb"=>array("IMDb votes", "IMDb votes", "votes IMDb", "votes IMDb", "des votes IMDb"),
+		"votes"=>array("votes", "votes", "votes", "votes", "des votes"),
+		"year_birth"=>array("birth year", "a birth year", "année de naissance", "année de naissance", "de l'année de naissance"),
+		"year_death"=>array("death year", "a death year", "année de décès", "année de décès", "de l'année de décès"),
+		"year_air"=>array("first air year", "a first air date", "année de première diffusion", "date de diffusion", "de l'année de première diffusion"),
+		"year_release"=>array("release year", "a release year", "année de sortie", "année de sortie", "de l'année de sortie"),
+		"year"=>array("year", "a year", "année", "année", "de l'année"),
+	);
+	$strquantity=isset($arraxis['quantity']) ? (string)$arraxis['quantity'] : "";
+	$strcolumn=isset($arraxis['column']) ? strtoupper((string)$arraxis['column']) : "";
+	$strkey=$strquantity;
+	if ($strquantity=="rating") {
+		$strkey=preg_match('/IMDB/', $strcolumn) ? "rating_imdb" : (preg_match('/TMDB|VOTE_AVERAGE/', $strcolumn) ? "rating_tmdb" : "rating");
+	} elseif ($strquantity=="votes") {
+		$strkey=preg_match('/IMDB/', $strcolumn) ? "votes_imdb" : "votes";
+	} elseif ($strquantity=="year") {
+		$strkey=preg_match('/BIRTH/', $strcolumn) ? "year_birth" : (preg_match('/DEATH/', $strcolumn) ? "year_death"
+			: (preg_match('/AIR/', $strcolumn) ? "year_air" : (preg_match('/RELEASE/', $strcolumn) ? "year_release" : "year")));
+	}
+	if (isset($arrwords[$strkey])) {
+		$arrentry=$arrwords[$strkey];
+		return $strlang=="fr" ? array("name"=>$arrentry[2], "without"=>$arrentry[3], "of"=>$arrentry[4]) : array("name"=>$arrentry[0], "without"=>$arrentry[1], "of"=>"");
+	}
+	$arrword=f_t2srep_metric_word($strcolumn, $strlang);
+	$strname=$arrword['label'];
+	return array("name"=>$strname, "without"=>$strname, "of"=>(preg_match('/^[aeiouyéèêàâîôûh]/iu', $strname) ? "de l'".$strname : "du ".$strname));
+}
+
+function f_t2srep_scatter_axis_title($arraxis, $strlang='en') {
+	//Purpose: "Budget ($)", "Runtime (min)", "IMDb votes (log scale)" / "Votes IMDb (échelle log)"
+	$arrwords=f_t2srep_scatter_words($arraxis, $strlang);
+	$strunit=isset($arraxis['unit']) ? (string)$arraxis['unit'] : "";
+	$strsuffix=$strunit=="usd" ? " ($)" : ($strunit=="minutes" ? " (min)" : "");
+	$strlog=(isset($arraxis['scale']) && $arraxis['scale']=="log") ? ($strlang=="fr" ? " (échelle log)" : " (log scale)") : "";
+	return f_t2srep_ucfirst($arrwords['name']).$strsuffix.$strlog;
+}
+
+function f_t2srep_trim_number($dblvalue, $lngdigits) {
+	//Purpose: Mirrors text2SqlTrimNumber(): at most $lngdigits decimals, trailing zeros dropped
+	$strtext=number_format((float)$dblvalue, $lngdigits, '.', '');
+	if (strpos($strtext, '.')!==false) {
+		$strtext=rtrim(rtrim($strtext, '0'), '.');
+	}
+	return $strtext==="-0" ? "0" : $strtext;
+}
+
+function f_t2srep_scatter_short($dblabs) {
+	//Purpose: A positive number in the short form: 1.25B, 150M, 2.5K, 7.5
+	if ($dblabs>=1e9) {
+		return f_t2srep_trim_number($dblabs/1e9, 2)."B";
+	}
+	if ($dblabs>=1e6) {
+		return f_t2srep_trim_number($dblabs/1e6, 2)."M";
+	}
+	if ($dblabs>=1e3) {
+		return f_t2srep_trim_number($dblabs/1e3, 2)."K";
+	}
+	return f_t2srep_trim_number($dblabs, 2);
+}
+
+function f_t2srep_scatter_tick_text($value, $arraxis) {
+	//Purpose: Mirrors text2SqlScatterTickText(): money and big counts short ($150M, 10K), a year bare
+	if (!f_t2srep_is_number($value)) {
+		return "";
+	}
+	$dblvalue=(float)$value;
+	$strunit=isset($arraxis['unit']) ? (string)$arraxis['unit'] : "";
+	if ($strunit=="year") {
+		return (string)(int)round($dblvalue);
+	}
+	$dblabs=abs($dblvalue);
+	$strsign=$dblvalue<0 ? "-" : "";
+	if ($strunit=="usd") {
+		return $strsign."$".f_t2srep_scatter_short($dblabs);
+	}
+	if ($dblabs>=1000 && $strunit!="minutes") {
+		return $strsign.f_t2srep_scatter_short($dblabs);
+	}
+	return f_t2srep_plain_number($dblvalue);
+}
+
+function f_t2srep_scatter_value_text($value, $arraxis) {
+	//Purpose: Mirrors text2SqlScatterValueText() (written form): "$160M", "148 min", "1958",
+	//			"8.4", "2,482,559"
+	if (!f_t2srep_is_number($value)) {
+		return "";
+	}
+	$dblvalue=(float)$value;
+	$strunit=isset($arraxis['unit']) ? (string)$arraxis['unit'] : "";
+	if ($strunit=="usd") {
+		return f_t2srep_short_money($dblvalue);
+	}
+	if ($strunit=="minutes") {
+		return f_t2srep_plain_number($dblvalue)." min";
+	}
+	if ($strunit=="year") {
+		return (string)(int)round($dblvalue);
+	}
+	if ($strunit=="rating") {
+		return number_format($dblvalue, 1, '.', '');
+	}
+	return f_t2srep_plain_number($dblvalue);
+}
+
+function f_t2srep_nice_step($dblraw) {
+	//Purpose: The round step (1, 2, 2.5, 5 times a power of ten) at or above $dblraw
+	if (!($dblraw>0) || !is_finite($dblraw)) {
+		return 1.0;
+	}
+	$dblpower=pow(10, floor(log10($dblraw)));
+	$dblf=$dblraw/$dblpower;
+	$dblm=$dblf<=1 ? 1 : ($dblf<=2 ? 2 : ($dblf<=2.5 ? 2.5 : ($dblf<=5 ? 5 : 10)));
+	return $dblm*$dblpower;
+}
+
+function f_t2srep_scatter_ticks($arraxis) {
+	//Purpose: Mirrors text2SqlScatterTicks(): four to six round ticks over the axis's values,
+	//			decades on a log axis; the low edge one step further when a point sits on it.
+	//Returns: array("log", "lo", "hi", "ticks"=>array(array("value", "pos", "text"))), or null
+	if (!isset($arraxis['min']) || !isset($arraxis['max']) || !f_t2srep_is_number($arraxis['min']) || !f_t2srep_is_number($arraxis['max'])) {
+		return null;
+	}
+	$dbllo=(float)$arraxis['min'];
+	$dblhi=(float)$arraxis['max'];
+	$arrticks=array();
+	if (isset($arraxis['scale']) && $arraxis['scale']=="log" && $dbllo>0) {
+		$lnge0=(int)floor(log10($dbllo));
+		$lnge1=(int)ceil(log10($dblhi));
+		if ($lnge1<=$lnge0) {
+			$lnge1=$lnge0+1;
+		}
+		$lngevery=($lnge1-$lnge0)>6 ? 2 : 1;
+		for ($lnge=$lnge0; $lnge<=$lnge1; $lnge+=$lngevery) {
+			$dblv=pow(10, $lnge);
+			$arrticks[]=array("value"=>$dblv, "pos"=>($lnge-$lnge0)/($lnge1-$lnge0)*100, "text"=>f_t2srep_scatter_tick_text($dblv, $arraxis));
+		}
+		return array("log"=>true, "lo"=>(float)$lnge0, "hi"=>(float)$lnge1, "ticks"=>$arrticks);
+	}
+	if ($dblhi==$dbllo) {
+		$dblpad=$dbllo!=0 ? abs($dbllo)*0.1 : 1;
+		$dbllo-=$dblpad;
+		$dblhi+=$dblpad;
+	}
+	$dblstep=f_t2srep_nice_step(($dblhi-$dbllo)/4);
+	$strunit=isset($arraxis['unit']) ? (string)$arraxis['unit'] : "";
+	$strquantity=isset($arraxis['quantity']) ? (string)$arraxis['quantity'] : "";
+	if (in_array($strunit, array("year", "count"), true) || in_array($strquantity, array("seasons", "episodes", "year"), true)) {
+		$dblstep=max(1, ceil($dblstep));
+	}
+	$dblstart=floor($dbllo/$dblstep)*$dblstep;
+	$dblend=max(ceil($dblhi/$dblstep)*$dblstep, $dblstart+$dblstep);
+	if ($dblstart==$dbllo && $dbllo!=0) {
+		$dblstart=($dbllo>0 && $dblstart-$dblstep<0) ? 0 : $dblstart-$dblstep;
+	}
+	for ($lngi=0; $lngi<=12; $lngi++) {
+		$dblv=(float)sprintf('%.12g', $dblstart+$lngi*$dblstep);
+		if ($dblv>$dblend+$dblstep/1000) {
+			break;
+		}
+		$arrticks[]=array("value"=>$dblv, "pos"=>($dblv-$dblstart)/($dblend-$dblstart)*100, "text"=>f_t2srep_scatter_tick_text($dblv, $arraxis));
+	}
+	return array("log"=>false, "lo"=>$dblstart, "hi"=>$dblend, "ticks"=>$arrticks);
+}
+
+function f_t2srep_scatter_pos($arrticks, $value) {
+	//Purpose: Where a value sits on its axis, 0 to 100
+	$dblvalue=(float)$value;
+	if ($arrticks['log']) {
+		return $dblvalue>0 ? (log10($dblvalue)-$arrticks['lo'])/($arrticks['hi']-$arrticks['lo'])*100 : 0;
+	}
+	return ($dblvalue-$arrticks['lo'])/($arrticks['hi']-$arrticks['lo'])*100;
+}
+
+function f_t2srep_scatter_model($jsontext2sql, $strlang='en') {
+	//Purpose: Mirrors text2SqlScatterModel(): the two axes with their titles and ticks, one entry
+	//			per point with its place (left and top in percent of the plot), its title and both
+	//			values, the highest point marked
+	//Returns: array("x", "y", "points", "highlight", "count", "plotted"), or null
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['scatter']) || !is_array($jsontext2sql['summary_facts']['scatter'])) {
+		return null;
+	}
+	$arrscatter=$jsontext2sql['summary_facts']['scatter'];
+	$arrpoints=isset($arrscatter['points']) && is_array($arrscatter['points']) ? $arrscatter['points'] : array();
+	if (!isset($arrscatter['x']) || !isset($arrscatter['y']) || !is_array($arrscatter['x']) || !is_array($arrscatter['y']) || count($arrpoints)<2) {
+		return null;
+	}
+	$arrxticks=f_t2srep_scatter_ticks($arrscatter['x']);
+	$arryticks=f_t2srep_scatter_ticks($arrscatter['y']);
+	if ($arrxticks===null || $arryticks===null) {
+		return null;
+	}
+	$arrxwords=f_t2srep_scatter_words($arrscatter['x'], $strlang);
+	$arrywords=f_t2srep_scatter_words($arrscatter['y'], $strlang);
+	$lngymax=(isset($arrscatter['extremes']['y_max']) && is_int($arrscatter['extremes']['y_max'])) ? $arrscatter['extremes']['y_max'] : -1;
+	$strsep=$strlang=="fr" ? " : " : ": ";
+	$arritems=array();
+	foreach (array_values($arrpoints) as $lngi=>$arrpoint) {
+		$strxtext=f_t2srep_scatter_value_text(isset($arrpoint['x']) ? $arrpoint['x'] : null, $arrscatter['x']);
+		$strytext=f_t2srep_scatter_value_text(isset($arrpoint['y']) ? $arrpoint['y'] : null, $arrscatter['y']);
+		$strlabel=isset($arrpoint['label']) ? trim((string)$arrpoint['label']) : "";
+		if ($strlabel==="") {
+			$strlabel=isset($arrpoint['id']) ? (string)$arrpoint['id'] : "";
+		}
+		$arritems[]=array(
+			"index"=>(isset($arrpoint['index']) && is_int($arrpoint['index'])) ? $arrpoint['index'] : null,
+			"label"=>$strlabel,
+			"left"=>round(f_t2srep_scatter_pos($arrxticks, $arrpoint['x']), 2),
+			"top"=>round(100-f_t2srep_scatter_pos($arryticks, $arrpoint['y']), 2),
+			"xtext"=>$strxtext,
+			"ytext"=>$strytext,
+			"values"=>f_t2srep_ucfirst($arrxwords['name'])." ".$strxtext." · ".f_t2srep_ucfirst($arrywords['name'])." ".$strytext,
+			"aria"=>$strlabel.$strsep.$arrxwords['name']." ".$strxtext.", ".$arrywords['name']." ".$strytext,
+			"highest"=>($lngi===$lngymax),
+		);
+	}
+	return array(
+		"x"=>array("title"=>f_t2srep_scatter_axis_title($arrscatter['x'], $strlang), "name"=>$arrxwords['name'], "ticks"=>$arrxticks['ticks']),
+		"y"=>array("title"=>f_t2srep_scatter_axis_title($arrscatter['y'], $strlang), "name"=>$arrywords['name'], "ticks"=>$arryticks['ticks']),
+		"points"=>$arritems,
+		"highlight"=>($lngymax>=0 && $lngymax<count($arritems)) ? $lngymax : 0,
+		"count"=>isset($arrscatter['count']) ? (int)$arrscatter['count'] : count($arrpoints),
+		"plotted"=>isset($arrscatter['plotted']) ? (int)$arrscatter['plotted'] : count($arrpoints),
+	);
+}
+
+function f_t2srep_scatter_detail($arrpoint, $arrrecord, $arrcolumns, $fnposter) {
+	//Purpose: The line under the plot: poster, title (linked) and both values of one point
+	$arrmedia=is_array($arrrecord) ? f_t2srep_entity_media($arrrecord, $arrcolumns, $fnposter) : array("title"=>"", "href"=>"", "url"=>"");
+	$strtitle=f_t2srep_h($arrpoint['label']);
+	return ($arrmedia['url']!="" ? "<img class=\"t2sScatterPoster\" src=\"".f_t2srep_h($arrmedia['url'])."\" alt=\"\" loading=\"lazy\">" : "")
+		."<span class=\"t2sScatterDetailText\"><span class=\"t2sScatterDetailTitle\">"
+		.($arrmedia['href']!="" ? "<a href=\"".f_t2srep_h($arrmedia['href'])."\">".$strtitle."</a>" : $strtitle)
+		."</span><span class=\"t2sScatterDetailValues\">".f_t2srep_h($arrpoint['values'])."</span></span>";
+}
+
+function f_t2srep_render_scatter($jsontext2sql, $strlang='en', $fnposter=null) {
+	//Purpose: Mirrors renderScatter(): one dot per point, x across and y up, no chart library. The
+	//			grid is a small SVG stretched over the plot (its lines keep one pixel at any size); the
+	//			dots and the tick labels are HTML placed by percentage, so the text keeps its size
+	//			from a 390 px phone to a desktop. A dot is a 24 px link around a 10 px mark, titled;
+	//			f_t2srep_scatter_js() makes the first tap show the point under the plot and the
+	//			second follow the link (without script, a tap opens the page). The highest point is
+	//			ringed and shown first; a visually hidden table lists every point.
+	$arrmodel=f_t2srep_scatter_model($jsontext2sql, $strlang);
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	$arrcolumns=f_t2srep_columns($jsontext2sql);
+	if ($arrmodel===null) {
+		return f_t2srep_render_table($arrrecords, $arrcolumns, $strlang);
+	}
+	$strpair=$arrmodel['x']['title']." / ".$arrmodel['y']['title'];
+	$strhtml="<figure class=\"t2sScatter\" role=\"group\" aria-label=\"".f_t2srep_h($strpair)."\">"
+		."<div class=\"t2sScatterAxisTitle t2sScatterYTitle\" aria-hidden=\"true\">".f_t2srep_h($arrmodel['y']['title'])."</div>"
+		."<div class=\"t2sScatterFrame\"><div class=\"t2sScatterYTicks\" aria-hidden=\"true\">";
+	foreach ($arrmodel['y']['ticks'] as $arrtick) {
+		$strhtml.="<span style=\"top:".round(100-$arrtick['pos'], 2)."%\">".f_t2srep_h($arrtick['text'])."</span>";
+	}
+	$strhtml.="</div><div class=\"t2sScatterPlot\"><svg class=\"t2sScatterGrid\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" aria-hidden=\"true\">";
+	foreach ($arrmodel['x']['ticks'] as $arrtick) {
+		$strpos=(string)round($arrtick['pos'], 2);
+		$strhtml.="<line x1=\"".$strpos."\" y1=\"0\" x2=\"".$strpos."\" y2=\"100\" class=\"t2sScatterGridLine\" vector-effect=\"non-scaling-stroke\"/>";
+	}
+	foreach ($arrmodel['y']['ticks'] as $arrtick) {
+		$strpos=(string)round(100-$arrtick['pos'], 2);
+		$strhtml.="<line x1=\"0\" y1=\"".$strpos."\" x2=\"100\" y2=\"".$strpos."\" class=\"t2sScatterGridLine\" vector-effect=\"non-scaling-stroke\"/>";
+	}
+	$strhtml.="<line x1=\"0\" y1=\"100\" x2=\"100\" y2=\"100\" class=\"t2sScatterAxisLine\" vector-effect=\"non-scaling-stroke\"/>"
+		."<line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"100\" class=\"t2sScatterAxisLine\" vector-effect=\"non-scaling-stroke\"/></svg>";
+	$strdetail="";
+	foreach ($arrmodel['points'] as $lngi=>$arrpoint) {
+		$arrrecord=($arrpoint['index']!==null && isset($arrrecords[$arrpoint['index']])) ? $arrrecords[$arrpoint['index']] : null;
+		$arrmedia=is_array($arrrecord) ? f_t2srep_entity_media($arrrecord, $arrcolumns, $fnposter) : array("title"=>"", "href"=>"", "url"=>"");
+		$intselected=($lngi===$arrmodel['highlight']);
+		$strclass="t2sScatterDot".($arrpoint['highest'] ? " isHighest" : "").($intselected ? " isSelected" : "");
+		$strattrs=" class=\"".$strclass."\" style=\"left:".$arrpoint['left']."%;top:".$arrpoint['top']."%\" title=\"".f_t2srep_h($arrpoint['aria'])."\" aria-label=\"".f_t2srep_h($arrpoint['aria'])."\""
+			." data-t2stitle=\"".f_t2srep_h($arrpoint['label'])."\" data-t2svalues=\"".f_t2srep_h($arrpoint['values'])."\""
+			.($arrmedia['url']!="" ? " data-t2sposter=\"".f_t2srep_h($arrmedia['url'])."\"" : "");
+		if ($arrmedia['href']!="") {
+			$strhtml.="<a href=\"".f_t2srep_h($arrmedia['href'])."\"".$strattrs."></a>";
+		} else {
+			$strhtml.="<span role=\"button\" tabindex=\"0\"".$strattrs."></span>";
+		}
+		if ($intselected) {
+			$strdetail=f_t2srep_scatter_detail($arrpoint, $arrrecord, $arrcolumns, $fnposter);
+		}
+	}
+	$strhtml.="</div><div class=\"t2sScatterCorner\"></div><div class=\"t2sScatterXTicks\" aria-hidden=\"true\">";
+	foreach ($arrmodel['x']['ticks'] as $arrtick) {
+		$strhtml.="<span style=\"left:".round($arrtick['pos'], 2)."%\">".f_t2srep_h($arrtick['text'])."</span>";
+	}
+	$strhtml.="</div></div><div class=\"t2sScatterAxisTitle t2sScatterXTitle\" aria-hidden=\"true\">".f_t2srep_h($arrmodel['x']['title'])."</div>"
+		."<div class=\"t2sScatterDetail\" aria-live=\"polite\">".$strdetail."</div>"
+		."<div class=\"t2sSrOnly\"><table><caption>".f_t2srep_h($strpair)."</caption><thead><tr><th scope=\"col\">".($strlang=="fr" ? "Titre" : "Title")."</th>"
+		."<th scope=\"col\">".f_t2srep_h($arrmodel['x']['title'])."</th><th scope=\"col\">".f_t2srep_h($arrmodel['y']['title'])."</th></tr></thead><tbody>";
+	foreach ($arrmodel['points'] as $arrpoint) {
+		$strhtml.="<tr><td>".f_t2srep_h($arrpoint['label'])."</td><td>".f_t2srep_h($arrpoint['xtext'])."</td><td>".f_t2srep_h($arrpoint['ytext'])."</td></tr>";
+	}
+	return $strhtml."</tbody></table></div></figure>";
+}
+
+function f_t2srep_scatter_js() {
+	//Purpose: The taps of a scatter, as voice-agent: the first tap (or Enter) on a dot shows its
+	//			title, poster and values under the plot, a second tap on the same dot follows its
+	//			link. A plain string with no PHP value in it.
+	return "(function(){function e(s){var d=document.createElement('span');d.textContent=s;return d.innerHTML;}"
+		."function pick(dot,ev){var root=dot.closest('.t2sScatter');if(!root){return;}"
+		."if(dot.classList.contains('isSelected')){if(dot.tagName!=='A'){ev.preventDefault();}return;}"
+		."ev.preventDefault();var old=root.querySelector('.t2sScatterDot.isSelected');if(old){old.classList.remove('isSelected');}"
+		."dot.classList.add('isSelected');var box=root.querySelector('.t2sScatterDetail');if(!box){return;}"
+		."var t=e(dot.getAttribute('data-t2stitle')||''),h=dot.getAttribute('href'),p=dot.getAttribute('data-t2sposter');"
+		."box.innerHTML=(p?'<img class=\"t2sScatterPoster\" src=\"'+e(p).replace(/\"/g,'&quot;')+'\" alt=\"\" loading=\"lazy\">':'')"
+		."+'<span class=\"t2sScatterDetailText\"><span class=\"t2sScatterDetailTitle\">'+(h?'<a href=\"'+e(h).replace(/\"/g,'&quot;')+'\">'+t+'</a>':t)"
+		."+'</span><span class=\"t2sScatterDetailValues\">'+e(dot.getAttribute('data-t2svalues')||'')+'</span></span>';}"
+		."document.addEventListener('click',function(ev){var dot=ev.target.closest&&ev.target.closest('.t2sScatterDot');if(dot){pick(dot,ev);}});"
+		."document.addEventListener('keydown',function(ev){var dot=ev.target.closest&&ev.target.closest('span.t2sScatterDot');"
+		."if(dot&&(ev.key==='Enter'||ev.key===' ')){pick(dot,ev);}});})();";
+}
+
+function f_t2srep_caption_scatter($jsontext2sql, $strlang='en', $inthasmore=false) {
+	//Purpose: Mirrors text2SqlScatterSummary(): "18 films, runtime against IMDb rating; highest
+	//			IMDb rating: Paths of Glory, 8.4." / "18 films sur 31, recettes en fonction du
+	//			budget (13 sans budget ou sans recettes) ; maximum des recettes : L'Odyssée, $1.8B."
+	//			"the first N" while another page may follow
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['scatter']) || !is_array($jsontext2sql['summary_facts']['scatter'])) {
+		return "";
+	}
+	$arrscatter=$jsontext2sql['summary_facts']['scatter'];
+	$arrpoints=isset($arrscatter['points']) && is_array($arrscatter['points']) ? array_values($arrscatter['points']) : array();
+	if (!isset($arrscatter['x']) || !isset($arrscatter['y']) || !count($arrpoints)) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	$lngcount=isset($arrscatter['count']) ? (int)$arrscatter['count'] : count($arrpoints);
+	$lngplotted=isset($arrscatter['plotted']) ? (int)$arrscatter['plotted'] : count($arrpoints);
+	$arrnoun=f_t2srep_noun(f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array()), f_t2srep_columns($jsontext2sql), $strlang);
+	$strnoun=$arrnoun['plural'];
+	$strfirst=$arrnoun['gender']=="f" ? "premières" : "premiers";
+	if ($lngplotted>=$lngcount) {
+		$strlead=$inthasmore ? ($intfr ? "les ".$lngcount." ".$strfirst." ".$strnoun : "the first ".$lngcount." ".$strnoun) : $lngcount." ".$strnoun;
+	} elseif ($intfr) {
+		$strlead=$inthasmore ? $lngplotted." des ".$lngcount." ".$strfirst." ".$strnoun : $lngplotted." ".$strnoun." sur ".$lngcount;
+	} else {
+		$strlead=$inthasmore ? $lngplotted." of the first ".$lngcount." ".$strnoun : $lngplotted." of ".$lngcount." ".$strnoun;
+	}
+	$arrx=f_t2srep_scatter_words($arrscatter['x'], $strlang);
+	$arry=f_t2srep_scatter_words($arrscatter['y'], $strlang);
+	$strtext=f_t2srep_ucfirst($strlead).", ".($intfr ? $arry['name']." en fonction ".$arrx['of'] : $arrx['name']." against ".$arry['name']);
+	$lngleft=$lngcount-$lngplotted;
+	if ($lngleft>0) {
+		$lngmx=isset($arrscatter['missing']['x']) ? (int)$arrscatter['missing']['x'] : 0;
+		$lngmy=isset($arrscatter['missing']['y']) ? (int)$arrscatter['missing']['y'] : 0;
+		if ($intfr) {
+			$strwhat=($lngmx && $lngmy) ? "sans ".$arrx['without']." ou sans ".$arry['without'] : ($lngmx ? "sans ".$arrx['without'] : "sans ".$arry['without']);
+		} else {
+			$strwhat="without ".(($lngmx && $lngmy) ? $arrx['without']." or ".$arry['without'] : ($lngmx ? $arrx['without'] : $arry['without']));
+		}
+		$strtext.=" (".$lngleft." ".$strwhat.")";
+	}
+	$lngymax=(isset($arrscatter['extremes']['y_max']) && is_int($arrscatter['extremes']['y_max'])) ? $arrscatter['extremes']['y_max'] : -1;
+	if ($lngymax>=0 && isset($arrpoints[$lngymax])) {
+		$strlabel=isset($arrpoints[$lngymax]['label']) ? trim((string)$arrpoints[$lngymax]['label']) : "";
+		if ($strlabel!=="") {
+			$strvalue=f_t2srep_scatter_value_text(isset($arrpoints[$lngymax]['y']) ? $arrpoints[$lngymax]['y'] : null, $arrscatter['y']);
+			$strtext.=$intfr ? " ; maximum ".$arry['of']." : ".$strlabel.", ".$strvalue : "; highest ".$arry['name'].": ".$strlabel.", ".$strvalue;
+		}
+	}
+	return $strtext.".";
 }

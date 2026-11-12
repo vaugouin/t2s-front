@@ -991,6 +991,10 @@ if ($intdbavailable) {
 								//The code badges turn into flags where the browser draws flag emoji
 								echo "<script>".f_t2srep_flags_js()."</script>";
 							}
+							if ($strt2soption=="scatter") {
+								//The first tap on a dot shows it under the plot, the second opens its page
+								echo "<script>".f_t2srep_scatter_js()."</script>";
+							}
 							if ($strt2soption=="timeline" && $intt2shasmore) {
 								//The rest of the rows, page after page, while the timeline is shown
 								echo "<div id=\"t2sTimelineStatus\" class=\"muted\" style=\"display:none; margin-top:12px;\"></div>";

@@ -38,6 +38,12 @@
  * parts and their labels (GENDER named, one share and its rest), the countries with their flag
  * or their code badge, the chips, and the captions in English and French, word for word those
  * of voice-agent. The flag detection script goes through node --check.
+ *
+ * Phase 3 lot A adds scatter on the 1.1.20 answers of the scatter evaluations reclassified with
+ * the API module of that lot (fixtures p3a-*): the axes, their ticks and titles (money, minutes,
+ * years, a log axis of votes), the points and the highest one, the rendering, the chips, and the
+ * captions in English and French, word for word those of voice-agent. The tap script goes through
+ * node --check.
  */
 
 require_once(__DIR__."/../lib/t2s-representation.inc.php");
@@ -810,6 +816,85 @@ f_check("no em dash in any lot C caption or rendering",strpos($strallc,"\u{2014}
 f_check("every lot C fixture has a caption in both languages",array_sum(array_map(function($k) use ($arrfix) {
 	return (strpos($k,"lotc-")===0 && (f_t2srep_caption($arrfix[$k],"en")==="" || f_t2srep_caption($arrfix[$k],"fr")==="")) ? 1 : 0;
 }, array_keys($arrfix))),0);
+
+f_group("Phase 3 lot A: scatter");
+f_check("scatter caption all plotted en",f_t2srep_caption($arrfix['p3a-scatter-kubrick-runtime-rating-en'],"en"),
+	"18 films, runtime against IMDb rating; highest IMDb rating: Paths of Glory, 8.4.");
+f_check("scatter caption all plotted fr",f_t2srep_caption($arrfix['p3a-scatter-kubrick-runtime-rating-fr'],"fr"),
+	"18 films, note IMDb en fonction de la durée ; maximum de la note IMDb : Shining, 8.4.");
+f_check("scatter caption left out en",f_t2srep_caption($arrfix['p3a-scatter-nolan-budget-revenue-en'],"en"),
+	"18 of 31 films, budget against box-office revenue (13 without a budget or box-office revenue); highest box-office revenue: The Odyssey, $1.8B.");
+f_check("scatter caption left out fr",f_t2srep_caption($arrfix['p3a-scatter-nolan-budget-revenue-fr'],"fr"),
+	"18 films sur 31, recettes en fonction du budget (13 sans budget ou sans recettes) ; maximum des recettes : L'Odyssée, $1.8B.");
+f_check("scatter caption one value missing",f_t2srep_caption($arrfix['p3a-scatter-pixar-budget-rating-en'],"en"),
+	"34 of 50 films, budget against IMDb rating (16 without a budget); highest IMDb rating: WALL·E, 8.4.");
+f_check("scatter caption year axis fr",f_t2srep_caption($arrfix['p3a-scatter-hitchcock-year-rating-fr'],"fr"),
+	"49 films sur 50, note IMDb en fonction de l'année de sortie (1 sans note IMDb) ; maximum de la note IMDb : Rebecca, 8.0.");
+f_check("scatter caption series",f_t2srep_caption($arrfix['p3a-scatter-hbo-seasons-rating-en'],"en"),
+	"50 series, number of seasons against IMDb rating; highest IMDb rating: Band of Brothers, 9.4.");
+f_check("scatter caption more pages en",f_t2srep_caption($arrfix['p3a-scatter-ghibli-runtime-rating-en'],"en",true),
+	"The first 50 films, runtime against IMDb rating; highest IMDb rating: Spirited Away, 8.6.");
+f_check("scatter caption more pages fr, left out",f_t2srep_caption($arrfix['p3a-scatter-hbo-seasons-rating-fr'],"fr",true),
+	"49 des 50 premières séries, note IMDb en fonction du nombre de saisons (1 sans nombre de saisons) ; maximum de la note IMDb : The Franchise, 6.5.");
+$fnaxes=function($strkey,$strlang) use ($arrfix) {
+	$arrm=f_t2srep_scatter_model($arrfix[$strkey],$strlang);
+	$fntexts=function($arrticks) { return array_map(function($t) { return $t['text']; },$arrticks); };
+	return array($arrm['x']['title'],$fntexts($arrm['x']['ticks']),$arrm['y']['title'],$fntexts($arrm['y']['ticks']));
+};
+f_check("scatter axes money",$fnaxes('p3a-scatter-nolan-budget-revenue-en',"en"),
+	array("Budget ($)",array("$0","$100M","$200M","$300M"),"Box-office revenue ($)",array("$0","$500M","$1B","$1.5B","$2B")));
+f_check("scatter axes log votes",$fnaxes('p3a-scatter-tarantino-votes-rating-en',"en"),
+	array("IMDb votes (log scale)",array("10","100","1K","10K","100K","1M","10M"),"IMDb rating",array("4","6","8","10")));
+$arrtfr=$fnaxes('p3a-scatter-tarantino-votes-rating-fr',"fr");
+f_check("scatter axes log votes fr",$arrtfr[0],"Votes IMDb (échelle log)");
+f_check("scatter axes year, padded where a point sits on the edge",$fnaxes('p3a-scatter-hitchcock-year-rating-en',"en"),
+	array("Release year",array("1910","1920","1930","1940","1950"),"IMDb rating",array("4","5","6","7","8")));
+f_check("scatter axes minutes",$fnaxes('p3a-scatter-potter-runtime-revenue-en',"en"),
+	array("Runtime (min)",array("120","130","140","150","160","170"),"Box-office revenue ($)",array("$600M","$800M","$1B","$1.2B","$1.4B")));
+$arrsn=f_t2srep_scatter_model($arrfix['p3a-scatter-nolan-budget-revenue-en'],"en");
+$arrhp=$arrsn['points'][$arrsn['highlight']];
+f_check("scatter highest point",array($arrhp['label'],$arrhp['left'],$arrhp['top'],$arrhp['aria'],$arrhp['highest']),
+	array("The Odyssey",83.33,10.19,"The Odyssey: budget $250M, box-office revenue $1.8B",true));
+f_check("scatter points kept",count($arrsn['points']),18);
+$intinside=true;
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"p3a-")===0) {
+		$arrm=f_t2srep_scatter_model($arrjson,substr($strkey,-2));
+		foreach ($arrm['points'] as $arrp) {
+			$intinside=$intinside && $arrp['left']>=0 && $arrp['left']<=100 && $arrp['top']>=0 && $arrp['top']<=100;
+		}
+	}
+}
+f_check("scatter points inside the plot",$intinside,true);
+f_check("scatter tick texts",array(f_t2srep_scatter_tick_text(1250000000,array("unit"=>"usd")),f_t2srep_scatter_tick_text(2500,array("unit"=>"count")),
+	f_t2srep_scatter_tick_text(7.5,array("unit"=>"rating")),f_t2srep_scatter_tick_text(1958,array("unit"=>"year")),f_t2srep_scatter_tick_text(0,array("unit"=>"usd"))),
+	array("$1.25B","2.5K","7.5","1958","$0"));
+f_check("scatter votes value",f_t2srep_scatter_value_text(2482559,array("unit"=>"votes")),"2,482,559");
+f_check("scatter chips",f_t2srep_options($arrfix['p3a-scatter-nolan-budget-revenue-en']),array("scatter","value-cards","card-grid","ranked-bars","table"));
+f_check("no scatter facts, no model",f_t2srep_scatter_model($arrfix['lotc-share-hbo-type-en'],"en"),null);
+$strhtml=f_t2srep_render("scatter",$arrfix['p3a-scatter-nolan-budget-revenue-en'],"en");
+f_contains("scatter frame",$strhtml,"<figure class=\"t2sScatter\" role=\"group\" aria-label=\"Budget ($) / Box-office revenue ($)\">");
+f_contains("scatter grid is a stretched svg",$strhtml,"<svg class=\"t2sScatterGrid\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\" aria-hidden=\"true\">");
+f_contains("scatter dot links to its page, highest ringed and selected",$strhtml,"class=\"t2sScatterDot isHighest isSelected\" style=\"left:83.33%;top:10.19%\" title=\"The Odyssey: budget $250M, box-office revenue $1.8B\"");
+f_contains("scatter tick label placed by percent",$strhtml,"<span style=\"left:33.33%\">$100M</span>");
+f_contains("scatter detail shows the highest point",$strhtml,"<span class=\"t2sScatterDetailValues\">Budget $250M · Box-office revenue $1.8B</span>");
+f_contains("scatter hidden table of the points",$strhtml,"<div class=\"t2sSrOnly\"><table><caption>Budget ($) / Box-office revenue ($)</caption>");
+f_check("scatter dots, one per point",substr_count($strhtml,"class=\"t2sScatterDot"),18);
+f_contains("scatter dot links to the film page",$strhtml,"<a href=\"");
+f_nodecheck("the scatter tap script",f_t2srep_scatter_js());
+$strallp="";
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"p3a-")===0) {
+		$strallp.=f_t2srep_caption($arrjson,"en").f_t2srep_caption($arrjson,"fr");
+		foreach (f_t2srep_options($arrjson) as $stroption) {
+			if (in_array($stroption,f_t2srep_module_reps(),true)) {
+				$strallp.=f_t2srep_render($stroption,$arrjson,"en").f_t2srep_render($stroption,$arrjson,"fr");
+			}
+		}
+	}
+}
+//A film title of the data carries one (Thriller\u{2014}A Cruel Documentary): the check is on our words
+f_check("no em dash in any phase 3 caption or rendering",strpos(str_replace("Thriller\u{2014}A Cruel Documentary","",$strallp),"\u{2014}"),false);
 
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);
