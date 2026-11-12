@@ -2505,7 +2505,6 @@ if (!function_exists('f_protect_injection')) {
 			"T_WC_WEBSITE",
 			"T_WC_REQUEST",
 			"T_WC_TEMPLATE",
-			"T_WC_LBA_API_TEST",
 			"T_WC_TECHNICAL_DATA",
 			"T_WC_QUIZ_CRITERION"
 		);
