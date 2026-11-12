@@ -286,11 +286,12 @@ if (!function_exists('f_feedbackjs')) {
 		//the SQL come from the visitor and from the API, and a "</script>" inside either would close
 		//the block early.
 		//
-		//The flow. A click on a thumb records the vote at once, so that leaving the page loses
-		//nothing; the comment field then opens, and a comment sent is a second record carrying the
-		//same rating and the text. A click on the other thumb sends a new rating, a click on the
-		//thumb already chosen only reopens the field. The rows are told apart on the API side by
-		//their time; the analysis reads them together, by question.
+		//The flow, the same as the voice client's: one record per vote. A click on a thumb marks it
+		//pending and opens the comment field; Send (or Enter) records the vote with the comment,
+		//Skip (or Escape) records it without one. A click on the other thumb, before or after,
+		//makes it the pending vote and reopens the field; a click on the thumb already recorded
+		//does nothing, so a vote is never counted twice. On a failure the field stays open with
+		//its text, and Send is the retry.
 		$arrdata=is_array($arrdata)?$arrdata:array();
 		$arrlabels=is_array($arrlabels)?$arrlabels:array();
 		$intjsonflags=JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE;
@@ -323,25 +324,27 @@ if (!function_exists('f_feedbackjs')) {
 		$arrlines[]="var strlabelrecompute=".json_encode($arrtext["recompute"],$intjsonflags).";";
 		$arrlines[]="var strlabelerror=".json_encode($arrtext["error"],$intjsonflags).";";
 		$arrlines[]="var lngrating=0;";
+		$arrlines[]="var lngpending=0;";
 		$arrlines[]="var intbusy=false;";
 		$arrlines[]="function f_fbstatus(strtext,intiserror){objstatus.textContent=strtext;if(intiserror){objstatus.className='t2sFeedbackStatus t2sFeedbackStatusError';}else{objstatus.className='t2sFeedbackStatus';}}";
-		$arrlines[]="function f_fbpressed(){objup.setAttribute('aria-pressed',lngrating===1?'true':'false');objdown.setAttribute('aria-pressed',lngrating===-1?'true':'false');}";
+		$arrlines[]="function f_fbpressed(){var lngshown=lngpending!==0?lngpending:lngrating;objup.setAttribute('aria-pressed',lngshown===1?'true':'false');objdown.setAttribute('aria-pressed',lngshown===-1?'true':'false');}";
 		$arrlines[]="function f_fbbusy(intvalue){intbusy=intvalue;objup.disabled=intvalue;objdown.disabled=intvalue;if(objsend){objsend.disabled=intvalue;}if(objskip){objskip.disabled=intvalue;}}";
 		$arrlines[]="function f_fbthanks(){return lngrating===-1&&strlabelrecompute?strlabelthanks+' '+strlabelrecompute:strlabelthanks;}";
 		$arrlines[]="function f_fbopencomment(){if(!objcommentrow||!objcomment){return;}objcommentrow.hidden=false;if(objcomment.focus){objcomment.focus();}}";
 		$arrlines[]="function f_fbclosecomment(){if(!objcommentrow){return;}objcommentrow.hidden=true;if(objcomment){objcomment.value='';}}";
+		$arrlines[]="function f_fbcomment(){return objcomment?objcomment.value.replace(/^\s+|\s+$/g,''):'';}";
 		//The context is copied whole and the empty keys are dropped, so the shim and the API apply
 		//their own default to whatever this page did not know.
 		$arrlines[]="function f_fbbody(lngvalue,strcomment){var objbody={rating:lngvalue};var strkey='';for(strkey in objcontext){if(Object.prototype.hasOwnProperty.call(objcontext,strkey)&&objcontext[strkey]!==''){objbody[strkey]=objcontext[strkey];}}if(strcomment){objbody.comment=strcomment;}return objbody;}";
 		$arrlines[]="function f_fbpost(lngvalue,strcomment){return fetch(strendpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(f_fbbody(lngvalue,strcomment))}).then(function(objresponse){return objresponse.json().then(function(objjson){return {ok:objresponse.ok,body:objjson};},function(){return {ok:false,body:{}};});});}";
 		$arrlines[]="function f_fbfailure(objresult){var strmessage=(objresult&&objresult.body&&typeof objresult.body.error==='string'&&objresult.body.error)?objresult.body.error:strlabelerror;f_fbstatus(strmessage,true);}";
-		$arrlines[]="function f_fbrate(lngvalue){if(intbusy){return;}if(lngvalue===lngrating){f_fbopencomment();return;}f_fbbusy(true);f_fbstatus(strlabelsending,false);f_fbpost(lngvalue,'').then(function(objresult){f_fbbusy(false);if(!objresult.ok||!objresult.body||!objresult.body.id_feedback){f_fbfailure(objresult);return;}lngrating=lngvalue;f_fbpressed();if(objcomment){objcomment.value='';}f_fbopencomment();f_fbstatus(f_fbthanks(),false);}).catch(function(){f_fbbusy(false);f_fbfailure(null);});}";
-		$arrlines[]="function f_fbsendcomment(){if(intbusy||lngrating===0||!objcomment){return;}var strcomment=objcomment.value.replace(/^\\s+|\\s+$/g,'');if(strcomment===''){f_fbclosecomment();return;}f_fbbusy(true);f_fbstatus(strlabelsending,false);f_fbpost(lngrating,strcomment).then(function(objresult){f_fbbusy(false);if(!objresult.ok||!objresult.body||!objresult.body.id_feedback){f_fbfailure(objresult);return;}f_fbclosecomment();f_fbstatus(f_fbthanks(),false);}).catch(function(){f_fbbusy(false);f_fbfailure(null);});}";
+		$arrlines[]="function f_fbrate(lngvalue){if(intbusy){return;}if(lngvalue===lngrating&&lngpending===0){return;}if(lngvalue===lngrating){lngpending=0;f_fbpressed();f_fbclosecomment();f_fbstatus(f_fbthanks(),false);return;}lngpending=lngvalue;f_fbpressed();f_fbstatus('',false);f_fbopencomment();}";
+		$arrlines[]="function f_fbsubmit(strcomment){if(intbusy||lngpending===0){return;}var lngvalue=lngpending;f_fbbusy(true);f_fbstatus(strlabelsending,false);f_fbpost(lngvalue,strcomment).then(function(objresult){f_fbbusy(false);if(!objresult.ok||!objresult.body||!objresult.body.id_feedback){f_fbfailure(objresult);return;}lngrating=lngvalue;lngpending=0;f_fbpressed();f_fbclosecomment();f_fbstatus(f_fbthanks(),false);}).catch(function(){f_fbbusy(false);f_fbfailure(null);});}";
 		$arrlines[]="objup.addEventListener('click',function(){f_fbrate(1);});";
 		$arrlines[]="objdown.addEventListener('click',function(){f_fbrate(-1);});";
-		$arrlines[]="if(objsend){objsend.addEventListener('click',function(){f_fbsendcomment();});}";
-		$arrlines[]="if(objskip){objskip.addEventListener('click',function(){f_fbclosecomment();});}";
-		$arrlines[]="if(objcomment){objcomment.addEventListener('keydown',function(objevent){if(objevent.key==='Enter'||objevent.keyCode===13){objevent.preventDefault();f_fbsendcomment();}else if(objevent.key==='Escape'||objevent.keyCode===27){f_fbclosecomment();}});}";
+		$arrlines[]="if(objsend){objsend.addEventListener('click',function(){f_fbsubmit(f_fbcomment());});}";
+		$arrlines[]="if(objskip){objskip.addEventListener('click',function(){f_fbsubmit('');});}";
+		$arrlines[]="if(objcomment){objcomment.addEventListener('keydown',function(objevent){if(objevent.key==='Enter'||objevent.keyCode===13){objevent.preventDefault();f_fbsubmit(f_fbcomment());}else if(objevent.key==='Escape'||objevent.keyCode===27){objevent.preventDefault();f_fbsubmit('');}});}";
 		$arrlines[]="objroot.hidden=false;";
 		$arrlines[]="})();";
 		return implode("\n",$arrlines)."\n";

@@ -294,6 +294,10 @@ f_check("no real newline inside a string: every line ends a statement or a block
 })($strjs));
 f_check("the endpoint is the same-origin shim",true,strpos($strjs,"var strendpoint=\"\\/app\\/feedback.php?apicolor=Blue\";")!==false);
 f_check("the script posts JSON",true,strpos($strjs,"'Content-Type':'application/json'")!==false);
+f_check("a click on a thumb posts nothing, it only marks the pending vote",false,(bool)preg_match('/function f_fbrate\([^)]*\)\{[^\n]*f_fbpost/',$strjs));
+f_check("Send records the vote with its comment",true,strpos($strjs,"objsend.addEventListener('click',function(){f_fbsubmit(f_fbcomment());});")!==false);
+f_check("Skip records the vote without a comment",true,strpos($strjs,"objskip.addEventListener('click',function(){f_fbsubmit('');});")!==false);
+f_check("the thumb already recorded does not post again",true,strpos($strjs,"if(lngvalue===lngrating&&lngpending===0){return;}")!==false);
 f_check("the script never names the API or its key",false,stripos($strjs,"apikey")!==false || stripos($strjs,"text2sql")!==false);
 f_nodecheck("the feedback script with hostile values",$strjs);
 f_nodecheck("the feedback script with empty values",f_feedbackjs(array(),array()));
