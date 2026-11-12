@@ -2480,3 +2480,102 @@ a.t2sChainCard:focus-visible .t2sChainTitle {
     width: auto;
   }
 }
+
+/* Thumbs up / down under the answer of a search (lib/feedback-ui.inc.php). One block per
+   search, printed hidden and shown by its script. The buttons are 44 px targets for a finger,
+   aria-pressed marks the choice that stands, and the comment row wraps under the field at
+   phone width rather than widening the page. */
+.t2sFeedback {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  max-width: 100%;
+}
+.t2sFeedback[hidden],
+.t2sFeedbackCommentRow[hidden] {
+  display: none;
+}
+.t2sFeedbackRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.t2sFeedbackQuestion {
+  color: var(--text-secondary);
+}
+.t2sFeedbackButtons {
+  display: inline-flex;
+  gap: 8px;
+}
+.t2sFeedbackButton {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 20px;
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.t2sFeedbackButton:hover {
+  border-color: var(--text-secondary);
+}
+.t2sFeedbackButton:focus-visible,
+.t2sFeedbackAction:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+.t2sFeedbackButton[aria-pressed="true"] {
+  border-color: var(--accent-primary);
+  background-color: rgba(187, 134, 252, 0.2);
+}
+.t2sFeedbackButton:disabled,
+.t2sFeedbackAction:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.t2sFeedbackCommentRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.t2sFeedbackCommentRow input[type="text"].t2sFeedbackComment {
+  flex: 1 1 220px;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+}
+.t2sFeedbackAction {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 16px;
+  border: 1px solid var(--accent-primary);
+  border-radius: 4px;
+  background-color: var(--accent-primary);
+  color: var(--bg-primary);
+  cursor: pointer;
+}
+.t2sFeedbackActionSecondary {
+  background-color: transparent;
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+.t2sFeedbackStatus {
+  margin-top: 6px;
+  min-height: 1.6em;
+  color: var(--text-secondary);
+}
+.t2sFeedbackStatus:empty {
+  min-height: 0;
+  margin-top: 0;
+}
+.t2sFeedbackStatusError {
+  color: var(--error);
+}

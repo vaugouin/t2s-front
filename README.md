@@ -8,7 +8,7 @@ Current version: see [VERSION](VERSION).
 
 ## What it does
 
-- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card, a Yes / No verdict, a histogram, a share bar, a list of countries with their flags, the same countries shaded on a world map, a scatter plot of two quantities, the rows under their groups (by trilogy, by region), or the lineage of a work (its sources and the remakes and adaptations made from it, generation by generation), depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server).
+- **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card, a Yes / No verdict, a histogram, a share bar, a list of countries with their flags, the same countries shaded on a world map, a scatter plot of two quantities, the rows under their groups (by trilogy, by region), or the lineage of a work (its sources and the remakes and adaptations made from it, generation by generation), depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server). Under the answer, a thumbs up and a thumbs down let the reader say whether the result is right, with an optional comment (see *Result feedback*).
 - **Detail pages** for movies, series, seasons, episodes and persons, with collapsible sections (cast, crew, images, videos, external identifiers, Wikidata properties, Wikipedia sections, watch providers, release dates).
 - **Entity pages**: collections, companies, networks, genres, keywords, lists, awards, nominations, locations, movements, groups, source works, technical properties, topics, characters, jobs, languages.
 - **Image galleries** (`images.php`, `season-images.php`, `episode-images.php`).
@@ -50,7 +50,7 @@ The layout is not a preference, the code depends on it:
 - A MariaDB database with the `T_WC_*` tables, and two accounts on it: one read-only, one read-write.
 - A reachable Text2SQL API (the `fastapi-text2sql` project) for the search page.
 - A TMDb API token for the pages that call the TMDb API.
-- Node.js on the `PATH`, only to run two of the tests.
+- Node.js on the `PATH`, only to run three of the tests.
 
 ## Configuration
 
@@ -178,6 +178,15 @@ Filters:
 
 `test/plugins-test.php` fails when the core calls a hook that this section does not list.
 
+## Result feedback
+
+The search page prints one feedback block per search, under the answer and its trace, above the rows. It is not repeated by the calls that load the next cards. It shows on every outcome of a question, rows, no row or error, and not when the search carried no question at all (a photo alone).
+
+- **What the reader sees.** "Was this result right?" with a 👍 and a 👎 button (`aria-pressed` marks the choice that stands). A click records the vote at once, then opens an optional one-line comment with Send and Skip. A comment sent is a second record with the same rating and the text. A click on the other button records a new rating; a click on the chosen one reopens the comment. After a 👎 the status line adds that the answer will be computed again the next time the question is asked: the API stops serving that cached answer. The block is printed hidden and shown by its script, so a browser without JavaScript sees no button that cannot send.
+- **What is sent.** `rating` (1 or -1), `comment` when there is one, and what the page knows of the result: `question`, `question_hashed`, `request_id`, `api_version` (from the search answer, else the running version of the colour), `sql_query`, `result_entity`, `ui_language`. Empty values are left out, so the API applies its own default.
+- **The shim.** The browser posts JSON to `feedback.php?apicolor=<colour>`, on the same origin, never to the API: the key stays on the server. `lib/feedback.inc.php` accepts `POST` only (405 otherwise), refuses a body over 256 KB (413), validates the rating and the lengths (question 4,000 characters, comment 2,000; 422), applies a throttle of 60 posts an hour per session (429), fixes `client` to `t2s-front`, forwards to `POST /feedback` of the colour that answered the question, and returns only `id_feedback`, `status`, `cache_bypassed` and `api_version`. On a failure it returns `{"error": ...}`, a sentence in the language of the page; a 503 of the API (feedback store unavailable) has its own sentence. A vote is sent once and never retried.
+- **Where the code is.** The validation, the payload, the whitelist of the answer, the markup and the script are in `lib/feedback-ui.inc.php`, which has no side effect and is covered by `test/feedback-test.php`. The labels are the `lib_t2s_feedback_*` keys of `lib/language.inc.php`.
+
 ## Runtime mounts
 
 One URL path is used by the pages and is not part of the repository. It must be published by the web server from a directory filled by another project:
@@ -192,6 +201,7 @@ There is no framework and nothing to install. The tests are plain PHP scripts, r
 
 ```bash
 php test/api-version-test.php
+php test/feedback-test.php                # needs node on the PATH for one check
 php test/image-gallery-test.php
 php test/open-credits-format-test.php
 php test/plugins-test.php
@@ -207,6 +217,7 @@ php test/work-properties-format-test.php
 | Script | Covers |
 |---|---|
 | `api-version-test.php` | `lib/api-version.inc.php`: the version read from the API and its file cache |
+| `feedback-test.php` | `lib/feedback-ui.inc.php`: the validation and the payload of the result feedback, the whitelist of the answer, the labels in English and in French, the markup and the JavaScript of the block |
 | `image-gallery-test.php` | `lib/image-gallery.inc.php`: the size announced to PhotoSwipe, the gallery markup and script, and the three gallery pages |
 | `open-credits-format-test.php` | `lib/open-credits-format.inc.php`: on-screen credits put back into rows |
 | `plugins-test.php` | `lib/plugins.inc.php`: registry, listener order, loader, page and asset lookups; the 404 of `x.php`; every hook of the core is documented above |

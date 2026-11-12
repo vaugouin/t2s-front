@@ -19,6 +19,9 @@ include(__DIR__."/language.inc.php");
 //validation, and the JavaScript of the "+" button. The upload itself never happens here, it goes
 //through the same-origin shim html/app/upload-vision.php, which is where the API key stays.
 include(__DIR__."/vision-image.inc.php");
+//Side-effect-free helpers of the thumbs up / down under the answer: the markup and the script.
+//The vote itself goes through the same-origin shim html/app/feedback.php, which holds the key.
+include(__DIR__."/feedback-ui.inc.php");
 //Side-effect-free mirror of voice-agent's result representations (number card,
 //stat strip, ranked bars, table), chosen from the hint the API returns.
 include(__DIR__."/t2s-representation.inc.php");
@@ -622,7 +625,54 @@ if ($intdbavailable) {
 			echo "function f_t2stracecopy(){var strtext=f_t2stracetext();if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(strtext).then(function(){f_t2stracefeedback(strt2scopyok);},function(){f_t2stracefallback(strtext);});}else{f_t2stracefallback(strtext);}}";
 			echo "</script>";
 		}
-		
+		//Thumbs up / down on the result, once per search, never in a loadmore call. Printed here, under
+		//the answer and its trace and above the rows, rather than after the rows: in card mode the
+		//grid loads its next pages as the visitor scrolls, so a block placed after it would keep
+		//moving away and be reached only once every page is in. This place is also common to the
+		//three outcomes (rows, no row, error), so one block covers them all. The question is
+		//required by the API; a search that has none (a photo alone, refused before an answer) gets
+		//no block.
+		if (!$intloadmore && trim((string)$strsearch)!="") {
+			$strfeedbackapiversion=isset($jsontext2sql['api_version'])?trim((string)$jsontext2sql['api_version']):"";
+			if ($strfeedbackapiversion=="") {
+				//Memoized for the request and cached five minutes on disk: no extra round trip in the
+				//common case.
+				$strfeedbackapiversion=(string)f_text2sqlapiversion($strapicolor);
+			}
+			//Same-origin shim, in the folder the visitor is browsing, like the upload shim above: the
+			//key stays on the server, and the colour the question went to is passed along.
+			$strfeedbackendpointurl=rtrim(str_replace("\\","/",dirname((string)$strphpself)),"/")."/feedback.php?apicolor=".rawurlencode($strapicolor);
+			echo f_feedbackblockhtml(array(
+				"question" => (string)get_movie_string('lib_t2s_feedback_question'),
+				"up" => (string)get_movie_string('lib_t2s_feedback_up'),
+				"down" => (string)get_movie_string('lib_t2s_feedback_down'),
+				"commentlabel" => (string)get_movie_string('lib_t2s_feedback_comment_label'),
+				"commentplaceholder" => (string)get_movie_string('lib_t2s_feedback_comment_placeholder'),
+				"send" => (string)get_movie_string('lib_t2s_feedback_send'),
+				"skip" => (string)get_movie_string('lib_t2s_feedback_skip')
+			));
+			echo "<script>\n";
+			echo f_feedbackjs(
+				array(
+					"endpoint" => $strfeedbackendpointurl,
+					"question" => (string)$strsearch,
+					"question_hashed" => (string)$strquestionhashed,
+					"request_id" => isset($jsontext2sql['request_id'])?(string)$jsontext2sql['request_id']:"",
+					"api_version" => $strfeedbackapiversion,
+					"sql_query" => $strsqlquery,
+					"result_entity" => isset($jsontext2sql['result_entity'])?(string)$jsontext2sql['result_entity']:"",
+					"ui_language" => (string)$struilang
+				),
+				array(
+					"sending" => (string)get_movie_string('lib_t2s_feedback_sending'),
+					"thanks" => (string)get_movie_string('lib_t2s_feedback_thanks'),
+					"recompute" => (string)get_movie_string('lib_t2s_feedback_recompute'),
+					"error" => (string)get_movie_string('lib_t2s_feedback_error')
+				)
+			);
+			echo "</script>";
+		}
+
 		// Use the results from the API response instead of executing SQL directly
 		$lngrow=0;
 		if (isset($jsontext2sql['result']) && is_array($jsontext2sql['result'])) {

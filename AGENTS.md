@@ -32,7 +32,7 @@ The repository is public. The database, its schema files, the crawlers, the API 
 - Includes are always written `__DIR__."/..."`. Do not introduce relative includes or an autoloader.
 - Paths in the pages assume the layout described in `README.md`: `../css/...` for the stylesheet, `/images/...` for shared images, `images/...` for the images in `html/app/images/`.
 
-Because `global-light.inc.php` opens a connection when it loads, **nothing inside it can be tested on its own**. A helper worth a test belongs in a side-effect-free file that can be `require`d alone (`private-mode`, `plugins`, `env`, `vision-image`, `samples-format`, `social-ids`, `wikipedia-md`, `work-properties-*`, `movie-sections`, `t2s-representation`, `api-version`, `image-gallery`, `private-mode`). When you extract a helper, put it in such a file.
+Because `global-light.inc.php` opens a connection when it loads, **nothing inside it can be tested on its own**. A helper worth a test belongs in a side-effect-free file that can be `require`d alone (`private-mode`, `plugins`, `env`, `vision-image`, `feedback-ui`, `samples-format`, `social-ids`, `wikipedia-md`, `work-properties-*`, `movie-sections`, `t2s-representation`, `api-version`, `image-gallery`, `private-mode`). When you extract a helper, put it in such a file.
 
 ## Code conventions
 
@@ -171,6 +171,10 @@ Three files, one idiom, and all three must move together. A new selector needs: 
 5. The includes of the upload shim run inside an output buffer that is discarded into the error log: one notice in front of the JSON or the image bytes would corrupt the answer.
 6. The two `<script>` blocks of the search box communicate through a `t2simagerefchange` event. The inline block sits between `//--- search-box script: begin ---` and `: end ---` markers that the test renders and checks: every line there must stay a literal `echo` with no PHP interpolation.
 7. Drag and drop reuses the same chain (`f_visionhandlefile()`); do not add a second upload path.
+
+## Result feedback
+
+The thumbs up / down under the answer follows the same rule as the picture upload: the browser posts to the same-origin shim `html/app/feedback.php`, which adds the key. Never a direct `fetch` to the API, and `client` is fixed by the shim, never read from the browser. A vote is sent once and never retried (a retry could count it twice). The block is printed once per search, never in a `loadmore` call, and above the rows on purpose: below an infinite-scroll grid it would be reached only once every page is in. Details in `README.md`, "Result feedback".
 
 ## Samples page and result representations: mirrors of another front
 
