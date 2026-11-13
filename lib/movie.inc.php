@@ -1094,7 +1094,7 @@ ORDER BY T_WC_TMDB_PERSON_MOVIE.DISPLAY_ORDER
 								echo "<td valign=\"top\">";
 								if ($strpersonprofilefullpath!="") {
 									echo "<a href=\"person.php?personid=".$lngpersonid."\">";
-									echo "<img src=\"".$strpersonprofilefullpath."\" alt=\"".$strpersoncreditname."\" title=\"".$strpersoncreditname."\" style=\"background-color: white;\" /><br />";
+									echo f_getpersoncreditimagehtml($strpersonprofilepath,$strpersoncreditname)."<br />";
 									echo "</a>";
 								}
 								echo "</td>";
@@ -1127,7 +1127,7 @@ ORDER BY T_WC_TMDB_PERSON_MOVIE.DISPLAY_ORDER
 								echo "<td valign=\"top\">";
 								if ($strpersonprofilefullpath!="") {
 									echo "<a href=\"person.php?personid=".$lngpersonid."\">";
-									echo "<img src=\"".$strpersonprofilefullpath."\" alt=\"".$strpersoncreditname."\" title=\"".$strpersoncreditname."\" style=\"background-color: white;\" /><br />";
+									echo f_getpersoncreditimagehtml($strpersonprofilepath,$strpersoncreditname)."<br />";
 									echo "</a>";
 								}
 								echo "</td>";

@@ -369,7 +369,7 @@ ORDER BY T_WC_TMDB_PERSON_EPISODE.DISPLAY_ORDER, T_WC_TMDB_PERSON_EPISODE.ID_PER
 					$lngrowindex++;
 					echo "<td valign=\"top\">";
 					if ($strpersonprofilefullpath!="") {
-						echo "<a href=\"".$strpersonurl."\"><img src=\"".$strpersonprofilefullpath."\" alt=\"".$strpersoncreditname."\" title=\"".$strpersoncreditname."\" style=\"background-color: white;\" /><br /></a>";
+						echo "<a href=\"".$strpersonurl."\">".f_getpersoncreditimagehtml($strpersonprofilepath,$strpersoncreditname)."<br /></a>";
 					}
 					echo "</td><td valign=\"top\"><a href=\"".$strpersonurl."\">".$strpersoncreditname."</a> - ".$strcredittext;
 				}

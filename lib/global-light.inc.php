@@ -214,7 +214,11 @@ $strtmdbimagesoriginalpathbaseurl="https://image.tmdb.org/t/p/original";
 //$strtmdbimagespathbaseurl="https://image.tmdb.org/t/p/w780";
 $strtmdbpersonimagespathbaseurl="https://media.themoviedb.org/t/p/w64_and_h64_face";
 $strtmdbpersonimagespathbaseurl185="https://media.themoviedb.org/t/p/w185";
-$strtmdbmovieimagespathbaseurl="https://media.themoviedb.org/t/p/w130_and_h195_bestv2";
+//Cast and crew lists: the same square face crop at twice the size, displayed at 64x64 (sharper).
+$strtmdbpersonimagespathbaseurlcredit="https://media.themoviedb.org/t/p/w128_and_h128_face";
+//Movie and series posters of the lists (level 2 of f_getmovieposterpicture): a 260x390 file, twice the
+//130x195 crop, so every page that uses it must set the displayed size (width and height attributes).
+$strtmdbmovieimagespathbaseurl="https://media.themoviedb.org/t/p/w260_and_h390_bestv2";
 $strtmdbmovieimagespathbaseurl185="https://media.themoviedb.org/t/p/w185";
 $strtmdbmovieimagespathbaseurl342="https://image.tmdb.org/t/p/w342";
 $strtmdbcollectionimagespathbaseurl="https://media.themoviedb.org/t/p/w130_and_h195_bestv2";
@@ -2685,6 +2689,19 @@ function f_getpersonprofilepicture($strpersonprofilepath,$intdisplaylevel=1) {
 		
 	}
 	return $strpersonprofilefullpath;
+}
+
+//Person picture of a cast or crew list (movie, series, season, episode pages): a 128x128 file shown
+//in the same 64x64 box as before, so the face is sharp without changing the layout.
+function f_getpersoncreditimagehtml($strpersonprofilepath,$strname) {
+	global $strtmdbpersonimagespathbaseurlcredit;
+	
+	if ($strpersonprofilepath=="") {
+		$strsrc=f_getpersonprofilepicture("");
+	} else {
+		$strsrc=$strtmdbpersonimagespathbaseurlcredit.$strpersonprofilepath;
+	}
+	return "<img src=\"".f_htmlattr($strsrc)."\" alt=\"".f_htmlattr($strname)."\" title=\"".f_htmlattr($strname)."\" width=\"64\" height=\"64\" loading=\"lazy\" style=\"background-color: white;\" />";
 }
 
 function f_getcollectionprofilepicture($strcollectionprofilepath) {

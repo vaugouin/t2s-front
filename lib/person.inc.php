@@ -572,7 +572,7 @@ ORDER BY DAT_RELEASE DESC, TITLE ;";
 							$lngrowindex++;
 							echo "<td valign=\"top\">";
 							echo "<a href=\"".$strmovieurl."\">";
-							echo "<img src=\"".$strmovieposterfullpath."\" alt=\"".$strmovietitleyear."\" title=\"".$strmovietitleyear."\" style=\"background-color: white;\" >";
+							echo "<img src=\"".$strmovieposterfullpath."\" alt=\"".$strmovietitleyear."\" title=\"".$strmovietitleyear."\" width=\"130\" height=\"195\" loading=\"lazy\" style=\"background-color: white;\" >";
 							echo "</a>";
 							echo "</td>";
 							echo "<td valign=\"top\">";
