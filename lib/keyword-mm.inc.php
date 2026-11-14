@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -70,6 +71,9 @@ WHERE T_WC_TMDB_MOVIE_KEYWORD.ID_KEYWORD = ".f_longtosql($lngkeywordid)."
 			//Display keyword data
 			f_headerdisplay($strkeywordname);
 			echo "<h1>".get_movie_string('lib_keyword_name')." : ".$strkeywordname." (".$strkeywordenname.")".": ".$lngmoviecount." ".get_movie_string('lib_movie_item').", ".$lngseriecount." ".get_movie_string('lib_serie_item')."</h1>";
+			f_moviesectionreset(array("info","movies","series"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			echo "<p>".get_movie_string('lib_person_record_updated').": ".$strkeywordtimcreditscompleted;
 			//Hook entity.actions: action links of the plugins on the record status line
 			echo f_pluginhtml("entity.actions",array("type"=>"keyword","id"=>$lngkeywordid,"slot"=>"record"));
@@ -90,6 +94,7 @@ WHERE T_WC_TMDB_MOVIE_KEYWORD.ID_KEYWORD = ".f_longtosql($lngkeywordid)."
 			}
 			
 			
+			echo f_moviesectionopen("movies","🎬",get_movie_string('lib_movies_section').": ".$lngmoviecount,1);
 			$strsqlmovielist="";
 			$strsqlmovielist.="SELECT T_WC_TMDB_MOVIE_KEYWORD.ID_MOVIE, ";
 			$strsqlmovielist.="T_WC_TMDB_MOVIE.TITLE, ";
@@ -163,7 +168,7 @@ WHERE T_WC_TMDB_MOVIE_KEYWORD.ID_KEYWORD = ".f_longtosql($lngkeywordid)."
 			echo "</table>";
 
 			// ── Series ────────────────────────────────────────────────────────────
-			echo "<h2>".get_movie_string('lib_series_section')."</h2>";
+			echo f_moviesectionopen("series","📺",get_movie_string('lib_series_section').": ".$lngseriecount,1);
 			$strsqlserielist="";
 			$strsqlserielist.="SELECT T_WC_TMDB_SERIE_KEYWORD.ID_SERIE, ";
 			$strsqlserielist.="T_WC_TMDB_SERIE.TITLE, ";
@@ -224,9 +229,14 @@ WHERE T_WC_TMDB_MOVIE_KEYWORD.ID_KEYWORD = ".f_longtosql($lngkeywordid)."
 				f_sqlfreeresult($resultserielist);
 			}
 			echo "</table>";
+			echo f_moviesectionclose();
 
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"keyword-mm"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//Keyword record NOT found in the database

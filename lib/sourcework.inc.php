@@ -4,6 +4,7 @@ ini_set('max_execution_time', -1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 include_once(__DIR__."/work-properties-format.inc.php");
 
 if (!function_exists('f_sourceworklabel')) {
@@ -177,6 +178,9 @@ if ($intdbavailable) {
 				echo "<p><img src=\"".f_htmlattr(f_getmovieposterpicture($strsourceworkposterpath))."\" alt=\"".f_htmlattr($strsourceworkname)."\" title=\"".f_htmlattr($strsourceworkname)."\" style=\"background-color: white;\" /></p>";
 			}
 
+			f_moviesectionreset(array("info","overview","sourcework-movies","sourcework-series","wikidata","wikipedia"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			if ($strsourceworktype!="") {
 				echo "<p><strong>".get_movie_string('lib_sourcework_type').":</strong> ".f_htmlspecialchars(f_sourceworklabel('lib_sourcework_type_', $strsourceworktype))."</p>";
 			}
@@ -199,7 +203,7 @@ if ($intdbavailable) {
 				echo "<p><strong>Source:</strong> ".f_htmlspecialchars($strsourceworksource)."</p>";
 			}
 			if (trim($strsourceworkoverview)!="") {
-				echo "<h2>".get_movie_string('lib_collection_overview')."</h2>";
+				echo f_moviesectionopen("overview","📝",get_movie_string('lib_collection_overview'),1);
 				echo "<p>".nl2br(f_htmlspecialchars($strsourceworkoverview))."</p>";
 			}
 
@@ -233,7 +237,7 @@ if ($intdbavailable) {
 			$arrseriepageinfo=f_workpropertypaginationinfo($lngseriepage, $lngsourceworkrowsperpage, $lngseriecount);
 			$lngseriepage=$arrseriepageinfo["page"];
 
-			echo "<h2 id=\"sourcework-movies\">".get_movie_string('lib_sourcework_movies').": ".$lngmoviecount."</h2>";
+			echo f_moviesectionopen("sourcework-movies","🎬",get_movie_string('lib_sourcework_movies').": ".$lngmoviecount,1);
 			echo "<table>";
 			$strsqlmovies="SELECT M.ID_MOVIE, M.MOVIE_TITLE, M.DAT_RELEASE, M.ID_IMDB, M.IMDB_RATING, M.IMDB_VOTES, M.POSTER_PATH ";
 			$strsqlmovies.="FROM T_WC_T2S_MOVIE M ";
@@ -252,7 +256,7 @@ if ($intdbavailable) {
 			echo "</table>";
 			echo f_sourceworkpaginationhtml($lngsourceworkid, "movie", $arrmoviepageinfo, $lngmoviepage, $lngseriepage);
 
-			echo "<h2 id=\"sourcework-series\">".get_movie_string('lib_sourcework_series').": ".$lngseriecount."</h2>";
+			echo f_moviesectionopen("sourcework-series","📺",get_movie_string('lib_sourcework_series').": ".$lngseriecount,1);
 			echo "<table>";
 			$strsqlseries="SELECT S.ID_SERIE, S.SERIE_TITLE, S.DAT_FIRST_AIR, S.DAT_LAST_AIR, S.ID_IMDB, S.IMDB_RATING, S.IMDB_VOTES, S.POSTER_PATH ";
 			$strsqlseries.="FROM T_WC_T2S_SERIE S ";
@@ -276,21 +280,24 @@ if ($intdbavailable) {
 				// f_getwikidatalabel. Sections Wikidata et Wikipedia toujours emises (AGENTS.md).
 				$strwditeminstanceofid=f_wikidataiteminstanceof_v2($strsourceworkwikidataid);
 				$strwditeminstanceoflabel=f_getwikidatalabel($strwditeminstanceofid,$struilang,$arrwdsourcelabel);
-				//Hook entity.wikidata: service blocks of the plugins above the Wikidata section
-				echo f_pluginhtml("entity.wikidata",array("page"=>"sourcework","wikidataids"=>array($strsourceworkwikidataid,$strwditeminstanceofid),"lang"=>$struilang,"langalt"=>$struilangalt));
-				echo "<h2>".get_movie_string('lib_wikidata_section')."</h2>";
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'));
 				$strpropertyurl="property.php?propertyid=P31";
 				echo "<p><strong><a href=\"".$strpropertyurl."\">".get_movie_string('lib_wikidata_type')."</a>:</strong> ".$strwditeminstanceoflabel."</p>";
 				$strwikidataeverything=f_wikidataallpropertiesv2($struilang,$strsourceworkwikidataid,", ");
 				echo $strwikidataeverything;
 
-				echo "<h2>".get_movie_string('lib_wikipedia_section')."</h2>";
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
 				$strwikipediacontent=f_wikipediallsections($struilang,$strsourceworkwikidataid,$strsep=", ");
 				echo $strwikipediacontent;
 			}
+			echo f_moviesectionclose();
 
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"sourcework"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			f_headerdisplay("Source Work Not Found");

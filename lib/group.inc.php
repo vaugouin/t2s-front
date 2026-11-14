@@ -4,6 +4,7 @@ ini_set('max_execution_time', -1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 include_once(__DIR__."/work-properties-format.inc.php");
 
 if (!function_exists('f_grouptableexists')) {
@@ -175,6 +176,9 @@ if ($intdbavailable) {
 				echo "<p><img src=\"".f_htmlattr(f_getpersonprofilepicture($strgroupprofilepath))."\" alt=\"".f_htmlattr($strgroupname)."\" title=\"".f_htmlattr($strgroupname)."\" style=\"background-color: white;\" /></p>";
 			}
 
+			f_moviesectionreset(array("info","overview","persons","group-movies","group-series","wikidata","wikipedia"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			if ($strgroupwikidataid!="") {
 				echo "<p><strong>".get_movie_string('lib_movie_id_wikidata').":</strong> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strgroupwikidataid)."\" target=\"_blank\" rel=\"noreferrer\">".f_htmlspecialchars($strgroupwikidataid)."</a> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strgroupwikidataid)."\" target=\"_blank\" rel=\"noreferrer\"><img src=\"/images/Wikidata-logo.svg.png\" width=\"28\" height=\"16\" alt=\"Wikidata\" title=\"Wikidata\"></a></p>";
 			}
@@ -186,7 +190,7 @@ if ($intdbavailable) {
 				echo "<p><strong>Type:</strong> ".f_htmlspecialchars($strgrouptype)."</p>";
 			}
 			if ($strgroupoverview!="") {
-				echo "<h2>".get_movie_string('lib_collection_overview')."</h2>";
+				echo f_moviesectionopen("overview","📝",get_movie_string('lib_collection_overview'),1);
 				echo "<p>".nl2br(f_htmlspecialchars($strgroupoverview))."</p>";
 			}
 			if ($strgroupwikidataid!="") {
@@ -197,19 +201,13 @@ if ($intdbavailable) {
 				// f_getwikidatalabel fait le meme repli de langue que les deux requetes
 				// qu'elle remplace, mais dans V2 d'abord et V1 seulement en dernier ressort.
 				$strwditeminstanceoflabel=f_getwikidatalabel($strwditeminstanceofid,$struilang,$arrwdsourcelabel);
-				// Diagnostic de la migration, sous $intprivate comme les autres informations de
-				// service : visible sous un prefixe prive, invisible sur le site public. Les DEUX langues,
-				// pas seulement celle de l interface, car un prefixe prive peut forcer l anglais alors que le francais
-				// est justement ce qu on veut valider.
-				//Hook entity.wikidata: service blocks of the plugins above the Wikidata section
-				echo f_pluginhtml("entity.wikidata",array("page"=>"group","wikidataids"=>array($strgroupwikidataid,$strwditeminstanceofid),"lang"=>$struilang,"langalt"=>$struilangalt));
-				echo "<h2>".get_movie_string('lib_wikidata_section')."</h2>";
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'));
 				$strpropertyurl="property.php?propertyid=P31";
 				echo "<p><strong><a href=\"".$strpropertyurl."\">".get_movie_string('lib_wikidata_type')."</a>:</strong> ".$strwditeminstanceoflabel."</p>";
 				$strwikidataeverything=f_wikidataallpropertiesv2($struilang,$strgroupwikidataid,", ");
 				echo $strwikidataeverything;
 
-				echo "<h2>".get_movie_string('lib_wikipedia_section')."</h2>";
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
 				$strwikipediacontent=f_wikipediallsections($struilang,$strgroupwikidataid,$strsep=", ");
 				echo $strwikipediacontent;
 			}
@@ -224,7 +222,7 @@ if ($intdbavailable) {
 				}
 				f_sqlfreeresult($resultpersonscount);
 			}
-			echo "<h2>".get_movie_string('lib_persons_section').": ".$lngpersoncount." ".get_movie_string('lib_person_item')."</h2>";
+			echo f_moviesectionopen("persons","👥",get_movie_string('lib_persons_section').": ".$lngpersoncount." ".get_movie_string('lib_person_item'),1);
 			echo "<table>";
 			// Select unique persons for the group with stable ordering by minimal display_order
 			$strsqlpersons = "SELECT P.ID_PERSON, P.NAME AS PERSON_NAME, P.BIOGRAPHY, P.BIRTHDAY, P.DEATHDAY, P.ID_IMDB, P.PROFILE_PATH, JP.MIN_DISPLAY_ORDER ";
@@ -254,8 +252,12 @@ if ($intdbavailable) {
 			$intgroupworkmovieavailable=f_grouptableexists($strgroupworkmovietable);
 			$intgroupworkserieavailable=f_grouptableexists($strgroupworkserietable);
 			if (!$intgroupworkmovieavailable && !$intgroupworkserieavailable) {
-				//Hook entity.notice: service messages of the plugins
-				echo f_pluginhtml("entity.notice",array("type"=>"group","id"=>$lnggroupid,"notice"=>"works-unavailable"));
+				//Hook entity.notice: service messages of the plugins, in a works section of their own
+				$strgroupworknotice=f_pluginhtml("entity.notice",array("type"=>"group","id"=>$lnggroupid,"notice"=>"works-unavailable"));
+				if ($strgroupworknotice!="") {
+					echo f_moviesectionopen("group-movies","🎬",get_movie_string('lib_groupwork_movies')." · ".get_movie_string('lib_groupwork_series'),1);
+					echo $strgroupworknotice;
+				}
 			} else {
 				$lnggroupworkrowsperpage=50;
 				$lngmoviepage=max(1, f_stringtolong(f_request2("movie_page")));
@@ -285,9 +287,11 @@ if ($intdbavailable) {
 				// sa derniere fin), "en cours" (debut sans fin), "calcule, aucune oeuvre".
 				$arrgroupworkstate=f_groupworkprocessstate($strgroupworkmovietable, $strgroupworkserietable, $intgroupworkmovieavailable, $intgroupworkserieavailable);
 				$strgroupworkend=$arrgroupworkstate["end"];
-				//Hook entity.notice: service messages of the plugins
-				echo f_pluginhtml("entity.notice",array("type"=>"group","id"=>$lnggroupid,"notice"=>"works-computed","date"=>$strgroupworkend));
+				//Hook entity.notice: service messages of the plugins, printed at the top of the first works section
+				$strgroupworknotice=f_pluginhtml("entity.notice",array("type"=>"group","id"=>$lnggroupid,"notice"=>"works-computed","date"=>$strgroupworkend));
 				if ($lngmoviecount==0 && $lngseriecount==0) {
+					echo f_moviesectionopen("group-movies","🎬",get_movie_string('lib_groupwork_movies')." · ".get_movie_string('lib_groupwork_series').": 0",1);
+					echo $strgroupworknotice;
 					if ($strgroupworkend=="" && !$arrgroupworkstate["anyrows"]) {
 						$strgroupworkmessage=($arrgroupworkstate["start"]!="" ? 'lib_groupwork_running' : 'lib_groupwork_never_computed');
 					} elseif ($strgroupworkend!="" && $arrgroupworkstate["start"]>$strgroupworkend) {
@@ -306,7 +310,10 @@ if ($intdbavailable) {
 						}
 						$lngworkcount=($intismovie ? $lngmoviecount : $lngseriecount);
 						$arrpageinfo=($intismovie ? $arrmoviepageinfo : $arrseriepageinfo);
-						echo "<h2 id=\"".($intismovie ? "group-movies" : "group-series")."\">".get_movie_string($intismovie ? 'lib_groupwork_movies' : 'lib_groupwork_series').": ".$lngworkcount."</h2>";
+						//The section id is the anchor of the pagination links
+						echo f_moviesectionopen(($intismovie ? "group-movies" : "group-series"),($intismovie ? "🎬" : "📺"),get_movie_string($intismovie ? 'lib_groupwork_movies' : 'lib_groupwork_series').": ".$lngworkcount,1);
+						echo $strgroupworknotice;
+						$strgroupworknotice="";
 						if ($lngworkcount==0) {
 							continue;
 						}
@@ -356,6 +363,11 @@ if ($intdbavailable) {
 					}
 				}
 			}
+			echo f_moviesectionclose();
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 
 			f_footerdisplay();
 		} else {

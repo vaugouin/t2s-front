@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -109,6 +110,9 @@ WHERE T_WC_TMDB_MOVIE_GENRE.ID_GENRE = ".f_longtosql($lnggenreid)."
 			$strsqlmovielist.="ORDER BY T_WC_TMDB_MOVIE.POPULARITY DESC ";
 			$strsqlmovielist.="LIMIT 1000 ";
 			
+			f_moviesectionreset(array("movies","series"));
+			ob_start();
+			echo f_moviesectionopen("movies","🎬",$lngmoviecount." ".get_movie_string('lib_movie_item'),1);
 			$intlistmoviefound=false;
 			$lngdisplayorder=0;
 			echo "<table>";
@@ -180,7 +184,7 @@ WHERE T_WC_TMDB_MOVIE_GENRE.ID_GENRE = ".f_longtosql($lnggenreid)."
 				$strsqlserielist.="ORDER BY T_WC_TMDB_SERIE.POPULARITY DESC ";
 				$strsqlserielist.="LIMIT 1000 ";
 				$intlistseriefound=false;
-				echo "<h2>".$lngseriecount." ".get_movie_string('lib_serie_item')."</h2>";
+				echo f_moviesectionopen("series","📺",$lngseriecount." ".get_movie_string('lib_serie_item'),1);
 				echo "<table>";
 				$resultserielist=f_sqlselect($strsqlserielist);
 				if ($resultserielist) {
@@ -219,8 +223,13 @@ WHERE T_WC_TMDB_MOVIE_GENRE.ID_GENRE = ".f_longtosql($lnggenreid)."
 					f_sqlfreeresult($resultserielist);
 				}
 				echo "</table>";
+				echo f_moviesectionclose();
 				//Hook page.beforefooter: blocks of the plugins at the end of the page
 				echo f_pluginhtml("page.beforefooter",array("page"=>"genre"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//Genre record NOT found in the database

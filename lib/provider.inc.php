@@ -4,6 +4,7 @@ ini_set('max_execution_time', -1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 include_once(__DIR__."/work-properties-format.inc.php");
 include_once(__DIR__."/work-properties-sql.inc.php");
 include_once(__DIR__."/watch-country.inc.php");
@@ -134,6 +135,9 @@ if ($intdbavailable) {
 						f_htmlattr($strprovidername)."\" style=\"background-color:white;\"></a></p>";
 				}
 
+				f_moviesectionreset(array("info","works","catalogues","regions"));
+				ob_start();
+				echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 				echo "<p><strong>".f_workpropertyescape(get_movie_string('lib_provider_id')).
 					":</strong> ".$lngproviderid."</p>";
 				if ($strproviderupdated!=="") {
@@ -144,7 +148,7 @@ if ($intdbavailable) {
 					echo "<p><strong>".f_workpropertyescape(get_movie_string('lib_provider_inactive'))."</strong></p>";
 				}
 
-				echo "<h2>".f_workpropertyescape(get_movie_string('lib_provider_catalogues'))."</h2>";
+				echo f_moviesectionopen("catalogues","🗂️",f_workpropertyescape(get_movie_string('lib_provider_catalogues')));
 				if (count($arrprovidercatalogs)===0) {
 					echo "<p>".f_workpropertyescape(get_movie_string('lib_provider_catalogues_empty'))."</p>";
 				} else {
@@ -172,7 +176,7 @@ if ($intdbavailable) {
 					echo "</ul>";
 				}
 
-				echo "<h2>".f_workpropertyescape(get_movie_string('lib_provider_regions'))."</h2>";
+				echo f_moviesectionopen("regions","🌍",f_workpropertyescape(get_movie_string('lib_provider_regions')));
 				if (count($arrproviderregions)===0) {
 					echo "<p>".f_workpropertyescape(get_movie_string('lib_provider_regions_empty'))."</p>";
 				} else {
@@ -195,7 +199,7 @@ if ($intdbavailable) {
 					);
 				}
 
-				echo "<h2>".f_workpropertyescape(get_movie_string('lib_provider_available_works'))."</h2>";
+				echo f_moviesectionopen("works","🎬",f_workpropertyescape(get_movie_string('lib_provider_available_works')),1);
 				echo f_watchcountryselectorhtml(
 					$strwatchcountry,
 					$arrwatchcountryoptions,
@@ -247,6 +251,11 @@ if ($intdbavailable) {
 				}
 				echo "<p><small>".f_workpropertyescape(get_movie_string('lib_watch_providers_attribution')).
 					"</small></p>";
+				echo f_moviesectionclose();
+				//The anchor bar is built from the sections seen: it goes before the buffered body
+				$strfichebody=ob_get_clean();
+				echo f_movieanchorbar();
+				echo $strfichebody;
 				f_footerdisplay();
 			}
 		}

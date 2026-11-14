@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -76,6 +77,9 @@ WHERE T_WC_TMDB_MOVIE_LEMME.ID_LEMME = ".f_longtosql($lnglemmaid)."
 			
 			$intlistmoviefound=false;
 			$lngdisplayorder=0;
+			f_moviesectionreset(array("movies"));
+			ob_start();
+			echo f_moviesectionopen("movies","🎬",get_movie_string('lib_movies_section').": ".$lngmoviecount,1);
 			echo "<table>";
 			$resultmovielist=f_sqlselect($strsqlmovielist);
 			if ($resultmovielist) {
@@ -115,8 +119,13 @@ WHERE T_WC_TMDB_MOVIE_LEMME.ID_LEMME = ".f_longtosql($lnglemmaid)."
 				f_sqlfreeresult($resultmovielist);
 			}
 			echo "</table>";
+			echo f_moviesectionclose();
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"lemma"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//Lemme record NOT found in the database

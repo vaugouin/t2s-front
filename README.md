@@ -10,7 +10,7 @@ Current version: see [VERSION](VERSION).
 
 - **Search** (`index.php`): a question in English or French is sent to the Text2SQL API; the answer is drawn as a card grid, the same cards as a three-dimensional poster carousel (cover flow: one card in the centre, the others turned towards it on both sides; arrow keys, swipe, buttons), a number card, a stat strip, ranked bars, a table, a timeline, trend columns, cards side by side, a fact card, a Yes / No verdict, a histogram, a share bar, a list of countries with their flags, the same countries shaded on a world map, the places of the answer as numbered marks on a map cropped around them (places on one spot share one mark, "1+3"), a scatter plot of two quantities, the rows under their groups (by trilogy, by region), or the lineage of a work (its sources and the remakes and adaptations made from it, generation by generation), depending on the hint returned by the API. A picture can be attached to the question (upload through `upload-vision.php`, which keeps the API key on the server). At the right end of the row of representation chips, a small thumbs up and thumbs down let the reader say whether the result is right, with an optional comment (see *Result feedback*).
 - **Detail pages** for movies, series, seasons, episodes and persons, with collapsible sections (cast, crew, images, videos, external identifiers, Wikidata properties, Wikipedia sections, watch providers, release dates).
-- **Entity pages**: collections, companies, networks, genres, keywords, lists, awards, nominations, locations, movements, groups, source works, technical properties, topics, characters, jobs, languages.
+- **Entity pages**: collections, companies, networks, genres, keywords, lists, awards, nominations, locations, movements, groups, source works, technical properties, topics, characters, jobs, languages, with the same collapsible sections and anchor bar as the detail pages.
 - **Image galleries** (`images.php`, `season-images.php`, `episode-images.php`).
 - **Settings** (`text2sql-settings.php`): model selectors per LLM task, kept in cookies.
 - **Plugins**: optional folders that add pages, menu entries and blocks to the pages above, in private mode only (see *Plugins*). The repository ships none.
@@ -158,7 +158,6 @@ HTML hooks:
 | `entity.status` | under the record status of the same pages | `type`, `id` |
 | `entity.admin` | person page (`vip`) and list page (`createdby`) | `type`, `id` |
 | `entity.notice` | group page, about the computation of its works | `type`, `id`, `notice`, `date` |
-| `entity.wikidata` | above the Wikidata section of an entity page | `page`, `wikidataids`, `lang`, `langalt` |
 | `index.row.badge` | beside a name in the indexes (companies, genres, lists, networks, persons) | `type`, `id`; persons: `index` (`search` or `featured`) |
 | `list.row.prefix` | before the title of a movie, series or person row | `type`, `id`, `title`, `originaltitle`, `year`, `imdbid`, and `level` or `context` |
 | `list.row.suffix` | under a movie or series row | same |

@@ -98,10 +98,10 @@ The dark theme is `html/css/t2s-dark-<date>-<n>.css`, referenced exactly once, i
 
 Every page that renders a single entity whose source table has an `ID_WIKIDATA` column must display both a Wikidata section and a Wikipedia section, modelled on `lib/serie.inc.php`:
 
-1. Always print the `<h2>` of `lib_wikidata_section` when `ID_WIKIDATA` is not empty; do not gate it on having properties.
+1. Always open the section labelled `lib_wikidata_section` when `ID_WIKIDATA` is not empty; do not gate it on having properties.
 2. Read `INSTANCE_OF` and `ALIASES` from `T_WC_WIKIDATA_ITEM_V1` for the interface language with English fallback; resolve the `INSTANCE_OF` label the same way.
 3. Print the type (linked to `property.php?propertyid=P31`), the aliases when there are any, then `f_wikidataallpropertiesv2($struilang, $idwikidata, ", ")`. The older `f_wikidataallproperties` must not be used in new code.
-4. Always print the `<h2>` of `lib_wikipedia_section` and append `f_wikipediallsections($struilang, $idwikidata, ", ")`.
+4. Always open the section labelled `lib_wikipedia_section` and append `f_wikipediallsections($struilang, $idwikidata, ", ")`.
 
 Movie, series, person, season and episode pages read their own `WIKIDATA_*_V1` table; leave that alone unless asked. The `CONTENT_MD` rendering of `lib/wikipedia-md.inc.php` follows a Markdown dialect defined by the crawler that writes the column: if the dialect changes, change the renderer and its test together.
 
@@ -116,7 +116,7 @@ No page displays a TMDb rating or vote count. The `echo` lines of `VOTE_AVERAGE`
 
 ## Detail pages: collapsible sections
 
-`movie`, `serie`, `season`, `episode` and `person` render their blocks as `<details>` accordions with an icon anchor bar (`lib/movie-sections.inc.php`, usage in its header comment). Entity pages are deliberately not converted.
+`movie`, `serie`, `season`, `episode`, `person` and every entity page (one record: award, character, collection, company, death, genre, group, job, keyword, language, lemma, list, location, movement, network, nomination, property, provider, source work, technical property, topic, T2S list and collection) render their blocks as `<details>` accordions with an icon anchor bar (`lib/movie-sections.inc.php`, usage in its header comment). On an entity page, the `<h1>` and the lead images stay above the sections; an `info` section comes first, Wikidata and Wikipedia last. A new entity page follows the same shape (`lib/movement.inc.php` is the shortest example).
 
 - The order of the sections is data (the array given to `f_moviesectionreset()`), not code position. Each section is buffered on its own: no unbalanced `ob_start()` across two section openers, no `exit` inside the buffered zone.
 - Shared blocks are wrapped with `f_moviesectionwrap($id,$icon,$html,$label=null)`; an empty output creates no accordion.

@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -59,6 +60,9 @@ WHERE T_WC_TMDB_MOVIE.ID_COLLECTION = ".f_longtosql($lngcollectionid)."
 				echo "</a>";
 				echo "</p>";
 			}
+			f_moviesectionreset(array("info","overview","movies"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			echo "<p>";
 			echo "<a href=\"images.php?collectionid=".$lngcollectionid."\">";
 			echo get_movie_string('lib_all_images_collection');
@@ -71,9 +75,9 @@ WHERE T_WC_TMDB_MOVIE.ID_COLLECTION = ".f_longtosql($lngcollectionid)."
 			echo "</p>";
 			//Hook entity.status: lines of the plugins under the record status
 			echo f_pluginhtml("entity.status",array("type"=>"collection","id"=>$lngcollectionid));
-			echo "<h2>".get_movie_string('lib_collection_overview')."</h2>";
+			echo f_moviesectionopen("overview","📝",get_movie_string('lib_collection_overview'),1);
 			echo "<p>".$strcollectionoverview."</p>";
-			echo "<h2>".get_movie_string('lib_movies_section')."</h2>";
+			echo f_moviesectionopen("movies","🎬",get_movie_string('lib_movies_section'),1);
 			
 			$strsqlcollectionmovie="";
 			$strsqlcollectionmovie.="SELECT ";
@@ -143,11 +147,16 @@ WHERE T_WC_TMDB_MOVIE.ID_COLLECTION = ".f_longtosql($lngcollectionid)."
 				f_sqlfreeresult($resultcollectionmovie);
 			}
 			echo "</table>";
+			echo f_moviesectionclose();
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"collection"));
 			if ($strcollectionbackdroppath!="") {
 				echo "<p><a href=\"".$strtmdbimagesoriginalpathbaseurl.$strcollectionbackdroppath."\" target=\"_blank\" rel=\"noreferrer\"><img src=\"".$strtmdbimagespathbaseurl.$strcollectionbackdroppath."\" alt=\"".$strcollectionname."\" title=\"".$strcollectionname."\" style=\"background-color: white;\" /></a></p>";
 			}
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//Collection record NOT found in the database

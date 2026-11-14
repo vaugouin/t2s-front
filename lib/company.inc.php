@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -105,6 +106,9 @@ WHERE T_WC_TMDB_MOVIE_COMPANY.ID_COMPANY = ".f_longtosql($lngcompanyid)."
 				echo "</a>";
 				echo "</p>";
 			}
+			f_moviesectionreset(array("info","movies","series","children","wikidata","wikipedia"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			echo "<p>";
 			echo "<a href=\"images.php?companyid=".$lngcompanyid."\">";
 			echo get_movie_string('lib_all_images_company');
@@ -125,6 +129,9 @@ WHERE T_WC_TMDB_MOVIE_COMPANY.ID_COMPANY = ".f_longtosql($lngcompanyid)."
 			echo "</p>";
 			//Hook entity.status: lines of the plugins under the record status
 			echo f_pluginhtml("entity.status",array("type"=>"company","id"=>$lngcompanyid));
+			if ($lngcompanyparentid>0) {
+				echo "<p><strong>".get_movie_string('lib_parent_company')."</strong>: <a href=\"".$strcompanyparenturl."\">".$strcompanyparentname."</a></p>";
+			}
 			if ($strcompanyidwikidata!="") {
 				$strcompanywikidataurl="https://www.wikidata.org/wiki/".$strcompanyidwikidata;
 				echo "<p><strong>".get_movie_string('lib_movie_id_wikidata').":</strong> ";
@@ -132,13 +139,10 @@ WHERE T_WC_TMDB_MOVIE_COMPANY.ID_COMPANY = ".f_longtosql($lngcompanyid)."
 				echo " <a href=\"".$strcompanywikidataurl."\" target=\"_blank\" rel=\"noreferrer\"><img src=\"/images/Wikidata-logo.svg.png\" width=\"28\" height=\"16\" alt=\"Wikidata\" title=\"Wikidata\"></a>";
 				echo "</p>";
 				echo f_wikidatamediasection_v2($struilang,$strcompanyidwikidata);
-				echo "<h2>".get_movie_string('lib_movie_section_wikidata')."</h2>";
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_movie_section_wikidata'));
 				echo "<p>".f_wikidataallpropertiesv2($struilang,$strcompanyidwikidata,", ")."</p>";
-				echo "<h2>".get_movie_string('lib_wikipedia_section')."</h2>";
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
 				echo f_wikipediallsections($struilang,$strcompanyidwikidata,", ");
-			}
-			if ($lngcompanyparentid>0) {
-				echo "<p><strong>".get_movie_string('lib_parent_company')."</strong>: <a href=\"".$strcompanyparenturl."\">".$strcompanyparentname."</a></p>";
 			}
 			
 			$intchildfound=false;
@@ -150,7 +154,7 @@ WHERE T_WC_TMDB_MOVIE_COMPANY.ID_COMPANY = ".f_longtosql($lngcompanyid)."
 				while ($rstempcompanychild=f_sqlresultfetcharray($resultcompanychildren)) {
 					if (!$intchildfound) {
 						$intchildfound=true;
-						echo "<h2>".get_movie_string('lib_child_companies')."</h2>";
+						echo f_moviesectionopen("children","🏢",get_movie_string('lib_child_companies'));
 					}
 					$lngcompanychildid=f_stringtolong($rstempcompanychild['ID_COMPANY']);
 					$strcompanychildname=trim($rstempcompanychild['NAME']);
@@ -171,6 +175,7 @@ WHERE T_WC_TMDB_MOVIE_COMPANY.ID_COMPANY = ".f_longtosql($lngcompanyid)."
 			}
 			
 			
+			echo f_moviesectionopen("movies","🎬",get_movie_string('lib_movies_section'),1);
 			$strsqlmovielist="";
 			$strsqlmovielist.="SELECT T_WC_TMDB_MOVIE_COMPANY.ID_MOVIE, ";
 			$strsqlmovielist.="T_WC_TMDB_MOVIE.TITLE, ";
@@ -244,7 +249,7 @@ WHERE T_WC_TMDB_MOVIE_COMPANY.ID_COMPANY = ".f_longtosql($lngcompanyid)."
 			echo "</table>";
 
 			// ── Series ────────────────────────────────────────────────────────────
-			echo "<h2>".get_movie_string('lib_series_section')."</h2>";
+			echo f_moviesectionopen("series","📺",get_movie_string('lib_series_section'),1);
 			$strsqlserielist="";
 			$strsqlserielist.="SELECT T_WC_TMDB_SERIE_COMPANY.ID_SERIE, ";
 			$strsqlserielist.="T_WC_TMDB_SERIE.TITLE, ";
@@ -303,9 +308,14 @@ WHERE T_WC_TMDB_MOVIE_COMPANY.ID_COMPANY = ".f_longtosql($lngcompanyid)."
 				f_sqlfreeresult($resultserielist);
 			}
 			echo "</table>";
+			echo f_moviesectionclose();
 
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"company"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//Company record NOT found in the database

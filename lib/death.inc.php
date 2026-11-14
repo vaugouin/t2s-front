@@ -4,6 +4,7 @@ ini_set('max_execution_time', -1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	$lngdeathid=f_stringtolong(f_request2("deathid"));
@@ -37,6 +38,9 @@ if ($intdbavailable) {
 				echo "<p><img src=\"".f_htmlattr(f_getpersonprofilepicture($strdeathprofilepath))."\" alt=\"".f_htmlattr($strdeathname)."\" title=\"".f_htmlattr($strdeathname)."\" style=\"background-color: white;\" /></p>";
 			}
 
+			f_moviesectionreset(array("info","overview","persons","wikidata","wikipedia"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			if ($strdeathwikidataid!="") {
 				echo "<p><strong>".get_movie_string('lib_movie_id_wikidata').":</strong> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strdeathwikidataid)."\" target=\"_blank\" rel=\"noreferrer\">".f_htmlspecialchars($strdeathwikidataid)."</a> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strdeathwikidataid)."\" target=\"_blank\" rel=\"noreferrer\"><img src=\"/images/Wikidata-logo.svg.png\" width=\"28\" height=\"16\" alt=\"Wikidata\" title=\"Wikidata\"></a></p>";
 			}
@@ -48,7 +52,7 @@ if ($intdbavailable) {
 				echo "<p><strong>Type:</strong> ".f_htmlspecialchars($strdeathtype)."</p>";
 			}
 			if ($strdeathoverview!="") {
-				echo "<h2>".get_movie_string('lib_collection_overview')."</h2>";
+				echo f_moviesectionopen("overview","📝",get_movie_string('lib_collection_overview'),1);
 				echo "<p>".nl2br(f_htmlspecialchars($strdeathoverview))."</p>";
 			}
 			if ($strdeathwikidataid!="") {
@@ -59,19 +63,13 @@ if ($intdbavailable) {
 				// f_getwikidatalabel fait le meme repli de langue que les deux requetes
 				// qu'elle remplace, mais dans V2 d'abord et V1 seulement en dernier ressort.
 				$strwditeminstanceoflabel=f_getwikidatalabel($strwditeminstanceofid,$struilang,$arrwdsourcelabel);
-				// Diagnostic de la migration, sous $intprivate comme les autres informations de
-				// service : visible sous un prefixe prive, invisible sur le site public. Les DEUX langues,
-				// pas seulement celle de l interface, car un prefixe prive peut forcer l anglais alors que le francais
-				// est justement ce qu on veut valider.
-				//Hook entity.wikidata: service blocks of the plugins above the Wikidata section
-				echo f_pluginhtml("entity.wikidata",array("page"=>"death","wikidataids"=>array($strdeathwikidataid,$strwditeminstanceofid),"lang"=>$struilang,"langalt"=>$struilangalt));
-				echo "<h2>".get_movie_string('lib_wikidata_section')."</h2>";
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'));
 				$strpropertyurl="property.php?propertyid=P31";
 				echo "<p><strong><a href=\"".$strpropertyurl."\">".get_movie_string('lib_wikidata_type')."</a>:</strong> ".$strwditeminstanceoflabel."</p>";
 				$strwikidataeverything=f_wikidataallpropertiesv2($struilang,$strdeathwikidataid,", ");
 				echo $strwikidataeverything;
 
-				echo "<h2>".get_movie_string('lib_wikipedia_section')."</h2>";
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
 				$strwikipediacontent=f_wikipediallsections($struilang,$strdeathwikidataid,$strsep=", ");
 				echo $strwikipediacontent;
 			}
@@ -85,7 +83,7 @@ if ($intdbavailable) {
 				}
 				f_sqlfreeresult($resultpersonscount);
 			}
-			echo "<h2>".get_movie_string('lib_persons_section').": ".$lngpersoncount." ".get_movie_string('lib_person_item')."</h2>";
+			echo f_moviesectionopen("persons","👥",get_movie_string('lib_persons_section').": ".$lngpersoncount." ".get_movie_string('lib_person_item'),1);
 			echo "<table>";
 			$strsqlpersons = "SELECT P.ID_PERSON, P.NAME AS PERSON_NAME, P.BIOGRAPHY, P.BIRTHDAY, P.DEATHDAY, P.ID_IMDB, P.PROFILE_PATH, JP.MIN_DISPLAY_ORDER ";
 			$strsqlpersons .= "FROM ".$strsqlns."TMDB_PERSON P ";
@@ -100,10 +98,14 @@ if ($intdbavailable) {
 				f_sqlfreeresult($resultpersons);
 			}
 			echo "</table>";
+			echo f_moviesectionclose();
 
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"death"));
-
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			f_headerdisplay("Death Not Found");

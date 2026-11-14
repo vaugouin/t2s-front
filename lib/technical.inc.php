@@ -4,6 +4,7 @@ ini_set('max_execution_time', -1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	$lngtechnicalid=f_stringtolong(f_request2("technicalid"));
@@ -52,6 +53,9 @@ if ($intdbavailable) {
 				echo "<p><img src=\"".f_htmlattr($strtechnicalwikipediapath)."\" alt=\"".f_htmlattr($strtechnicalname)."\" title=\"".f_htmlattr($strtechnicalname)."\" style=\"background-color: white; max-width: 100%; height: auto;\" /></p>";
 			}
 
+			f_moviesectionreset(array("info","overview","movies","wikidata","wikipedia"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			if ($strtechnicallabel!="") {
 				echo "<p><strong>Wikidata label:</strong> ".f_htmlspecialchars($strtechnicallabel)."</p>";
 			}
@@ -102,7 +106,7 @@ if ($intdbavailable) {
 			}
 
 			if ($strtechnicaloverview!="") {
-				echo "<h2>".get_movie_string('lib_collection_overview')."</h2>";
+				echo f_moviesectionopen("overview","📝",get_movie_string('lib_collection_overview'),1);
 				echo "<p>".nl2br(f_htmlspecialchars($strtechnicaloverview))."</p>";
 			}
 
@@ -114,19 +118,13 @@ if ($intdbavailable) {
 				// f_getwikidatalabel fait le meme repli de langue que les deux requetes
 				// qu'elle remplace, mais dans V2 d'abord et V1 seulement en dernier ressort.
 				$strwditeminstanceoflabel=f_getwikidatalabel($strwditeminstanceofid,$struilang,$arrwdsourcelabel);
-				// Diagnostic de la migration, sous $intprivate comme les autres informations de
-				// service : visible sous un prefixe prive, invisible sur le site public. Les DEUX langues,
-				// pas seulement celle de l interface, car un prefixe prive peut forcer l anglais alors que le francais
-				// est justement ce qu on veut valider.
-				//Hook entity.wikidata: service blocks of the plugins above the Wikidata section
-				echo f_pluginhtml("entity.wikidata",array("page"=>"technical","wikidataids"=>array($strtechnicalwikidataid,$strwditeminstanceofid),"lang"=>$struilang,"langalt"=>$struilangalt));
-				echo "<h2>".get_movie_string('lib_wikidata_section')."</h2>";
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'));
 				$strpropertyurl="property.php?propertyid=P31";
 				echo "<p><strong><a href=\"".$strpropertyurl."\">".get_movie_string('lib_wikidata_type')."</a>:</strong> ".$strwditeminstanceoflabel."</p>";
 				$strwikidataeverything=f_wikidataallpropertiesv2($struilang,$strtechnicalwikidataid,", ");
 				echo $strwikidataeverything;
 
-				echo "<h2>".get_movie_string('lib_wikipedia_section')."</h2>";
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
 				$strwikipediacontent=f_wikipediallsections($struilang,$strtechnicalwikidataid,$strsep=", ");
 				echo $strwikipediacontent;
 			}
@@ -140,7 +138,7 @@ if ($intdbavailable) {
 				}
 				f_sqlfreeresult($resultmoviescount);
 			}
-			echo "<h2>".get_movie_string('lib_movies_section').": ".$lngmoviecount."</h2>";
+			echo f_moviesectionopen("movies","🎬",get_movie_string('lib_movies_section').": ".$lngmoviecount,1);
 			echo "<table>";
 			$strsqlmovies="SELECT M.ID_MOVIE, M.MOVIE_TITLE, M.DAT_RELEASE, M.ID_IMDB, M.IMDB_RATING, M.IMDB_VOTES, M.POSTER_PATH ";
 			$strsqlmovies.="FROM T_WC_T2S_MOVIE M ";
@@ -155,9 +153,14 @@ if ($intdbavailable) {
 				f_sqlfreeresult($resultmovies);
 			}
 			echo "</table>";
+			echo f_moviesectionclose();
 
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"technical"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 
 			f_footerdisplay();
 		} else {

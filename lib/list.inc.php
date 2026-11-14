@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -102,9 +103,6 @@ WHERE T_WC_TMDB_SERIE_LIST.ID_LIST = ".f_longtosql($lnglistid)."
 			}
 			f_headerdisplay($strlistname,"",$arrsociallist);
 			echo "<h1>".$strlistname.": ".$lngitemcount." ".get_movie_string('lib_movie_item')."</h1>";
-			if ($strlistshortname!="") {
-				echo "<p><strong>".get_movie_string('lib_short_name')."</strong>: ".$strlistshortname."</p>";
-			}
 			if ($strlistposterpath!="") {
 				echo "<p>";
 				echo "<a href=\"".$strtmdbimagesoriginalpathbaseurl.$strlistposterpath."\" target=\"_blank\" rel=\"noreferrer\">";
@@ -112,6 +110,15 @@ WHERE T_WC_TMDB_SERIE_LIST.ID_LIST = ".f_longtosql($lnglistid)."
 				echo "</a>";
 				echo "</p>";
 			}
+
+			f_moviesectionreset(array("info","overview","movies","series","wikidata","wikipedia"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
+			if ($strlistshortname!="") {
+				echo "<p><strong>".get_movie_string('lib_short_name')."</strong>: ".$strlistshortname."</p>";
+			}
+			//The Wikidata and Wikipedia sections come after the lists: the flag carries the decision down there
+			$intlistwikidatashow=false;
 			if ($strlistcreatedby!="") {
 				$strlistcreatedbyurl="https://www.themoviedb.org/u/".$strlistcreatedby."/lists";
 				$strlistcreatedbydisplay=" <a href=\"".$strlistcreatedbyurl."\" target=\"_blank\" rel=\"noreferrer\">".$strlistcreatedby."</a>";
@@ -125,12 +132,7 @@ WHERE T_WC_TMDB_SERIE_LIST.ID_LIST = ".f_longtosql($lnglistid)."
 						echo "<p>".get_movie_string('lib_wikidata_item_id').": ".$strlistwikidataitemid."</p>";
 					}
 					if ($strlistwikidataitemid!="") {
-						echo "<h2>".get_movie_string('lib_wikidata_section')."</h2>";
-						$strwikidataeverything=f_wikidataallpropertiesv2($struilang,$strlistwikidataitemid,", ");
-						echo $strwikidataeverything;
-						echo "<h2>".get_movie_string('lib_wikipedia_section')."</h2>";
-						$strpersonwikipediacontent=f_wikipediallsections($struilang,$strlistwikidataitemid,$strsep=", ");
-						echo $strpersonwikipediacontent;
+						$intlistwikidatashow=true;
 					}
 					//Hook entity.admin: maintenance blocks of the plugins
 					echo f_pluginhtml("entity.admin",array("type"=>"list","id"=>$lnglistid,"createdby"=>$strlistcreatedby));
@@ -153,7 +155,7 @@ WHERE T_WC_TMDB_SERIE_LIST.ID_LIST = ".f_longtosql($lnglistid)."
 			echo $strmovieimdblinksall;
 			echo "</textarea>";
 			if ($strlistdescription!="") {
-				echo "<h2>".get_movie_string('lib_description_section')."</h2>";
+				echo f_moviesectionopen("overview","📝",get_movie_string('lib_description_section'),1);
 				echo "<p>".str_replace("\r","<br />",str_replace("\n","<br />",$strlistdescription))."</p>";
 			}
 			
@@ -186,6 +188,7 @@ WHERE T_WC_TMDB_SERIE_LIST.ID_LIST = ".f_longtosql($lnglistid)."
 			
 			$intlistmoviefound=false;
 			$lngdisplayorder=0;
+			echo f_moviesectionopen("movies","🎬",get_movie_string('lib_movies_section'),1);
 			echo "<table>";
 			$resultmovielist=f_sqlselect($strsqlmovielist);
 			if ($resultmovielist) {
@@ -258,7 +261,7 @@ WHERE T_WC_TMDB_SERIE_LIST.ID_LIST = ".f_longtosql($lnglistid)."
 			
 			$intlistseriefound=false;
 			$lngdisplayorder=0;
-			echo "<h2>".get_movie_string('lib_tv_shows_section')."</h2>";
+			echo f_moviesectionopen("series","📺",get_movie_string('lib_tv_shows_section'),1);
 			echo "<table>";
 			$resultserielist=f_sqlselect($strsqlserielist);
 			if ($resultserielist) {
@@ -299,8 +302,21 @@ WHERE T_WC_TMDB_SERIE_LIST.ID_LIST = ".f_longtosql($lnglistid)."
 				f_sqlfreeresult($resultserielist);
 			}
 			echo "</table>";
+			if ($intlistwikidatashow) {
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'));
+				$strwikidataeverything=f_wikidataallpropertiesv2($struilang,$strlistwikidataitemid,", ");
+				echo $strwikidataeverything;
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
+				$strpersonwikipediacontent=f_wikipediallsections($struilang,$strlistwikidataitemid,$strsep=", ");
+				echo $strpersonwikipediacontent;
+			}
+			echo f_moviesectionclose();
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"list"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//List record NOT found in the database

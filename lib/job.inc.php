@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -48,8 +49,10 @@ if ($intdbavailable) {
 		//Display job data
 		f_headerdisplay($strjob);
 		echo "<h1>".$strjob.": ".$lngmoviecount." ".get_movie_string('lib_movie_item').", ".$lngseriecount." ".get_movie_string('lib_serie_item').", ".$lngpersoncount." ".get_movie_string('lib_person_item')."</h1>";
+		f_moviesectionreset(array("movies","series","persons"));
+		ob_start();
 		// ── Section 1: Movies ──────────────────────────────────────────────────
-		echo "<h2>".get_movie_string('lib_movies_section')."</h2>";
+		echo f_moviesectionopen("movies","🎬",get_movie_string('lib_movies_section'),1);
 		$inttablejoins=false;
 		$strsqlmovielist="";
 		$strsqlmovielist.="SELECT DISTINCT T_WC_TMDB_MOVIE.ID_MOVIE, ";
@@ -145,7 +148,7 @@ if ($intdbavailable) {
 		echo "</table>";
 
 		// ── Section 2: Series ─────────────────────────────────────────────────
-		echo "<h2>".get_movie_string('lib_series_section')."</h2>";
+		echo f_moviesectionopen("series","📺",get_movie_string('lib_series_section'),1);
 		$strsqlserielist="";
 		$strsqlserielist.="SELECT DISTINCT T_WC_TMDB_SERIE.ID_SERIE, ";
 		$strsqlserielist.="T_WC_TMDB_SERIE.TITLE, ";
@@ -208,7 +211,7 @@ if ($intdbavailable) {
 		echo "</table>";
 
 		// ── Section 3: Persons ────────────────────────────────────────────────
-		echo "<h2>".get_movie_string('lib_persons_section')."</h2>";
+		echo f_moviesectionopen("persons","👥",get_movie_string('lib_persons_section'),1);
 		$strsqlpersonlist="";
 		$strsqlpersonlist.="SELECT DISTINCT T_WC_TMDB_PERSON.ID_PERSON, ";
 		$strsqlpersonlist.="T_WC_TMDB_PERSON.NAME, ";
@@ -243,9 +246,14 @@ if ($intdbavailable) {
 			f_sqlfreeresult($resultpersonlist);
 		}
 		echo "</table>";
+		echo f_moviesectionclose();
 
 		//Hook page.beforefooter: blocks of the plugins at the end of the page
 		echo f_pluginhtml("page.beforefooter",array("page"=>"job"));
+		//The anchor bar is built from the sections seen: it goes before the buffered body
+		$strfichebody=ob_get_clean();
+		echo f_movieanchorbar();
+		echo $strfichebody;
 		f_footerdisplay();
 	}  else {
 		//job URL parameter not set

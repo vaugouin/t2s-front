@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -43,9 +44,13 @@ WHERE T_WC_TMDB_MOVIE_KEYWORD.ID_KEYWORD = ".f_longtosql($strpropertyid)."
 			//Display property data
 			f_headerdisplay($strpropertylabel);
 			echo "<h1>Property : ".$strpropertylabel.": ".$lngmoviecount." ".get_movie_string('lib_movie_item')."</h1>";
+			f_moviesectionreset(array("info","wikidata"));
+			ob_start();
 			if ($strpropertydesc!="") {
+				echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 				echo "<p><strong>".get_movie_string('lib_description_section')."</strong>: ".$strpropertydesc."</p>";
 			}
+			echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'),1);
 			$strsqlitems="";
 			$strsqlitems.="SELECT COUNT(V_WIKIDATA_ITEM_PROPERTY.ID_ROW) AS COMPTE, V_WIKIDATA_ITEM_PROPERTY.ID_ITEM AS ID_WIKIDATA, T_WC_WIKIDATA_ITEM_V1.LABEL AS ITEM_LABEL, T_WC_WIKIDATA_ITEM_V1.DESCRIPTION AS ITEM_DESC ";
 			$strsqlitems.="FROM V_WIKIDATA_ITEM_PROPERTY ";
@@ -76,7 +81,7 @@ WHERE T_WC_TMDB_MOVIE_KEYWORD.ID_KEYWORD = ".f_longtosql($strpropertyid)."
 						$stritemlabel=$stritemid;
 					}
 					
-					echo "<h2><a href=\"".$stritemurl."\">".$stritemlabel."</a> ".$stritemid." "."</h2>";
+					echo "<h3><a href=\"".$stritemurl."\">".$stritemlabel."</a> ".$stritemid." "."</h3>";
 					if ($stritemdesc!="") {
 						echo "<p>";
 						echo "".$stritemdesc."";
@@ -84,8 +89,11 @@ WHERE T_WC_TMDB_MOVIE_KEYWORD.ID_KEYWORD = ".f_longtosql($strpropertyid)."
 					}
 				}
 			}
-			
-			
+			echo f_moviesectionclose();
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//Property record NOT found in the database

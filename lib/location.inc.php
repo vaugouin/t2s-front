@@ -4,6 +4,7 @@ ini_set('max_execution_time', -1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 include_once(__DIR__."/work-properties-format.inc.php");
 
 if (!function_exists('f_locationpaginationhtml')) {
@@ -134,6 +135,9 @@ if ($intdbavailable) {
 				echo "<p><img src=\"".f_htmlattr(f_getmovieposterpicture($strlocationposterpath))."\" alt=\"".f_htmlattr($strlocationname)."\" title=\"".f_htmlattr($strlocationname)."\" style=\"background-color: white;\" /></p>";
 			}
 
+			f_moviesectionreset(array("info","overview","location-filming-movie","location-filming-serie","location-filming-episode","location-narrative-movie","location-narrative-serie","location-narrative-episode","wikidata","wikipedia"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			if ($strlocationwikidataid!="") {
 				echo "<p><strong>".get_movie_string('lib_movie_id_wikidata').":</strong> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strlocationwikidataid)."\" target=\"_blank\" rel=\"noreferrer\">".f_htmlspecialchars($strlocationwikidataid)."</a> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strlocationwikidataid)."\" target=\"_blank\" rel=\"noreferrer\"><img src=\"/images/Wikidata-logo.svg.png\" width=\"28\" height=\"16\" alt=\"Wikidata\" title=\"Wikidata\"></a></p>";
 			}
@@ -145,7 +149,7 @@ if ($intdbavailable) {
 				echo "<p><strong>".get_movie_string('lib_sourcework_type').":</strong> ".f_htmlspecialchars(f_locationtypelabel($strlocationtype))."</p>";
 			}
 			if ($strlocationoverview!="") {
-				echo "<h2>".get_movie_string('lib_collection_overview')."</h2>";
+				echo f_moviesectionopen("overview","📝",get_movie_string('lib_collection_overview'),1);
 				echo "<p>".nl2br(f_htmlspecialchars($strlocationoverview))."</p>";
 			}
 			if ($strlocationwikidataid!="") {
@@ -153,17 +157,13 @@ if ($intdbavailable) {
 				// la classe se lit en V2, avec repli V1 dans f_getwikidatalabel.
 				$strwditeminstanceofid=f_wikidataiteminstanceof_v2($strlocationwikidataid);
 				$strwditeminstanceoflabel=f_getwikidatalabel($strwditeminstanceofid,$struilang,$arrwdsourcelabel);
-				// Diagnostic de la migration, en mode prive : visible sous un prefixe prive, invisible
-				// sur le site public, et dans les DEUX langues puisqu un prefixe prive peut forcer une langue.
-				//Hook entity.wikidata: service blocks of the plugins above the Wikidata section
-				echo f_pluginhtml("entity.wikidata",array("page"=>"location","wikidataids"=>array($strlocationwikidataid,$strwditeminstanceofid),"lang"=>$struilang,"langalt"=>$struilangalt));
-				echo "<h2>".get_movie_string('lib_wikidata_section')."</h2>";
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'));
 				$strpropertyurl="property.php?propertyid=P31";
 				echo "<p><strong><a href=\"".$strpropertyurl."\">".get_movie_string('lib_wikidata_type')."</a>:</strong> ".$strwditeminstanceoflabel."</p>";
 				$strwikidataeverything=f_wikidataallpropertiesv2($struilang,$strlocationwikidataid,", ");
 				echo $strwikidataeverything;
 
-				echo "<h2>".get_movie_string('lib_wikipedia_section')."</h2>";
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
 				$strwikipediacontent=f_wikipediallsections($struilang,$strlocationwikidataid,$strsep=", ");
 				echo $strwikipediacontent;
 			}
@@ -194,6 +194,8 @@ if ($intdbavailable) {
 				}
 				f_sqlfreeresult($resultchildren);
 			}
+			//The scope link applies to every list: it is printed at the top of the first list section
+			$strlocationscopehtml="";
 			if ($intlocationhaschildren) {
 				if ($strlocationscope=="direct") {
 					$strscopeurl="location.php?locationid=".(int)$lnglocationid;
@@ -202,7 +204,7 @@ if ($intdbavailable) {
 					$strscopeurl="location.php?locationid=".(int)$lnglocationid."&scope=direct";
 					$strscopelabel=sprintf(get_movie_string('lib_location_scope_direct'), $strlocationname);
 				}
-				echo "<p><a href=\"".f_htmlattr($strscopeurl)."\">".f_htmlspecialchars($strscopelabel)."</a></p>";
+				$strlocationscopehtml="<p><a href=\"".f_htmlattr($strscopeurl)."\">".f_htmlspecialchars($strscopelabel)."</a></p>";
 			}
 			$arrlocationpages=array();
 			foreach (array_keys($arrlocationroles) as $strlocationrolekey) {
@@ -225,7 +227,10 @@ if ($intdbavailable) {
 				$strlistkey=$strlocationrole."_movie";
 				$arrmoviepageinfo=f_workpropertypaginationinfo($arrlocationpages[$strlistkey], $lnglocationrowsperpage, $lngmoviecount);
 				$arrlocationpages[$strlistkey]=$arrmoviepageinfo["page"];
-				echo "<h2 id=\"location-".$strlocationrole."-movie\">".get_movie_string($arrlocationrolelabels['movies']).": ".$lngmoviecount."</h2>";
+				//The section ids are the anchors of the pagination links
+				echo f_moviesectionopen("location-".$strlocationrole."-movie",($strlocationrole=="filming" ? "🎥" : "🎬"),get_movie_string($arrlocationrolelabels['movies']).": ".$lngmoviecount,1);
+				echo $strlocationscopehtml;
+				$strlocationscopehtml="";
 				echo "<table>";
 				$strsqlmovies="SELECT M.ID_MOVIE, M.MOVIE_TITLE, M.DAT_RELEASE, M.ID_IMDB, M.IMDB_RATING, M.IMDB_VOTES, M.POSTER_PATH, X.VIA_ID_LOCATION, VL.LOCATION_NAME AS VIA_LOCATION_NAME ";
 				$strsqlmovies.="FROM (".f_locationlinksource("T_WC_T2S_MOVIE_LOCATION", "ID_MOVIE", $lnglocationid, $strlocationrole, $strlocationscope).") X ";
@@ -257,7 +262,7 @@ if ($intdbavailable) {
 				$strlistkey=$strlocationrole."_serie";
 				$arrseriepageinfo=f_workpropertypaginationinfo($arrlocationpages[$strlistkey], $lnglocationrowsperpage, $lngseriecount);
 				$arrlocationpages[$strlistkey]=$arrseriepageinfo["page"];
-				echo "<h2 id=\"location-".$strlocationrole."-serie\">".get_movie_string($arrlocationrolelabels['series']).": ".$lngseriecount."</h2>";
+				echo f_moviesectionopen("location-".$strlocationrole."-serie",($strlocationrole=="filming" ? "📹" : "📺"),get_movie_string($arrlocationrolelabels['series']).": ".$lngseriecount,1);
 				echo "<table>";
 				$strsqlseries="SELECT S.ID_SERIE, S.SERIE_TITLE, S.DAT_FIRST_AIR, S.DAT_LAST_AIR, S.ID_IMDB, S.IMDB_RATING, S.IMDB_VOTES, S.POSTER_PATH, X.VIA_ID_LOCATION, VL.LOCATION_NAME AS VIA_LOCATION_NAME ";
 				$strsqlseries.="FROM (".f_locationlinksource("T_WC_T2S_SERIE_LOCATION", "ID_SERIE", $lnglocationid, $strlocationrole, $strlocationscope).") X ";
@@ -294,7 +299,7 @@ if ($intdbavailable) {
 					$strlistkey=$strlocationrole."_episode";
 					$arrepisodepageinfo=f_workpropertypaginationinfo($arrlocationpages[$strlistkey], $lnglocationrowsperpage, $lngepisodecount);
 					$arrlocationpages[$strlistkey]=$arrepisodepageinfo["page"];
-					echo "<h2 id=\"location-".$strlocationrole."-episode\">".get_movie_string($arrlocationrolelabels['episodes']).": ".$lngepisodecount."</h2>";
+					echo f_moviesectionopen("location-".$strlocationrole."-episode",($strlocationrole=="filming" ? "🎞️" : "📼"),get_movie_string($arrlocationrolelabels['episodes']).": ".$lngepisodecount,1);
 					$strsqlepisodes="SELECT E.ID_SERIE, E.SEASON_NUMBER, E.EPISODE_NUMBER, E.EPISODE_TITLE, E.AIR_YEAR, S.SERIE_TITLE, X.VIA_ID_LOCATION, VL.LOCATION_NAME AS VIA_LOCATION_NAME ";
 					$strsqlepisodes.="FROM (".f_locationlinksource("T_WC_T2S_EPISODE_LOCATION", "ID_EPISODE", $lnglocationid, $strlocationrole, $strlocationscope).") X ";
 					$strsqlepisodes.="JOIN T_WC_T2S_EPISODE E ON E.ID_EPISODE = X.ID_EPISODE ";
@@ -334,9 +339,14 @@ if ($intdbavailable) {
 					echo f_locationpaginationhtml($lnglocationid, $strlistkey, $arrepisodepageinfo, $arrlocationpages, $strlocationscope);
 				}
 			}
+			echo f_moviesectionclose();
 
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"location"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			f_headerdisplay("Location Not Found");

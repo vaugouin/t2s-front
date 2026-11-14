@@ -4,6 +4,7 @@ ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/movie-sections.inc.php");
 
 if ($intdbavailable) {
 	//Database is available
@@ -72,6 +73,9 @@ WHERE T_WC_TMDB_SERIE_NETWORK.ID_NETWORK = ".f_longtosql($lngnetworkid)."
 				echo "</a>";
 				echo "</p>";
 			}
+			f_moviesectionreset(array("info","series"));
+			ob_start();
+			echo f_moviesectionopen("info","🪪",get_movie_string('lib_movie_section_tmdb'),1);
 			echo "<p>";
 			echo "<a href=\"images.php?networkid=".$lngnetworkid."\">";
 			echo get_movie_string('lib_all_images_network');
@@ -88,6 +92,7 @@ WHERE T_WC_TMDB_SERIE_NETWORK.ID_NETWORK = ".f_longtosql($lngnetworkid)."
 			echo "</p>";
 			//Hook entity.status: lines of the plugins under the record status
 			echo f_pluginhtml("entity.status",array("type"=>"network","id"=>$lngnetworkid));
+			echo f_moviesectionopen("series","📺",get_movie_string('lib_series_section').": ".$lngseriecount,1);
 			$strsqlserielist="";
 			$strsqlserielist.="SELECT T_WC_TMDB_SERIE_NETWORK.ID_SERIE, ";
 			$strsqlserielist.="T_WC_TMDB_SERIE.TITLE, ";
@@ -161,8 +166,13 @@ WHERE T_WC_TMDB_SERIE_NETWORK.ID_NETWORK = ".f_longtosql($lngnetworkid)."
 				f_sqlfreeresult($resultserielist);
 			}
 			echo "</table>";
+			echo f_moviesectionclose();
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
 			echo f_pluginhtml("page.beforefooter",array("page"=>"network"));
+			//The anchor bar is built from the sections seen: it goes before the buffered body
+			$strfichebody=ob_get_clean();
+			echo f_movieanchorbar();
+			echo $strfichebody;
 			f_footerdisplay();
 		} else {
 			//Network record NOT found in the database
