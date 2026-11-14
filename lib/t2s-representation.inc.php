@@ -96,6 +96,16 @@ function f_t2srep_options($jsontext2sql) {
 			}
 		}
 	}
+	//Phase 3 lot D: a map of places that cannot be drawn (no place located, no outline) is the
+	//card grid, in its place among the chips
+	$lngmap=array_search("map", $arroptions, true);
+	if ($lngmap!==false && f_t2srep_places_facts($jsontext2sql)!==null && f_t2srep_place_map_model($jsontext2sql)===null) {
+		if (in_array("card-grid", $arroptions, true)) {
+			array_splice($arroptions, $lngmap, 1);
+		} else {
+			$arroptions[$lngmap]="card-grid";
+		}
+	}
 	return $arroptions;
 }
 
@@ -109,6 +119,10 @@ function f_t2srep_active($jsontext2sql, $strrequested="") {
 	}
 	//A default this front does not know (a later phase) keeps the card renderer, as before
 	$strrep=isset($jsontext2sql['representation']) ? trim((string)$jsontext2sql['representation']) : "";
+	if ($strrep=="map" && !in_array("map", $arroptions, true)) {
+		//A map of places that cannot be drawn: the card grid (f_t2srep_options())
+		return "card-grid";
+	}
 	return in_array($strrep, f_t2srep_known(), true) ? $strrep : "";
 }
 
@@ -974,6 +988,11 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	//Phase 3 lot A
 	if ($strrepb=="scatter") {
 		return f_t2srep_caption_scatter($jsontext2sql, $strlang, $inthasmore);
+	}
+	//Phase 3 lot D: the map of places has its own sentence; without the outline the page shows
+	//the card grid, which has none
+	if ($strrepb=="map" && f_t2srep_places_facts($jsontext2sql)!==null) {
+		return f_t2srep_place_map_model($jsontext2sql, $strlang)!==null ? f_t2srep_caption_places($jsontext2sql, $strlang) : "";
 	}
 	//Phase 3 lot B: the flag-list sentence, placed on the map
 	if ($strrepb=="map") {
@@ -3123,6 +3142,10 @@ function f_t2srep_render_map($jsontext2sql, $strlang='en', $arrworld=null) {
 	//			a line under the map for the country under the finger (f_t2srep_map_js(); without
 	//			script each country and dot keeps its title), the legend, the countries the map has
 	//			no place for, and a visually hidden table. Without the outline, the flag list.
+	//			Phase 3 lot D: an answer of places (summary_facts.places) is the map of places.
+	if (f_t2srep_places_facts($jsontext2sql)!==null) {
+		return f_t2srep_render_place_map($jsontext2sql, $strlang, $arrworld);
+	}
 	$arrmodel=f_t2srep_map_model($jsontext2sql, $strlang, $arrworld);
 	if ($arrmodel===null) {
 		return f_t2srep_render_flag_list($jsontext2sql, $strlang);
@@ -3167,12 +3190,305 @@ function f_t2srep_render_map($jsontext2sql, $strlang='en', $arrworld=null) {
 function f_t2srep_map_js() {
 	//Purpose: As voice-agent: hovering, focusing or tapping a country or a dot outlines it (with
 	//			its dot or shape) and writes its name and count, its aria-label, in the line under
-	//			the map. A plain string with no PHP value in it.
+	//			the map. On the map of places (phase 3 lot D), a mark or its list item highlights
+	//			both and writes its data-t2stip line. A plain string with no PHP value in it.
 	return "(function(){function show(el){var root=el.closest('.t2sMap');if(!root){return;}var tip=root.querySelector('.t2sMapTip');"
-		."if(tip){tip.textContent=el.getAttribute('aria-label')||'';}var old=root.querySelectorAll('.isSelected'),i;for(i=0;i<old.length;i++){old[i].classList.remove('isSelected');}"
+		."if(tip){tip.textContent=el.getAttribute('data-t2stip')||el.getAttribute('aria-label')||'';}var old=root.querySelectorAll('.isSelected'),i;for(i=0;i<old.length;i++){old[i].classList.remove('isSelected');}"
 		."var marks=root.querySelectorAll('[data-t2smap=\"'+el.getAttribute('data-t2smap')+'\"]');for(i=0;i<marks.length;i++){marks[i].classList.add('isSelected');}}"
 		."function find(ev){var t=ev.target;return t&&t.closest?t.closest('.t2sMap [data-t2smap]'):null;}"
 		."['mouseover','focusin','click'].forEach(function(n){document.addEventListener(n,function(ev){var el=find(ev);if(el){show(el);}});});})();";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Phase 3 lot D: map of places. Mirror of voice-agent (text2SqlPlaceMapModel(), renderPlaceMap()):
+ * the same projection, frame, numbering, words and sentences. The places and their coordinates
+ * are the API's (summary_facts.places): a pin is a point, an area (a country or a region) has a
+ * position but is not a point and is drawn as a ring. They are placed on the outline of lot B with
+ * the Equal Earth projection its build script used (world-110m.json, key `projection`), and the
+ * map is cropped around them. Without the outline, the page shows the card grid
+ * (f_t2srep_options() swaps the map for it).
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_places_facts($jsontext2sql) {
+	//Purpose: summary_facts.places, or null when the answer has none
+	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']['places']) || !is_array($jsontext2sql['summary_facts']['places'])) {
+		return null;
+	}
+	return $jsontext2sql['summary_facts']['places'];
+}
+
+function f_t2srep_place_type_word($strtype, $strlang='en') {
+	//Purpose: Mirrors type_word(): the word for a place type, "Place" / "Lieu" for any other
+	$arrwords=array(
+		"city"=>array("City", "Ville"), "region"=>array("Region", "Région"), "country"=>array("Country", "Pays"),
+		"structure"=>array("Site", "Site"), "nature"=>array("Natural site", "Site naturel"), "island"=>array("Island", "Île"),
+		"fiction"=>array("Fictional place", "Lieu fictif"),
+	);
+	$arrword=isset($arrwords[(string)$strtype]) ? $arrwords[(string)$strtype] : array("Place", "Lieu");
+	return $strlang=="fr" ? $arrword[1] : $arrword[0];
+}
+
+function f_t2srep_place_label($arrplace, $strlang='en') {
+	//Purpose: The name of a place, "Place" / "Lieu" when it has none
+	$strlabel=isset($arrplace['label']) ? (string)$arrplace['label'] : "";
+	return $strlabel!=="" ? $strlabel : ($strlang=="fr" ? "Lieu" : "Place");
+}
+
+function f_t2srep_place_reason($strreason, $strlang='en') {
+	//Purpose: Why a place is not on the map: "a fictional place" / "lieu fictif", "no coordinates" / "sans coordonnées"
+	if ((string)$strreason=="fiction") {
+		return $strlang=="fr" ? "lieu fictif" : "a fictional place";
+	}
+	return $strlang=="fr" ? "sans coordonnées" : "no coordinates";
+}
+
+function f_t2srep_places_located($arrplaces) {
+	//Purpose: Mirrors located(): the pins and the areas in row order (by index), the numbering of
+	//			the map and of the list; each carries its kind, "pin" or "area"
+	$arrmarks=array();
+	foreach (array("pins"=>"pin", "areas"=>"area") as $strkey=>$strkind) {
+		foreach ((isset($arrplaces[$strkey]) && is_array($arrplaces[$strkey]) ? $arrplaces[$strkey] : array()) as $arrplace) {
+			if (is_array($arrplace)) {
+				$arrplace['kind']=$strkind;
+				$arrmarks[]=$arrplace;
+			}
+		}
+	}
+	//usort is stable since PHP 8, as Python's sorted(): a pin before an area on the same row
+	usort($arrmarks, function($a, $b) {
+		return (int)(isset($a['index']) ? $a['index'] : 0) <=> (int)(isset($b['index']) ? $b['index'] : 0);
+	});
+	return $arrmarks;
+}
+
+function f_t2srep_caption_places($jsontext2sql, $strlang='en') {
+	//Purpose: Mirrors caption(): "Five places on the map: London, Spain, Morocco and two more." /
+	//			"Cinq lieux sur la carte : Londres, Espagne, Maroc et deux autres."; one place alone,
+	//			"Tokyo on the map."; then the places not on it, one named with its reason ("; Neo-Tokyo
+	//			is not on it (a fictional place)"), several counted ("; two more are not on it").
+	//			"" without summary_facts.places.
+	$arrplaces=f_t2srep_places_facts($jsontext2sql);
+	if ($arrplaces===null) {
+		return "";
+	}
+	$intfr=($strlang=="fr");
+	$arrnames=array();
+	foreach (f_t2srep_places_located($arrplaces) as $arrmark) {
+		$arrnames[]=f_t2srep_place_label($arrmark, $strlang);
+	}
+	$lngn=count($arrnames);
+	if ($lngn==1) {
+		$strtext=$arrnames[0].($intfr ? " sur la carte" : " on the map");
+	} else {
+		$strhead=f_t2srep_ucfirst(f_t2srep_count_word($lngn, $strlang)).($intfr ? " lieux sur la carte" : " places on the map");
+		if ($lngn<=4) {
+			$strlast=array_pop($arrnames);
+			$strlisted=count($arrnames)>0 ? implode(", ", $arrnames).($intfr ? " et " : " and ").$strlast : (string)$strlast;
+		} else {
+			$strmore=f_t2srep_count_word($lngn-3, $strlang);
+			$strlisted=implode(", ", array_slice($arrnames, 0, 3)).($intfr ? " et ".$strmore." autres" : " and ".$strmore." more");
+		}
+		$strtext=$strhead.($intfr ? " : " : ": ").$strlisted;
+	}
+	$arroff=isset($arrplaces['unlocated']) && is_array($arrplaces['unlocated']) ? array_values($arrplaces['unlocated']) : array();
+	if (count($arroff)==1) {
+		$strlabel=f_t2srep_place_label($arroff[0], $strlang);
+		$strreason=f_t2srep_place_reason(isset($arroff[0]['reason']) ? $arroff[0]['reason'] : "", $strlang);
+		$strtext.=$intfr ? " ; ".$strlabel." n'y figure pas (".$strreason.")" : "; ".$strlabel." is not on it (".$strreason.")";
+	} elseif (count($arroff)>1) {
+		$strcount=f_t2srep_count_word(count($arroff), $strlang);
+		$strtext.=$intfr ? " ; ".$strcount." autres n'y figurent pas" : "; ".$strcount." more are not on it";
+	}
+	return $strtext.".";
+}
+
+function f_t2srep_place_project($dbllat, $dbllon, $arrworld) {
+	//Purpose: Mirrors project(): a latitude and a longitude in the outline's units, Equal Earth
+	//			(the constants of tools/build-world-map.py), then x = (ex + x_max) * scale and
+	//			y = -ey * scale - y0
+	$dbla1=1.340264;
+	$dbla2=-0.081106;
+	$dbla3=0.000893;
+	$dbla4=0.003796;
+	$dblm=sqrt(3)/2;
+	$arrpr=$arrworld['projection'];
+	$dbllam=deg2rad((float)$dbllon);
+	$dblphi=deg2rad((float)$dbllat);
+	$dbltheta=asin($dblm*sin($dblphi));
+	$dblt2=$dbltheta*$dbltheta;
+	$dblt6=$dblt2*$dblt2*$dblt2;
+	$dblex=$dbllam*cos($dbltheta)/($dblm*($dbla1+3*$dbla2*$dblt2+$dblt6*(7*$dbla3+9*$dbla4*$dblt2)));
+	$dbley=$dbltheta*($dbla1+$dbla2*$dblt2+$dblt6*($dbla3+$dbla4*$dblt2));
+	return array(($dblex+(float)$arrpr['x_max'])*(float)$arrpr['scale'], -$dbley*(float)$arrpr['scale']-(float)$arrpr['y0']);
+}
+
+function f_t2srep_place_frame($arrpoints, $arrworld) {
+	//Purpose: Mirrors frame(): the viewBox around the points, their box grown by 30% plus 40
+	//			units, at least 160 x 100, the ratio kept between 1.25 and 2.2, inside the outline
+	//			(the whole outline when larger)
+	$arrxs=array();
+	$arrys=array();
+	foreach ($arrpoints as $arrpoint) {
+		$arrxs[]=$arrpoint[0];
+		$arrys[]=$arrpoint[1];
+	}
+	$dblw=max((max($arrxs)-min($arrxs))*1.3+40, 160);
+	$dblh=max((max($arrys)-min($arrys))*1.3+40, 100);
+	if ($dblw/$dblh>2.2) {
+		$dblh=$dblw/2.2;
+	}
+	if ($dblw/$dblh<1.25) {
+		$dblw=$dblh*1.25;
+	}
+	$dblcx=(max($arrxs)+min($arrxs))/2;
+	$dblcy=(max($arrys)+min($arrys))/2;
+	$dblwidth=(float)$arrworld['width'];
+	$dblheight=(float)$arrworld['height'];
+	if ($dblw>=$dblwidth) {
+		$dblx0=0;
+		$dblw=$dblwidth;
+	} else {
+		$dblx0=min(max($dblcx-$dblw/2, 0), $dblwidth-$dblw);
+	}
+	if ($dblh>=$dblheight) {
+		$dbly0=0;
+		$dblh=$dblheight;
+	} else {
+		$dbly0=min(max($dblcy-$dblh/2, 0), $dblheight-$dblh);
+	}
+	$lngx=(int)floor($dblx0);
+	$lngy=(int)floor($dbly0);
+	return array("x"=>$lngx, "y"=>$lngy, "width"=>(int)min(ceil($dblw), $dblwidth-$lngx), "height"=>(int)min(ceil($dblh), $dblheight-$lngy));
+}
+
+function f_t2srep_place_map_model($jsontext2sql, $strlang='en', $arrworld=null) {
+	//Purpose: Mirrors text2SqlPlaceMapModel() (model() of the reference): the frame, the marks
+	//			numbered in row order with their place in the frame (percent, two decimals), the
+	//			places not on the map and the caption
+	//Returns: array(viewBox, frame, marks, offText, caption), or null without summary_facts.places,
+	//			with no place located, or without the outline or its projection
+	$arrplaces=f_t2srep_places_facts($jsontext2sql);
+	if ($arrworld===null) {
+		$arrworld=f_t2srep_world_map();
+	}
+	if ($arrplaces===null || empty($arrplaces['located']) || !is_array($arrworld) || !isset($arrworld['projection']) || !is_array($arrworld['projection'])
+		|| !isset($arrworld['width'], $arrworld['height'], $arrworld['projection']['scale'], $arrworld['projection']['x_max'], $arrworld['projection']['y0'])) {
+		return null;
+	}
+	$arrlocated=f_t2srep_places_located($arrplaces);
+	if (count($arrlocated)==0) {
+		return null;
+	}
+	$intfr=($strlang=="fr");
+	$arrpoints=array();
+	foreach ($arrlocated as $arrmark) {
+		$arrpoints[]=f_t2srep_place_project(isset($arrmark['lat']) ? $arrmark['lat'] : 0, isset($arrmark['lon']) ? $arrmark['lon'] : 0, $arrworld);
+	}
+	$arrframe=f_t2srep_place_frame($arrpoints, $arrworld);
+	$arrmarks=array();
+	foreach ($arrlocated as $lngi=>$arrmark) {
+		$arrmarks[]=array(
+			"n"=>$lngi+1,
+			"kind"=>$arrmark['kind'],
+			"index"=>(int)(isset($arrmark['index']) ? $arrmark['index'] : 0),
+			"id"=>isset($arrmark['id']) ? $arrmark['id'] : null,
+			"label"=>f_t2srep_place_label($arrmark, $strlang),
+			"typeText"=>f_t2srep_place_type_word(isset($arrmark['type']) ? $arrmark['type'] : "", $strlang),
+			"left"=>round(($arrpoints[$lngi][0]-$arrframe['x'])/$arrframe['width']*100, 2),
+			"top"=>round(($arrpoints[$lngi][1]-$arrframe['y'])/$arrframe['height']*100, 2),
+		);
+	}
+	$arritems=array();
+	foreach ((isset($arrplaces['unlocated']) && is_array($arrplaces['unlocated']) ? $arrplaces['unlocated'] : array()) as $arrplace) {
+		$arritems[]=f_t2srep_place_label($arrplace, $strlang)." (".f_t2srep_place_reason(isset($arrplace['reason']) ? $arrplace['reason'] : "", $strlang).")";
+	}
+	$stroff="";
+	if (count($arritems)>0) {
+		$stroff=($intfr ? "Absents de la carte : " : "Not on the map: ").implode(", ", $arritems).".";
+	}
+	return array(
+		"viewBox"=>$arrframe['x']." ".$arrframe['y']." ".$arrframe['width']." ".$arrframe['height'],
+		"frame"=>$arrframe,
+		"marks"=>$arrmarks,
+		"offText"=>$stroff,
+		"caption"=>f_t2srep_caption_places($jsontext2sql, $strlang),
+	);
+}
+
+function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null) {
+	//Purpose: Mirrors renderPlaceMap(): the outline cropped to the frame as neutral land, the marks
+	//			laid over it by percentage (a numbered disc for a pin, a dashed ring with a numbered
+	//			badge for an area, so it does not read as a point; the same size at any width), a
+	//			line under the map for the mark under the finger (f_t2srep_map_js()), the numbered
+	//			list of the places linked as their cards are, the places not on the map, and a
+	//			visually hidden table. Without the outline the page shows the card grid
+	//			(f_t2srep_options()); called anyway, the table.
+	if ($arrworld===null) {
+		$arrworld=f_t2srep_world_map();
+	}
+	$arrmodel=f_t2srep_place_map_model($jsontext2sql, $strlang, $arrworld);
+	$arrrecords=f_t2srep_records(isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	if ($arrmodel===null || !isset($arrworld['shapes']) || !is_array($arrworld['shapes'])) {
+		return f_t2srep_render_table($arrrecords, f_t2srep_columns($jsontext2sql), $strlang);
+	}
+	$intfr=($strlang=="fr");
+	$arrkeys=array_map('strval', array_keys($arrworld['shapes']));
+	sort($arrkeys, SORT_STRING);
+	$strland="";
+	foreach ($arrkeys as $strkey) {
+		$strland.=$arrworld['shapes'][$strkey];
+	}
+	$strland.=isset($arrworld['other']) ? (string)$arrworld['other'] : "";
+	$arrframe=$arrmodel['frame'];
+	$strmarks="";
+	$strlist="";
+	foreach ($arrmodel['marks'] as $arrmark) {
+		$strn=(string)$arrmark['n'];
+		$strkey="p".$strn;
+		$strlabel=$strn.". ".$arrmark['label'].", ".$arrmark['typeText'];
+		$strtip=$strn.". ".$arrmark['label']." \u{00B7} ".$arrmark['typeText'];
+		$strclass=$arrmark['kind']=="area" ? "t2sPlaceArea" : "t2sPlacePin";
+		$strinner=$arrmark['kind']=="area" ? "<span class=\"t2sPlaceBadge\">".$strn."</span>" : $strn;
+		$strmarks.="<span class=\"".$strclass."\" role=\"button\" tabindex=\"0\" style=\"left:".$arrmark['left']."%;top:".$arrmark['top']."%\""
+			." title=\"".f_t2srep_h($strlabel)."\" aria-label=\"".f_t2srep_h($strlabel)."\" data-t2smap=\"".$strkey."\" data-t2stip=\"".f_t2srep_h($strtip)."\">".$strinner."</span>";
+		$arrrecord=isset($arrrecords[$arrmark['index']]) ? $arrrecords[$arrmark['index']] : array();
+		$strhref=f_t2srep_entity_href_for($arrrecord, "ID_LOCATION");
+		if ($strhref=="") {
+			$strhref=f_t2srep_entity_href($arrrecord);
+		}
+		$strname=f_t2srep_h($arrmark['label']);
+		$strlist.="<li class=\"t2sPlaceItem\" data-t2smap=\"".$strkey."\" data-t2stip=\"".f_t2srep_h($strtip)."\">"
+			."<span class=\"t2sPlaceNum ".($arrmark['kind']=="area" ? "isArea" : "isPin")."\" aria-hidden=\"true\">".$strn."</span>"
+			."<span class=\"t2sPlaceText\">".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".$strname."</a>" : "<span>".$strname."</span>")
+			." <span class=\"t2sPlaceType\">".f_t2srep_h($arrmark['typeText'])."</span></span></li>";
+	}
+	$strhtml="<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:".$arrframe['width']." / ".$arrframe['height']."\">"
+		."<svg class=\"t2sMapSvg\" viewBox=\"".$arrmodel['viewBox']."\" role=\"img\" aria-label=\"".($intfr ? "Carte des lieux" : "Map of the places")."\">"
+		."<path class=\"t2sMapLand\" d=\"".f_t2srep_h($strland)."\"/></svg>".$strmarks."</div>"
+		."<p class=\"t2sMapTip\" aria-live=\"polite\">".($intfr ? "Touchez ou survolez un numéro pour voir son lieu." : "Tap or hover over a number to see its place.")."</p>"
+		."<ol class=\"t2sPlaceList\">".$strlist."</ol>";
+	if ($arrmodel['offText']!=="") {
+		$strhtml.="<p class=\"t2sMapOff\">".f_t2srep_h($arrmodel['offText'])."</p>";
+	}
+	//The hidden table: every place in row order, on the map or why not
+	$arrrows=array();
+	foreach ($arrmodel['marks'] as $arrmark) {
+		$arrrows[]=array($arrmark['index'], $arrmark['label'], $arrmark['typeText'], $intfr ? "oui" : "yes");
+	}
+	$arrplaces=f_t2srep_places_facts($jsontext2sql);
+	foreach ((isset($arrplaces['unlocated']) && is_array($arrplaces['unlocated']) ? $arrplaces['unlocated'] : array()) as $arrplace) {
+		$arrrows[]=array((int)(isset($arrplace['index']) ? $arrplace['index'] : 0), f_t2srep_place_label($arrplace, $strlang),
+			f_t2srep_place_type_word(isset($arrplace['type']) ? $arrplace['type'] : "", $strlang), f_t2srep_place_reason(isset($arrplace['reason']) ? $arrplace['reason'] : "", $strlang));
+	}
+	usort($arrrows, function($a, $b) {
+		return $a[0] <=> $b[0];
+	});
+	$strhtml.="<div class=\"t2sSrOnly\"><table><thead><tr><th scope=\"col\">".($intfr ? "Lieu" : "Place")."</th><th scope=\"col\">Type</th><th scope=\"col\">"
+		.($intfr ? "Sur la carte" : "On the map")."</th></tr></thead><tbody>";
+	foreach ($arrrows as $arrrow) {
+		$strhtml.="<tr><td>".f_t2srep_h($arrrow[1])."</td><td>".f_t2srep_h($arrrow[2])."</td><td>".f_t2srep_h($arrrow[3])."</td></tr>";
+	}
+	return $strhtml."</tbody></table></div></div>";
 }
 
 /* ---------------------------------------------------------------------------------------------

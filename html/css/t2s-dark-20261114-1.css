@@ -2287,6 +2287,135 @@ span.t2sScatterDot {
   overflow-wrap: anywhere;
 }
 
+/* Phase 3 lot D: map of places. The outline of lot B cropped to the places (the SVG viewBox; the
+   frame takes the same ratio so the marks, laid over it by percentage, line up), all land neutral.
+   A pin is a numbered disc, an area (a country, a region) a dashed ring with a numbered badge, so
+   it does not read as a point; both keep their size at any width. The numbered list under the map
+   says the same thing in words: nothing reads from colour alone. */
+.t2sPlaceFrame {
+  max-width: 760px;
+  /* A mark on the edge of the frame stays whole where the browser can clip with a margin */
+  overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: 10px;
+  border-radius: 6px;
+  background: #1a1c1f;
+}
+.t2sPlaceFrame .t2sMapSvg {
+  height: 100%;
+}
+.t2sPlacePin,
+.t2sPlaceArea {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  outline: none;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.t2sPlacePin {
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  background: var(--accent-secondary);
+  color: #10201e;
+  box-shadow: 0 0 0 1.5px var(--bg-primary);
+}
+.t2sPlaceArea {
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border: 2px dashed var(--accent-secondary);
+  background: rgba(3, 218, 198, 0.12);
+}
+.t2sPlaceBadge {
+  position: absolute;
+  right: -7px;
+  top: -7px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 9px;
+  background: var(--bg-primary);
+  border: 1.5px solid var(--accent-secondary);
+  color: var(--text-primary);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+.t2sPlacePin:hover,
+.t2sPlacePin:focus-visible,
+.t2sPlacePin.isSelected {
+  z-index: 3;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--text-primary);
+}
+.t2sPlaceArea:hover,
+.t2sPlaceArea:focus-visible,
+.t2sPlaceArea.isSelected {
+  z-index: 3;
+  border-style: solid;
+  border-color: var(--text-primary);
+}
+.t2sPlaceList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px 16px;
+  max-width: 760px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+.t2sPlaceItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.t2sPlaceItem.isSelected {
+  background: var(--bg-tertiary);
+}
+.t2sPlaceNum {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.t2sPlaceNum.isPin {
+  background: var(--accent-secondary);
+  color: #10201e;
+}
+.t2sPlaceNum.isArea {
+  border: 1.5px dashed var(--accent-secondary);
+  color: var(--text-primary);
+}
+.t2sPlaceText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.t2sPlaceType {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
 /* Phase 3 lot C: hierarchy. One section per outer group (heading with its name and count), a
    third level as nested sections, the leaves as compact rows in a grid of columns that falls to
    one column on a phone. Headings and lists, no collapsing, no script; the same markup as voice-agent. */

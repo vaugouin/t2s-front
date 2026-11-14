@@ -53,6 +53,12 @@
  * the countries with no place on the map, the captions in English and French, word for word
  * those of voice-agent. The hover script goes through node --check.
  *
+ * Phase 3 lot D adds the map of places on the answers to the place questions (fixtures p3d-*,
+ * summary_facts.places) and the projection of the outline: the captions of every fixture, word for
+ * word those of voice-agent, the frame, the marks numbered in row order with their kind and their
+ * place in the frame, the places not on the map, the markup, the list linked as the cards, and the
+ * card grid when the map cannot be drawn.
+ *
  * Phase 3 lot A adds scatter on the 1.1.20 answers of the scatter evaluations reclassified with
  * the API module of that lot (fixtures p3a-*): the axes, their ticks and titles (money, minutes,
  * years, a log axis of votes), the points and the highest one, the rendering, the chips, and the
@@ -987,7 +993,7 @@ $arrworld=f_t2srep_world_map();
 f_check("map outline",array($arrworld['width'],$arrworld['height'],count($arrworld['shapes']),isset($arrworld['dots']['702'],$arrworld['dots']['344'],$arrworld['dots']['470'],$arrworld['dots']['492'],$arrworld['dots']['438'],$arrworld['dots']['048'],$arrworld['dots']['020']),
 	$arrworld['alpha2']['250'],$arrworld['alpha2']['826']),array(2000,863,173,true,"FR","GB"));
 //The line ending normalised: a Windows checkout may write the final newline as CRLF
-f_check("map outline, the same bytes as voice-agent",hash("sha256",str_replace("\r\n","\n",file_get_contents(__DIR__."/../html/data/world-110m.json"))),"4d1092a11836585a3ec2747559f81b365163bd0e095803a2635c507c7e5aa9cc");
+f_check("map outline, the same bytes as voice-agent",hash("sha256",str_replace("\r\n","\n",file_get_contents(__DIR__."/../html/data/world-110m.json"))),"7e99d7d73c7f4637a19dd012fb71333fb976c040e8b996cfcae71057baf79b9e");
 f_check("map caption en",f_t2srep_caption($arrfix['p3b-map-films-2020-en'],"en"),
 	"The first 50 countries by number of films on the map; United States leads with 3,957 films.");
 f_check("map caption fr",f_t2srep_caption($arrfix['p3b-map-coproductions-france-fr'],"fr"),
@@ -1063,6 +1069,141 @@ foreach ($arrfix as $strkey=>$arrjson) {
 }
 f_check("no em dash in any map caption or rendering",strpos($strallm,"\u{2014}"),false);
 
+
+//Phase 3 lot D: map of places (fixtures p3d-*, summary_facts.places, the projection of the outline).
+//The captions and the models are those of the reference both fronts implement, word for word.
+$arrcaptionsp3d=array(
+	"p3d-places-akira-hand-en"=>"Two places on the map: Tokyo and Japan; two more are not on it.",
+	"p3d-places-akira-hand-fr"=>"Deux lieux sur la carte : Tokyo et Japon ; deux autres n'y figurent pas.",
+	"p3d-places-akira-one-off-hand-en"=>"Two places on the map: Tokyo and Japan; Neo-Tokyo is not on it (a fictional place).",
+	"p3d-places-akira-one-off-hand-fr"=>"Deux lieux sur la carte : Tokyo et Japon ; Neo-Tokyo n'y figure pas (lieu fictif).",
+	"p3d-places-bond-en"=>"50 places on the map: New York City, London, Los Angeles and 47 more.",
+	"p3d-places-harry-potter-uk-en"=>"17 places on the map: Alnwick Castle, Christ Church, Goathland railway station and 14 more.",
+	"p3d-places-inception-en"=>"15 places on the map: Paris, California, Japan and twelve more.",
+	"p3d-places-italy-regions-en"=>"44 places on the map: Brindisi, Lecce, Cirella and 41 more.",
+	"p3d-places-italy-regions-fr"=>"42 lieux sur la carte : Brindisi, Lecce, Cirella et 39 autres.",
+	"p3d-places-john-ford-states-en"=>"Twelve places on the map: Arizona, Alabama Hills, California and nine more.",
+	"p3d-places-lawrence-en"=>"Five places on the map: London, Spain, Morocco and two more.",
+	"p3d-places-lawrence-fr"=>"Cinq lieux sur la carte : Londres, Espagne, Maroc et deux autres.",
+	"p3d-places-lost-in-translation-en"=>"Four places on the map: Japan, Tokyo, Kyoto and Heian Jingū.",
+	"p3d-places-lost-in-translation-fr"=>"Quatre lieux sur la carte : Japon, Kyoto, Tokyo et sanctuaire Heian.",
+	"p3d-places-nolan-en"=>"49 places on the map: New York City, London, Los Angeles and 46 more; Shepperton Studios is not on it (no coordinates).",
+	"p3d-places-third-man-en"=>"Two places on the map: Vienna and Austria.",
+	"p3d-places-tokyo-single-hand-en"=>"Tokyo on the map.",
+	"p3d-places-tokyo-single-hand-fr"=>"Tokyo sur la carte.",
+	"p3d-places-woody-allen-france-en"=>"Five places on the map: Giverny, Paris, Saint-Étienne-du-Mont and two more.",
+);
+foreach ($arrcaptionsp3d as $strkey=>$strcaption) {
+	$strl=$arrfix[$strkey]['ui_language'];
+	f_check("places caption ".$strkey,f_t2srep_caption_places($arrfix[$strkey],$strl),$strcaption);
+	if ($arrfix[$strkey]['representation']=="map") {
+		f_check("places caption through the dispatch ".$strkey,f_t2srep_caption($arrfix[$strkey],$strl),$strcaption);
+	}
+}
+//The marks compared numerically: left and top are rounded to two decimals, as in the reference
+function f_places_marks($arrmodel) {
+	$arrout=array();
+	foreach ($arrmodel['marks'] as $arrm) {
+		$arrout[]=array($arrm['n'],$arrm['kind'],$arrm['id'],$arrm['label'],$arrm['typeText'],(float)$arrm['left'],(float)$arrm['top']);
+	}
+	return $arrout;
+}
+$arrframesp3d=array(
+	"p3d-places-akira-hand-en"=>array("1617 177 160 100",2,"Not on the map: Neo-Tokyo (a fictional place), Studio lot (no coordinates)."),
+	"p3d-places-akira-hand-fr"=>array("1617 177 160 100",2,"Absents de la carte : Neo-Tokyo (lieu fictif), Studio lot (sans coordonnées)."),
+	"p3d-places-akira-one-off-hand-en"=>array("1617 177 160 100",2,"Not on the map: Neo-Tokyo (a fictional place)."),
+	"p3d-places-akira-one-off-hand-fr"=>array("1617 177 160 100",2,"Absents de la carte : Neo-Tokyo (lieu fictif)."),
+	"p3d-places-bond-en"=>array("0 0 2000 863",50,""),
+	"p3d-places-harry-potter-uk-en"=>array("908 61 160 100",17,""),
+	"p3d-places-inception-en"=>array("178 0 1744 793",15,""),
+	"p3d-places-italy-regions-en"=>array("982 127 160 116",44,""),
+	"p3d-places-italy-regions-fr"=>array("982 125 160 118",42,""),
+	"p3d-places-john-ford-states-en"=>array("71 130 506 232",12,""),
+	"p3d-places-lawrence-en"=>array("916 87 326 208",5,""),
+	"p3d-places-lawrence-fr"=>array("916 87 326 208",5,""),
+	"p3d-places-lost-in-translation-en"=>array("1616 177 160 100",4,""),
+	"p3d-places-lost-in-translation-fr"=>array("1616 177 160 100",4,""),
+	"p3d-places-nolan-en"=>array("178 0 1744 793",49,"Not on the map: Shepperton Studios (no coordinates)."),
+	"p3d-places-third-man-en"=>array("990 96 160 100",2,""),
+	"p3d-places-tokyo-single-hand-en"=>array("1625 175 160 100",1,""),
+	"p3d-places-tokyo-single-hand-fr"=>array("1625 175 160 100",1,""),
+	"p3d-places-woody-allen-france-en"=>array("928 91 160 100",5,""),
+);
+foreach ($arrframesp3d as $strkey=>$arrexpected) {
+	$arrpm=f_t2srep_place_map_model($arrfix[$strkey],$arrfix[$strkey]['ui_language']);
+	f_check("places frame, marks and notes ".$strkey,array($arrpm['viewBox'],count($arrpm['marks']),$arrpm['offText']),$arrexpected);
+}
+$arrpm=f_t2srep_place_map_model($arrfix["p3d-places-lawrence-en"],"en");
+f_check("places model lawrence-en",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("916 87 326 208","",array(array(1,"pin",21,"London","City",25.59,18.96),array(2,"area",56,"Spain","Country",20.49,52.17),array(3,"area",416,"Morocco","Country",16.29,78.44),array(4,"area",879,"Jordan","Country",83.63,81.08),array(5,"area",1144,"Almería Province","Region",22.01,62.18))));
+$arrpm=f_t2srep_place_map_model($arrfix["p3d-places-lawrence-fr"],"fr");
+f_check("places model lawrence-fr",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("916 87 326 208","",array(array(1,"pin",21,"Londres","Ville",25.59,18.96),array(2,"area",56,"Espagne","Pays",20.49,52.17),array(3,"area",416,"Maroc","Pays",16.29,78.44),array(4,"area",879,"Jordanie","Pays",83.63,81.08),array(5,"area",1144,"province d'Almería","Région",22.01,62.18))));
+$arrpm=f_t2srep_place_map_model($arrfix["p3d-places-lost-in-translation-fr"],"fr");
+f_check("places model lost-in-translation-fr",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("1616 177 160 100","",array(array(1,"area",32,"Japon","Pays",45.88,52.79),array(2,"pin",59,"Kyoto","Ville",45.12,52.72),array(3,"pin",202,"Tokyo","Ville",55.92,48.17),array(4,"pin",3130,"sanctuaire Heian","Site",45.15,52.68))));
+$arrpm=f_t2srep_place_map_model($arrfix["p3d-places-nolan-en"],"en");
+f_check("places model nolan-en",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("178 0 1744 793","Not on the map: Shepperton Studios (no coordinates).",array(array(1,"pin",2,"New York City","City",26.33,24.24),array(2,"pin",21,"London","City",47.1,15.94),array(3,"pin",4,"Los Angeles","City",12.59,29.78),array(4,"pin",38,"Paris","City",47.76,17.89),array(5,"area",5,"California","Region",12.64,27.3),array(6,"pin",51,"Hong Kong","City",82.19,40.16),array(7,"pin",4558,"Pinewood Studios","Site",46.99,15.91),array(8,"area",176,"New Jersey","Region",26.1,24.82),array(9,"pin",54,"Vancouver","City",14.59,17.59),array(10,"area",32,"Japan","Country",86.66,28.98),array(11,"pin",16,"Chicago","City",22.69,23.3),array(12,"pin",202,"Tokyo","City",87.58,28.4),array(13,"pin",162,"Toronto","City",25.26,21.87),array(14,"area",224,"Greece","Country",53.69,26.05),array(15,"pin",114,"New Orleans","City",20.29,33.3),array(16,"area",103,"New Mexico","Region",16.16,29.83),array(17,"pin",9,"Washington, D.C.","City",25.23,25.72),array(18,"pin",15,"Mumbai","City",69.74,43.08),array(19,"area",416,"Morocco","Country",45.36,31.54),array(20,"area",316,"Sicily","Region",51.15,26.79),array(21,"area",55,"Colorado","Region",17.16,25.64),array(22,"pin",150,"Pittsburgh","City",24.61,24.46),array(23,"pin",88,"Malibu","City",12.46,29.8),array(24,"area",609,"Iceland","Country",42.8,7.24),array(25,"pin",448,"Detroit","City",24.04,22.93),array(26,"area",368,"Alberta","Region",18.06,13.83),array(27,"area",258,"United Kingdom","Country",46.63,13.76),array(28,"area",302,"Florence","Country",50.23,21.79),array(29,"area",1029,"Monaco","Country",49.18,21.82),array(30,"area",66,"Hertfordshire","Region",47.08,15.66),array(31,"pin",810,"Tangier","City",45.45,28.33),array(32,"pin",4577,"Warner Bros. Studios, Leavesden","Site",47.02,15.81),array(33,"pin",1022,"Oslo","City",49.71,10.26),array(34,"pin",661,"Tallinn","City",53.1,10.56),array(35,"pin",1606,"Marrakech","City",44.77,31.87),array(36,"area",1770,"Dunkirk","Region",47.75,16.28),array(37,"area",6177,"RAF Cardington","Region",47.02,15.51),array(38,"pin",7687,"Palais Galliera","Site",47.74,17.88),array(39,"area",7400,"Amalfi","Region",51.24,24.3),array(40,"pin",10317,"Essaouira","City",44.24,31.97),array(41,"pin",10744,"Universal Studios Lot","Site",12.58,29.71),array(42,"pin",3359,"Canary Wharf","City",47.13,15.94),array(43,"pin",8688,"Waukegan","City",22.71,22.91),array(44,"pin",9267,"Coalhouse Fort","Site",47.25,15.97),array(45,"pin",10343,"Mentmore Towers","Site",46.95,15.68),array(46,"area",11537,"Vatnajökull","Region",43.28,7.58),array(47,"pin",11617,"Abbey Mills Pumping Station","Place",47.13,15.93),array(48,"pin",11992,"Mill Hill","City",47.07,15.86),array(49,"area",7551,"Farnborough Airport","Region",46.93,16.11))));
+$arrpm=f_t2srep_place_map_model($arrfix["p3d-places-akira-hand-en"],"en");
+f_check("places model akira-hand-en",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("1617 177 160 100","Not on the map: Neo-Tokyo (a fictional place), Studio lot (no coordinates).",array(array(1,"pin",202,"Tokyo","City",55.3,48.17),array(2,"area",30,"Japan","Country",45.26,52.79))));
+$arrpm=f_t2srep_place_map_model($arrfix["p3d-places-tokyo-single-hand-fr"],"fr");
+f_check("places model tokyo-single-hand-fr",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("1625 175 160 100","",array(array(1,"pin",202,"Tokyo","Ville",50.3,50.17))));
+f_check("places: no model for a map of countries",f_t2srep_place_map_model($arrfix['p3b-map-films-2020-en'],"en"),null);
+f_check("places: no model without places",f_t2srep_place_map_model($arrfix['lotc-share-hbo-type-en'],"en"),null);
+$arrnone=$arrfix['p3d-places-akira-hand-en'];
+$arrnone['summary_facts']['places']['located']=0;
+$arrnone['summary_facts']['places']['pins']=array();
+$arrnone['summary_facts']['places']['areas']=array();
+f_check("places: no model with no place located",f_t2srep_place_map_model($arrnone,"en"),null);
+$arrnoproj=$arrworld;
+unset($arrnoproj['projection']);
+f_check("places: no model without the projection",f_t2srep_place_map_model($arrfix['p3d-places-lawrence-en'],"en",$arrnoproj),null);
+f_check("places: no model without the outline",f_t2srep_place_map_model($arrfix['p3d-places-lawrence-en'],"en",array("nothing")),null);
+f_check("places: the map of countries keeps its caption",f_t2srep_caption($arrfix['p3b-map-country-locations-en'],"en"),
+	"50 countries on the map: Indonesia, England, France, Italy, Mexico and 45 more.");
+f_check("places: a map without a place located is the card grid",array(f_t2srep_options($arrnone),f_t2srep_active($arrnone),f_t2srep_choose($arrnone),f_t2srep_caption($arrnone,"en")),
+	array(array("card-grid","table"),"card-grid","",""));
+$arrnonegrid=$arrnone;
+$arrnonegrid['representation_options']=array("map","table");
+f_check("places: the card grid takes the place of the map chip",f_t2srep_options($arrnonegrid),array("card-grid","table"));
+f_check("places chips",array(f_t2srep_options($arrfix['p3d-places-lawrence-en']),f_t2srep_choose($arrfix['p3d-places-lawrence-en'])),array(array("map","card-grid","table"),"map"));
+f_check("places: a single place offers the map",array(f_t2srep_options($arrfix['p3d-places-tokyo-single-hand-fr']),f_t2srep_choose($arrfix['p3d-places-tokyo-single-hand-fr'],"map")),
+	array(array("card-grid","map","table"),"map"));
+f_check("places: the projection of the outline",array($arrworld['projection']['name'],$arrworld['projection']['y0']),array("equal-earth",-483));
+$strhtml=f_t2srep_render("map",$arrfix['p3d-places-lawrence-en'],"en");
+f_contains("places map: the frame cropped",$strhtml,"<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:326 / 208\"><svg class=\"t2sMapSvg\" viewBox=\"916 87 326 208\" role=\"img\" aria-label=\"Map of the places\"><path class=\"t2sMapLand\" d=\"M");
+f_check("places map: every country neutral, none shaded",strpos($strhtml,"t2sMapCountry"),false);
+f_contains("places map: a pin",$strhtml,"<span class=\"t2sPlacePin\" role=\"button\" tabindex=\"0\" style=\"left:25.59%;top:18.96%\" title=\"1. London, City\" aria-label=\"1. London, City\" data-t2smap=\"p1\" data-t2stip=\"1. London \u{00B7} City\">1</span>");
+f_contains("places map: an area, a ring and its badge",$strhtml,"<span class=\"t2sPlaceArea\" role=\"button\" tabindex=\"0\" style=\"left:20.49%;top:52.17%\" title=\"2. Spain, Country\" aria-label=\"2. Spain, Country\" data-t2smap=\"p2\" data-t2stip=\"2. Spain \u{00B7} Country\"><span class=\"t2sPlaceBadge\">2</span></span>");
+f_check("places map: one mark a place",array(substr_count($strhtml,"class=\"t2sPlacePin\""),substr_count($strhtml,"class=\"t2sPlaceArea\""),substr_count($strhtml,"<li class=\"t2sPlaceItem\"")),array(1,4,5));
+f_contains("places map: the tip line",$strhtml,"<p class=\"t2sMapTip\" aria-live=\"polite\">Tap or hover over a number to see its place.</p>");
+f_contains("places map: the list links as the cards",$strhtml,"<li class=\"t2sPlaceItem\" data-t2smap=\"p1\" data-t2stip=\"1. London \u{00B7} City\"><span class=\"t2sPlaceNum isPin\" aria-hidden=\"true\">1</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=21\">London</a> <span class=\"t2sPlaceType\">City</span></span></li>");
+f_contains("places map: an area in the list",$strhtml,"<span class=\"t2sPlaceNum isArea\" aria-hidden=\"true\">5</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=1144\">");
+f_contains("places map: the hidden table",$strhtml,"<div class=\"t2sSrOnly\"><table><thead><tr><th scope=\"col\">Place</th><th scope=\"col\">Type</th><th scope=\"col\">On the map</th></tr></thead><tbody><tr><td>London</td><td>City</td><td>yes</td></tr>");
+f_check("places map: no note when every place is on it",strpos($strhtml,"t2sMapOff"),false);
+$strhtml=f_t2srep_render("map",$arrfix['p3d-places-akira-hand-fr'],"fr");
+f_contains("places map fr: the places not on it",$strhtml,"<p class=\"t2sMapOff\">Absents de la carte : Neo-Tokyo (lieu fictif), Studio lot (sans coordonnées).</p>");
+f_contains("places map fr: the hidden table, the reasons",$strhtml,"<tr><td>Neo-Tokyo</td><td>Lieu fictif</td><td>lieu fictif</td></tr><tr><td>Studio lot</td><td>Lieu</td><td>sans coordonnées</td></tr>");
+f_contains("places map fr: the tip line",$strhtml,"Touchez ou survolez un numéro pour voir son lieu.");
+$strhtml=f_t2srep_render("map",$arrfix['p3d-places-harry-potter-uk-en'],"en");
+$arrhp=f_t2srep_place_map_model($arrfix['p3d-places-harry-potter-uk-en'],"en");
+$lnglinked=0;
+foreach ($arrhp['marks'] as $arrm) {
+	$strneedle="data-t2smap=\"p".$arrm['n']."\" data-t2stip=\"".f_t2srep_h($arrm['n'].". ".$arrm['label']." \u{00B7} ".$arrm['typeText'])."\"><span class=\"t2sPlaceNum is"
+		.($arrm['kind']=="area" ? "Area" : "Pin")."\" aria-hidden=\"true\">".$arrm['n']."</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=".$arrm['id']."\">";
+	if (strpos($strhtml,$strneedle)!==false) {
+		$lnglinked++;
+	}
+}
+f_check("places map: a place on several rows links from its first row",$lnglinked,17);
+f_check("places map: one item a place, not a row",substr_count($strhtml,"<li class=\"t2sPlaceItem\""),17);
+f_contains("places map without the outline: the table",f_t2srep_render_map($arrfix['p3d-places-lawrence-en'],"en",array("nothing")),"<table");
+f_check("places map without the outline: no map",strpos(f_t2srep_render_map($arrfix['p3d-places-lawrence-en'],"en",array("nothing")),"t2sPlaceMap"),false);
+f_nodecheck("the map hover script, with the places",f_t2srep_map_js());
+$strallp="";
+foreach ($arrfix as $strkey=>$arrjson) {
+	if (strpos($strkey,"p3d-")===0) {
+		$strallp.=f_t2srep_caption_places($arrjson,"en").f_t2srep_caption_places($arrjson,"fr").f_t2srep_render("map",$arrjson,"en").f_t2srep_render("map",$arrjson,"fr");
+	}
+}
+f_check("no em dash in any place caption or rendering",strpos($strallp,"\u{2014}"),false);
 
 //Phase 3 lot C: hierarchy (fixtures p3c-*; the sentences are voice-agent's, word for word).
 $strp="p3c-hierarchy-";
