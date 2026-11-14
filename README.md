@@ -163,7 +163,7 @@ HTML hooks:
 | `list.row.prefix` | before the title of a movie, series or person row | `type`, `id`, `title`, `originaltitle`, `year`, `imdbid`, and `level` or `context` |
 | `list.row.suffix` | under a movie or series row | same |
 | `season.episode.row` | season page, under each episode of the table | `seasonid`, `episodeid` |
-| `samples.row.actions` | samples page, beside each sample | `id` |
+| `samples.row.actions` | samples page, beside each sample | `id`, `set` (`showcase` or `sample`) |
 | `search.result.row` | search page, once per movie or series rendered; the return value is ignored | `type`, `id`, `imdbid`, `render` |
 | `search.result.after` | search page, after the result | `keycolumn`, `keyvalues` |
 

@@ -85,12 +85,12 @@ if (!empty($intdbavailable)) {
 }
 
 //Hook samples.row.actions: links added by the plugins beside a sample (private mode only, since
-//plugins load only there)
-$fneditlink=function($lngid) {
+//plugins load only there). The set tells a listener which flag put the sample on this page.
+$fneditlink=function($lngid) use ($strsampleset) {
 	if ($lngid<=0) {
 		return "";
 	}
-	return f_pluginhtml("samples.row.actions",array("id"=>(int)$lngid));
+	return f_pluginhtml("samples.row.actions",array("id"=>(int)$lngid,"set"=>$strsampleset));
 };
 
 //First pass: the cards and the showcase status of every sample, computed before sorting since the
