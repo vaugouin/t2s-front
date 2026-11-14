@@ -4,6 +4,24 @@ ini_set('max_execution_time', -1);
 
 include(__DIR__."/global-light.inc.php");
 include(__DIR__."/language.inc.php");
+include_once(__DIR__."/award-format.inc.php");
+
+if (!function_exists('f_awardpagewins')) {
+	//Purpose: read the win rows of an award and group them by winner
+	//Params: $strsql the query returning one row per win, $strkey the winner id column
+	//Returns: an array winner id => list of win rows
+	function f_awardpagewins($strsql, $strkey) {
+		$arrrows=array();
+		$result=f_sqlselect($strsql);
+		if ($result) {
+			while ($rstemp=f_sqlresultfetcharray($result)) {
+				$arrrows[]=$rstemp;
+			}
+			f_sqlfreeresult($result);
+		}
+		return f_awardwinsbykey($arrrows, $strkey);
+	}
+}
 
 if ($intdbavailable) {
 	$lngawardid=f_stringtolong(f_request2("awardid"));
@@ -96,10 +114,13 @@ if ($intdbavailable) {
 			$strsqlmovies.="FROM T_WC_T2S_MOVIE M ";
 			$strsqlmovies.="JOIN (SELECT ID_MOVIE, MIN(DISPLAY_ORDER) AS DISPLAY_ORDER FROM T_WC_T2S_MOVIE_AWARD WHERE ID_AWARD = ".f_longtosql($lngawardid)." GROUP BY ID_MOVIE) J ON M.ID_MOVIE = J.ID_MOVIE ";
 			$strsqlmovies.="ORDER BY J.DISPLAY_ORDER, M.DAT_RELEASE DESC";
+			// One link row per win: the years of the wins are shown under each movie.
+			$arrmoviewins=f_awardpagewins("SELECT ID_MOVIE, AWARD_YEAR FROM T_WC_T2S_MOVIE_AWARD WHERE ID_AWARD = ".f_longtosql($lngawardid), "ID_MOVIE");
 			$resultmovies=f_sqlselect($strsqlmovies);
 			if ($resultmovies) {
 				while ($rstempmovie=f_sqlresultfetcharray($resultmovies)) {
-					f_movielistdisplay($rstempmovie['ID_MOVIE'],$rstempmovie['MOVIE_TITLE'],$rstempmovie['MOVIE_TITLE'],"", $rstempmovie['DAT_RELEASE'],$rstempmovie['ID_IMDB'],$rstempmovie['IMDB_RATING'],"", $rstempmovie['POSTER_PATH'],"",3,0,"float",$rstempmovie['IMDB_VOTES']);
+					$strmoviewins=f_awardwinscaption(($arrmoviewins[$rstempmovie['ID_MOVIE']] ?? array()), $struilang, get_movie_string('lib_award_won'), get_movie_string('lib_award_for'));
+					f_movielistdisplay($rstempmovie['ID_MOVIE'],$rstempmovie['MOVIE_TITLE'],$rstempmovie['MOVIE_TITLE'],"", $rstempmovie['DAT_RELEASE'],$rstempmovie['ID_IMDB'],$rstempmovie['IMDB_RATING'],$strmoviewins, $rstempmovie['POSTER_PATH'],"",3,0,"float",$rstempmovie['IMDB_VOTES']);
 				}
 				f_sqlfreeresult($resultmovies);
 			}
@@ -121,10 +142,12 @@ if ($intdbavailable) {
 			$strsqlseries.="FROM T_WC_T2S_SERIE S ";
 			$strsqlseries.="JOIN (SELECT ID_SERIE, MIN(DISPLAY_ORDER) AS DISPLAY_ORDER FROM T_WC_T2S_SERIE_AWARD WHERE ID_AWARD = ".f_longtosql($lngawardid)." GROUP BY ID_SERIE) J ON S.ID_SERIE = J.ID_SERIE ";
 			$strsqlseries.="ORDER BY J.DISPLAY_ORDER, S.DAT_FIRST_AIR DESC";
+			$arrseriewins=f_awardpagewins("SELECT ID_SERIE, AWARD_YEAR FROM T_WC_T2S_SERIE_AWARD WHERE ID_AWARD = ".f_longtosql($lngawardid), "ID_SERIE");
 			$resultseries=f_sqlselect($strsqlseries);
 			if ($resultseries) {
 				while ($rstempserierow=f_sqlresultfetcharray($resultseries)) {
-					f_serielistdisplay($rstempserierow['ID_SERIE'],$rstempserierow['SERIE_TITLE'],$rstempserierow['SERIE_TITLE'],"", $rstempserierow['DAT_FIRST_AIR'],$rstempserierow['DAT_LAST_AIR'],$rstempserierow['ID_IMDB'],$rstempserierow['IMDB_RATING'],"", $rstempserierow['POSTER_PATH'],"",3,0,"float",$rstempserierow['IMDB_VOTES']);
+					$strseriewins=f_awardwinscaption(($arrseriewins[$rstempserierow['ID_SERIE']] ?? array()), $struilang, get_movie_string('lib_award_won'), get_movie_string('lib_award_for'));
+					f_serielistdisplay($rstempserierow['ID_SERIE'],$rstempserierow['SERIE_TITLE'],$rstempserierow['SERIE_TITLE'],"", $rstempserierow['DAT_FIRST_AIR'],$rstempserierow['DAT_LAST_AIR'],$rstempserierow['ID_IMDB'],$rstempserierow['IMDB_RATING'],$strseriewins, $rstempserierow['POSTER_PATH'],"",3,0,"float",$rstempserierow['IMDB_VOTES']);
 				}
 				f_sqlfreeresult($resultseries);
 			}
@@ -147,10 +170,17 @@ if ($intdbavailable) {
 			$strsqlpersons .= "JOIN (SELECT ID_PERSON, MIN(DISPLAY_ORDER) AS MIN_DISPLAY_ORDER FROM T_WC_T2S_PERSON_AWARD WHERE ID_AWARD = ".f_longtosql($lngawardid)." GROUP BY ID_PERSON) JP ";
 			$strsqlpersons .= "ON P.ID_PERSON = JP.ID_PERSON ";
 			$strsqlpersons .= "ORDER BY JP.MIN_DISPLAY_ORDER, P.NAME";
+			// For a person, each win also names the movie or the series it was won for.
+			$strsqlpersonwins="SELECT W.ID_PERSON, W.AWARD_YEAR, W.ID_MOVIE_FOR, M.MOVIE_TITLE, M.MOVIE_TITLE_FR, W.ID_SERIE_FOR, S.SERIE_TITLE, S.SERIE_TITLE_FR ";
+			$strsqlpersonwins.="FROM T_WC_T2S_PERSON_AWARD W ";
+			$strsqlpersonwins.="LEFT JOIN T_WC_T2S_MOVIE M ON M.ID_MOVIE = W.ID_MOVIE_FOR ";
+			$strsqlpersonwins.="LEFT JOIN T_WC_T2S_SERIE S ON S.ID_SERIE = W.ID_SERIE_FOR ";
+			$strsqlpersonwins.="WHERE W.ID_AWARD = ".f_longtosql($lngawardid);
+			$arrpersonwins=f_awardpagewins($strsqlpersonwins, "ID_PERSON");
 			$resultpersons=f_sqlselect($strsqlpersons);
 			if ($resultpersons) {
 				while ($rtempperson=f_sqlresultfetcharray($resultpersons)) {
-					f_personlistdisplay($rtempperson['ID_PERSON'],$rtempperson['PERSON_NAME'],$rtempperson['BIOGRAPHY'],$rtempperson['BIRTHDAY'],$rtempperson['DEATHDAY'],$rtempperson['ID_IMDB'],$rtempperson['PROFILE_PATH'],3);
+					f_personlistdisplay($rtempperson['ID_PERSON'],$rtempperson['PERSON_NAME'],$rtempperson['BIOGRAPHY'],$rtempperson['BIRTHDAY'],$rtempperson['DEATHDAY'],$rtempperson['ID_IMDB'],$rtempperson['PROFILE_PATH'],3,f_awardwinscaption(($arrpersonwins[$rtempperson['ID_PERSON']] ?? array()), $struilang, get_movie_string('lib_award_won'), get_movie_string('lib_award_for')));
 				}
 				f_sqlfreeresult($resultpersons);
 			}

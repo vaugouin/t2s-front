@@ -3572,7 +3572,8 @@ function f_serielistdisplay($lngserieid,$strserietitle,$strserieoriginaltitle,$s
 }
 
 
-function f_personlistdisplay($lngpersonid,$strpersonname,$strpersonbiography,$strpersonbirthdate,$strpersondeathdate,$strpersonidimdb,$strpersonprofilepath,$intdisplaylevel=2) {
+//Params: $strpersoncaption an optional HTML line shown under the name at levels 2 and 3 (already escaped by the caller)
+function f_personlistdisplay($lngpersonid,$strpersonname,$strpersonbiography,$strpersonbirthdate,$strpersondeathdate,$strpersonidimdb,$strpersonprofilepath,$intdisplaylevel=2,$strpersoncaption="") {
 	global $strlibserieaisimilarity;
 	global $struilang;
 	global $strlibseriegenres;
@@ -3616,6 +3617,9 @@ function f_personlistdisplay($lngpersonid,$strpersonname,$strpersonbiography,$st
 		echo "<strong><a href=\"".$strpersonurl."\">$strpersonname</a></strong>";
 		if ($strpersonidimdb!="") {
 			echo " <a href=\"https://www.imdb.com/name/".$strpersonidimdb."/\" target=\"_blank\" rel=\"noreferrer\"><img src=\"images/IMDb-icon.png\" width=\"31\" height=\"16\" alt=\"IMDb\" title=\"IMDb\"></a>";
+		}
+		if ($strpersoncaption!="") {
+			echo "<br />".$strpersoncaption;
 		}
 		if ($strpersonbiography!="") {
 			if (strlen($strpersonbiography)>200) {

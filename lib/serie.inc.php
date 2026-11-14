@@ -3,7 +3,8 @@ ini_set('memory_limit', -1);
 ini_set('max_execution_time',-1);
 
 include(__DIR__."/global-light.inc.php");
-include(__DIR__."/language.inc.php");  
+include(__DIR__."/language.inc.php");
+include_once(__DIR__."/award-format.inc.php");  
 include_once(__DIR__."/social-ids.inc.php");
 include_once(__DIR__."/work-properties-format.inc.php");
 include_once(__DIR__."/work-properties-sql.inc.php");
@@ -544,17 +545,21 @@ if ($intdbavailable) {
 			}
 
 			$strt2sawards="";
-			// One link row per win, so an award won several times is grouped into one line.
-			$strsqlt2sawards="SELECT T_WC_T2S_AWARD.ID_AWARD, T_WC_T2S_AWARD.AWARD_NAME, T_WC_T2S_AWARD.AWARD_NAME_FR, MIN(T_WC_T2S_SERIE_AWARD.DISPLAY_ORDER) AS MIN_DISPLAY_ORDER ";
+			// One link row per win: the rows are grouped by award, each award followed by the years of its wins.
+			$strsqlt2sawards="SELECT T_WC_T2S_AWARD.ID_AWARD, T_WC_T2S_AWARD.AWARD_NAME, T_WC_T2S_AWARD.AWARD_NAME_FR, T_WC_T2S_SERIE_AWARD.AWARD_YEAR ";
 			$strsqlt2sawards.="FROM T_WC_T2S_SERIE_AWARD ";
 			$strsqlt2sawards.="INNER JOIN T_WC_T2S_AWARD ON T_WC_T2S_SERIE_AWARD.ID_AWARD = T_WC_T2S_AWARD.ID_AWARD ";
 			$strsqlt2sawards.="WHERE T_WC_T2S_SERIE_AWARD.ID_SERIE = ".f_longtosql($lngserieid)." AND T_WC_T2S_SERIE_AWARD.DELETED = 0 AND T_WC_T2S_AWARD.DELETED = 0 ";
-			$strsqlt2sawards.="GROUP BY T_WC_T2S_AWARD.ID_AWARD, T_WC_T2S_AWARD.AWARD_NAME, T_WC_T2S_AWARD.AWARD_NAME_FR ";
-			$strsqlt2sawards.="ORDER BY MIN_DISPLAY_ORDER, T_WC_T2S_AWARD.AWARD_NAME ";
+			$strsqlt2sawards.="ORDER BY T_WC_T2S_SERIE_AWARD.DISPLAY_ORDER, T_WC_T2S_AWARD.AWARD_NAME, T_WC_T2S_AWARD.ID_AWARD, T_WC_T2S_SERIE_AWARD.AWARD_YEAR ";
 			$resultt2sawards=f_sqlselect($strsqlt2sawards);
 			if ($resultt2sawards) {
+				$arrt2sawardrows=array();
 				while ($rstempaward=f_sqlresultfetcharray($resultt2sawards)) {
-					$strt2sawardid=$rstempaward["ID_AWARD"];
+					$arrt2sawardrows[]=$rstempaward;
+				}
+				f_sqlfreeresult($resultt2sawards);
+				foreach (f_awardwinsbykey($arrt2sawardrows,"ID_AWARD") as $strt2sawardid=>$arrt2sawardwins) {
+					$rstempaward=$arrt2sawardwins[0];
 					$strt2sawardname=trim($rstempaward[($struilang!="en" && trim((string)$rstempaward["AWARD_NAME_FR"])!="")?"AWARD_NAME_FR":"AWARD_NAME"]);
 					if ($strt2sawardname=="") {
 						continue;
@@ -563,8 +568,11 @@ if ($intdbavailable) {
 						$strt2sawards.=", ";
 					}
 					$strt2sawards.="<a href=\"award.php?awardid=".$strt2sawardid."\">".$strt2sawardname."</a>";
+					$strt2sawardwins=f_awardwinshtml($arrt2sawardwins,$struilang,get_movie_string('lib_award_for'));
+					if ($strt2sawardwins!="") {
+						$strt2sawards.=" (".$strt2sawardwins.")";
+					}
 				}
-				f_sqlfreeresult($resultt2sawards);
 			}
 			if ($strt2sawards!="") {
 				echo "<p><strong>".get_movie_string('lib_serie_awards').":</strong> ".$strt2sawards."</p>";

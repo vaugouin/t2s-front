@@ -201,6 +201,7 @@ There is no framework and nothing to install. The tests are plain PHP scripts, r
 
 ```bash
 php test/api-version-test.php
+php test/award-format-test.php
 php test/feedback-test.php                # needs node on the PATH for one check
 php test/image-gallery-test.php
 php test/open-credits-format-test.php
@@ -217,6 +218,7 @@ php test/work-properties-format-test.php
 | Script | Covers |
 |---|---|
 | `api-version-test.php` | `lib/api-version.inc.php`: the version read from the API and its file cache |
+| `award-format-test.php` | `lib/award-format.inc.php`: the wins of an award turned into text, with their years and, for a person, the movie or series each was won for |
 | `feedback-test.php` | `lib/feedback-ui.inc.php`: the validation and the payload of the result feedback, the whitelist of the answer, the labels in English and in French, the markup and the JavaScript of the block |
 | `image-gallery-test.php` | `lib/image-gallery.inc.php`: the size announced to PhotoSwipe, the gallery markup and script, and the three gallery pages |
 | `open-credits-format-test.php` | `lib/open-credits-format.inc.php`: on-screen credits put back into rows |
