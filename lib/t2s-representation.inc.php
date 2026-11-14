@@ -60,7 +60,7 @@ define('T2SREP_POSTER_RANKING_MAX', 12);
 
 function f_t2srep_known() {
 	//Purpose: The representations this front draws, in the contract's vocabulary
-	return array("entity-page", "card-grid", "value-cards", "sequence-strip", "timeline", "trend-columns",
+	return array("entity-page", "card-grid", "cover-flow", "value-cards", "sequence-strip", "timeline", "trend-columns",
 		"compare-cards", "fact-card", "verdict", "histogram", "share-bar", "flag-list", "scatter", "map", "hierarchy", "chain", "number-card", "stat-strip", "ranked-bars", "table");
 }
 
@@ -74,7 +74,8 @@ function f_t2srep_is_card_rep($strrep) {
 	//Purpose: Tells whether a representation is drawn by the card renderer of the search page.
 	//			sequence-strip is the card grid numbered: the cards already carry
 	//			the year under the poster, and infinite scroll appends numbered cards to it.
-	return in_array((string)$strrep, array("entity-page", "card-grid", "value-cards", "sequence-strip"), true);
+	//			cover-flow is the card grid's cards shown as a poster carousel (f_t2srep_coverflow_js()).
+	return in_array((string)$strrep, array("entity-page", "card-grid", "cover-flow", "value-cards", "sequence-strip"), true);
 }
 
 function f_t2srep_options($jsontext2sql) {
@@ -106,7 +107,32 @@ function f_t2srep_options($jsontext2sql) {
 			$arroptions[$lngmap]="card-grid";
 		}
 	}
+	//Cover flow: fewer than two rows with a picture is the card grid, in its place among the chips
+	$lngcover=array_search("cover-flow", $arroptions, true);
+	if ($lngcover!==false && f_t2srep_picture_count($jsontext2sql)<2) {
+		if (in_array("card-grid", $arroptions, true)) {
+			array_splice($arroptions, $lngcover, 1);
+		} else {
+			$arroptions[$lngcover]="card-grid";
+		}
+	}
 	return $arroptions;
+}
+
+function f_t2srep_picture_count($jsontext2sql) {
+	//Purpose: The rows that carry a picture, as the API counts them before it offers cover-flow: a
+	//			non-empty column whose name ends in POSTER_PATH, PROFILE_PATH, LOGO_PATH or IMAGE_PATH
+	$lngcount=0;
+	$arrrecords=f_t2srep_records(is_array($jsontext2sql) && isset($jsontext2sql['result']) ? $jsontext2sql['result'] : array());
+	foreach ($arrrecords as $arrrecord) {
+		foreach ($arrrecord as $strkey => $value) {
+			if (preg_match('/(POSTER_PATH|PROFILE_PATH|LOGO_PATH|IMAGE_PATH)$/', strtoupper((string)$strkey)) && trim((string)$value)!=="") {
+				$lngcount++;
+				break;
+			}
+		}
+	}
+	return $lngcount;
 }
 
 function f_t2srep_active($jsontext2sql, $strrequested="") {
@@ -121,6 +147,10 @@ function f_t2srep_active($jsontext2sql, $strrequested="") {
 	$strrep=isset($jsontext2sql['representation']) ? trim((string)$jsontext2sql['representation']) : "";
 	if ($strrep=="map" && !in_array("map", $arroptions, true)) {
 		//A map of places that cannot be drawn: the card grid (f_t2srep_options())
+		return "card-grid";
+	}
+	if ($strrep=="cover-flow" && !in_array("cover-flow", $arroptions, true)) {
+		//A cover flow with fewer than two pictures: the card grid (f_t2srep_options())
 		return "card-grid";
 	}
 	return in_array($strrep, f_t2srep_known(), true) ? $strrep : "";
@@ -960,6 +990,10 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	if (!is_array($jsontext2sql) || !isset($jsontext2sql['summary_facts']) || !is_array($jsontext2sql['summary_facts'])) {
 		return "";
 	}
+	//A cover flow is the card grid's cards: its caption is the card grid's, word for word
+	if (isset($jsontext2sql['representation']) && trim((string)$jsontext2sql['representation'])=="cover-flow") {
+		$jsontext2sql['representation']="card-grid";
+	}
 	$arrfacts=$jsontext2sql['summary_facts'];
 	$lngcount=isset($arrfacts['count']) && f_t2srep_is_number($arrfacts['count']) ? (int)$arrfacts['count'] : 0;
 	$strvaluecolumn=isset($arrfacts['value_column']) ? (string)$arrfacts['value_column'] : "";
@@ -1158,7 +1192,8 @@ function f_t2srep_view_open($arrreps, $stractive, $strcaptionid="") {
 	}
 	$intshown=in_array($stractive, $arrreps, true);
 	$strclass="t2sRepView".($intcards ? " t2sRepCards" : "").($intcards && $stractive=="value-cards" ? " t2sShowValues" : "")
-		.($intcards && $stractive=="sequence-strip" ? " t2sShowSequence" : "");
+		.($intcards && $stractive=="sequence-strip" ? " t2sShowSequence" : "")
+		.($intcards && $stractive=="cover-flow" ? " t2sShowCoverFlow" : "");
 	return "<div class=\"".$strclass."\" data-t2sreps=\"".f_t2srep_h(implode(" ", $arrreps))."\"".($strcaptionid!="" ? " aria-describedby=\"".f_t2srep_h($strcaptionid)."\"" : "").($intshown ? "" : " hidden").">";
 }
 
@@ -1172,9 +1207,9 @@ function f_t2srep_chips_js() {
 	//			before the views exist, and a lookup at load found none (live bug of 2026-11-08: the
 	//			chip turned active, the view never changed).
 	return "(function(){var objbar=document.getElementById('t2sRepChips');if(!objbar){return;}"
-		."function f_t2srepshow(strrep){var i;var arrviews=document.querySelectorAll('.t2sRepView');for(i=0;i<arrviews.length;i++){var objview=arrviews[i];var arrreps=(objview.getAttribute('data-t2sreps')||'').split(' ');objview.hidden=arrreps.indexOf(strrep)<0;if(objview.classList.contains('t2sRepCards')){objview.classList.toggle('t2sShowValues',strrep==='value-cards');objview.classList.toggle('t2sShowSequence',strrep==='sequence-strip');}}"
+		."function f_t2srepshow(strrep){var i;var arrviews=document.querySelectorAll('.t2sRepView');for(i=0;i<arrviews.length;i++){var objview=arrviews[i];var arrreps=(objview.getAttribute('data-t2sreps')||'').split(' ');objview.hidden=arrreps.indexOf(strrep)<0;if(objview.classList.contains('t2sRepCards')){objview.classList.toggle('t2sShowValues',strrep==='value-cards');objview.classList.toggle('t2sShowSequence',strrep==='sequence-strip');objview.classList.toggle('t2sShowCoverFlow',strrep==='cover-flow');}}"
 		."var arrchips=objbar.querySelectorAll('a[data-t2srep]');for(i=0;i<arrchips.length;i++){var intactive=arrchips[i].getAttribute('data-t2srep')===strrep;arrchips[i].classList.toggle('t2sChipActive',intactive);if(intactive){arrchips[i].setAttribute('aria-current','true');}else{arrchips[i].removeAttribute('aria-current');}}"
-		."try{window.dispatchEvent(new Event('scroll'));}catch(e){}}"
+		."try{window.dispatchEvent(new Event('t2srepchange'));window.dispatchEvent(new Event('scroll'));}catch(e){}}"
 		."objbar.addEventListener('click',function(e){var objchip=e.target&&e.target.closest?e.target.closest('a[data-t2srep]'):null;if(!objchip){return;}if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey){return;}e.preventDefault();f_t2srepshow(objchip.getAttribute('data-t2srep'));if(window.history&&window.history.replaceState){window.history.replaceState(null,'',objchip.getAttribute('href'));}});"
 		."})();";
 }
@@ -4471,4 +4506,97 @@ function f_t2srep_caption_chain($jsontext2sql, $strlang='en') {
 		return $intfr ? $strs1." ; ".$strs2."." : $strs1."; ".$strs2.".";
 	}
 	return $strs1.".";
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Cover flow: the cards of the card grid as a poster carousel. Mirror of voice-agent's cover
+ * flow: same layout, same keys, same labels; change both.
+ * No second card model: the page renders its card grid as for card-grid, the view carries
+ * t2sShowCoverFlow, and the script below lays the very same cards out on a stage. Without the
+ * script the cards are one horizontal row that scrolls inside its frame (the stylesheet).
+ * ------------------------------------------------------------------------------------------- */
+
+function f_t2srep_coverflow_bar_html($arrlabels) {
+	//Purpose: The line under the stage: the centre card's title and subtitle, the position counter
+	//			and the previous / next buttons. Hidden until the script takes the cards over, so a
+	//			page without script shows the scrollable row alone.
+	//Params:	$arrlabels: prev, next (accessible names of the buttons)
+	$strprev=isset($arrlabels['prev']) ? (string)$arrlabels['prev'] : "Previous";
+	$strnext=isset($arrlabels['next']) ? (string)$arrlabels['next'] : "Next";
+	return "<div class=\"t2sCoverFlowBar\" id=\"t2sCoverFlowBar\" hidden>"
+		."<div class=\"t2sCoverFlowTitle\" id=\"t2sCoverFlowTitle\"></div>"
+		."<div class=\"t2sCoverFlowSub\" id=\"t2sCoverFlowSub\"></div>"
+		."<div class=\"t2sCoverFlowNav\">"
+		."<button type=\"button\" class=\"t2sCoverFlowButton\" id=\"t2sCoverFlowPrev\" aria-label=\"".f_t2srep_h($strprev)."\" title=\"".f_t2srep_h($strprev)."\">&#8249;</button>"
+		."<span class=\"t2sCoverFlowCount\" id=\"t2sCoverFlowCount\" aria-live=\"polite\"></span>"
+		."<button type=\"button\" class=\"t2sCoverFlowButton\" id=\"t2sCoverFlowNext\" aria-label=\"".f_t2srep_h($strnext)."\" title=\"".f_t2srep_h($strnext)."\">&#8250;</button>"
+		."</div></div>";
+}
+
+function f_t2srep_coverflow_js($arrconfig) {
+	//Purpose: The script of the cover flow. While the card view carries t2sShowCoverFlow (the chips
+	//			toggle it and fire t2srepchange), it lays the cards of #search-poster-card-grid out on
+	//			a stage: the centre card faces the viewer, the card at offset k (1 to 4 on each side)
+	//			is moved by A + (k-1) B, turned 60 degrees towards the centre and scaled to 0.85, the
+	//			farther ones hidden. Arrow keys, Home / End, the buttons, a horizontal drag or wheel
+	//			move it; a click on a side card brings that card to the centre, a click on the centre
+	//			card follows its link, as in the card grid. The cards that infinite scroll appends
+	//			join the end (a MutationObserver), and data-t2scfleft (the cards right of the centre)
+	//			tells the card loader when the next page is due. Leaving the view gives every card
+	//			back untouched.
+	//Params:	$arrconfig: label (aria-label of the stage: the caption, else the chip label),
+	//			roledescription ("carousel" / "carrousel")
+	$arrjs=array(
+		"label"=>isset($arrconfig['label']) ? (string)$arrconfig['label'] : "",
+		"role"=>isset($arrconfig['roledescription']) ? (string)$arrconfig['roledescription'] : "carousel",
+	);
+	return "(function(){var objcfg=".json_encode($arrjs, JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP).";"
+		."var objgrid=document.getElementById('search-poster-card-grid');if(!objgrid||!objgrid.closest){return;}"
+		."var objview=objgrid.closest('.t2sRepCards');if(!objview){return;}"
+		."var objbar=document.getElementById('t2sCoverFlowBar');var objtitle=document.getElementById('t2sCoverFlowTitle');var objsub=document.getElementById('t2sCoverFlowSub');"
+		."var objcount=document.getElementById('t2sCoverFlowCount');var objprev=document.getElementById('t2sCoverFlowPrev');var objnext=document.getElementById('t2sCoverFlowNext');"
+		."var lngindex=0;var inton=false;var objobserver=null;var lngwheel=0;var objdrag=null;var intdragged=false;"
+		."function f_cards(){var arr=[];var i;for(i=0;i<objgrid.children.length;i++){if(objgrid.children[i].classList.contains('search-poster-card')){arr.push(objgrid.children[i]);}}return arr;}"
+		."function f_text(objcard,strselector){var obj=objcard?objcard.querySelector(strselector):null;return obj?(obj.textContent||'').trim():'';}"
+		."function f_layout(){var arrcards=f_cards();var lngcount=arrcards.length;if(!lngcount){return;}if(lngindex>lngcount-1){lngindex=lngcount-1;}if(lngindex<0){lngindex=0;}"
+		."var dblwidth=arrcards[lngindex].offsetWidth||150;var dbla=dblwidth*0.6;var dblb=dblwidth*0.25;var i;"
+		."for(i=0;i<lngcount;i++){var objcard=arrcards[i];var lngk=i-lngindex;var lngabs=Math.abs(lngk);var lngsign=lngk<0?-1:1;var strtransform='';"
+		."if(lngk===0){strtransform='translateX(0) rotateY(0deg) scale(1)';}else{var lngpos=Math.min(lngabs,5);strtransform='translateX('+(lngsign*(dbla+(lngpos-1)*dblb)).toFixed(1)+'px) rotateY('+(-lngsign*60)+'deg) scale(0.85)';}"
+		."objcard.style.transform=strtransform;objcard.style.zIndex=String(100-Math.min(lngabs,99));objcard.style.visibility=lngabs>4?'hidden':'';"
+		."objcard.classList.toggle('t2sCoverFlowCentre',lngk===0);"
+		."var objlink=objcard.querySelector('a');if(objlink){objlink.setAttribute('tabindex',lngk===0?'0':'-1');var strname=f_text(objcard,'.search-poster-card-title');if(strname){objlink.setAttribute('aria-label',strname);}}}"
+		."var objcentre=arrcards[lngindex];if(objtitle){objtitle.textContent=f_text(objcentre,'.search-poster-card-title');}"
+		."if(objsub){objsub.textContent=f_text(objcentre,'.search-poster-card-year')||f_text(objcentre,'.search-poster-card-meta');}"
+		."if(objcount){objcount.textContent=(lngindex+1)+' / '+lngcount;}if(objprev){objprev.disabled=(lngindex<=0);}if(objnext){objnext.disabled=(lngindex>=lngcount-1);}"
+		."objgrid.setAttribute('data-t2scfleft',String(lngcount-1-lngindex));}"
+		."function f_go(lngto){var lngcount=f_cards().length;lngto=Math.max(0,Math.min(lngcount-1,lngto));if(lngto===lngindex){return;}lngindex=lngto;f_layout();"
+		."try{objgrid.dispatchEvent(new Event('scroll'));}catch(e){}}"
+		."function f_on(){inton=true;objview.classList.add('t2sCoverFlowLive');objgrid.setAttribute('role','region');objgrid.setAttribute('aria-roledescription',objcfg.role);"
+		."if(objcfg.label){objgrid.setAttribute('aria-label',objcfg.label);}objgrid.setAttribute('tabindex','0');if(objbar){objbar.hidden=false;}f_layout();"
+		."if(window.MutationObserver&&!objobserver){objobserver=new MutationObserver(function(){if(inton){f_layout();}});objobserver.observe(objgrid,{childList:true});}}"
+		."function f_off(){inton=false;objview.classList.remove('t2sCoverFlowLive');var arrattrs=['role','aria-roledescription','aria-label','tabindex','data-t2scfleft'];var i;for(i=0;i<arrattrs.length;i++){objgrid.removeAttribute(arrattrs[i]);}"
+		."if(objbar){objbar.hidden=true;}var arrcards=f_cards();for(i=0;i<arrcards.length;i++){arrcards[i].style.transform='';arrcards[i].style.zIndex='';arrcards[i].style.visibility='';arrcards[i].classList.remove('t2sCoverFlowCentre');"
+		."var objlink=arrcards[i].querySelector('a');if(objlink){objlink.removeAttribute('tabindex');objlink.removeAttribute('aria-label');}}}"
+		."function f_sync(){var intwant=objview.classList.contains('t2sShowCoverFlow')&&!objview.hidden;if(intwant&&!inton){f_on();}else if(!intwant&&inton){f_off();}else if(inton){f_layout();}}"
+		."window.addEventListener('t2srepchange',f_sync);window.addEventListener('resize',function(){if(inton){f_layout();}},{passive:true});"
+		."if(objprev){objprev.addEventListener('click',function(){f_go(lngindex-1);});}if(objnext){objnext.addEventListener('click',function(){f_go(lngindex+1);});}"
+		."objgrid.addEventListener('keydown',function(e){if(!inton){return;}var lngto=null;"
+		."if(e.key==='ArrowLeft'){lngto=lngindex-1;}else if(e.key==='ArrowRight'){lngto=lngindex+1;}else if(e.key==='Home'){lngto=0;}else if(e.key==='End'){lngto=f_cards().length-1;}"
+		."if(lngto===null){return;}e.preventDefault();f_go(lngto);});"
+		."objgrid.addEventListener('click',function(e){if(!inton){return;}if(intdragged){e.preventDefault();e.stopPropagation();intdragged=false;return;}"
+		."var objcard=e.target&&e.target.closest?e.target.closest('.search-poster-card'):null;if(!objcard||objcard.parentNode!==objgrid){return;}"
+		."var lngat=f_cards().indexOf(objcard);if(lngat>=0&&lngat!==lngindex){e.preventDefault();e.stopPropagation();f_go(lngat);}},true);"
+		."objgrid.addEventListener('pointerdown',function(e){if(!inton||(e.pointerType==='mouse'&&e.button!==0)){return;}objdrag={x:e.clientX,y:e.clientY,t:Date.now()};intdragged=false;});"
+		."objgrid.addEventListener('pointermove',function(e){if(!inton||!objdrag){return;}if(Math.abs(e.clientX-objdrag.x)>10&&Math.abs(e.clientX-objdrag.x)>Math.abs(e.clientY-objdrag.y)){intdragged=true;}});"
+		."function f_dragend(e){if(!inton||!objdrag){return;}var dbldx=e.clientX-objdrag.x;var dbldy=e.clientY-objdrag.y;var lngms=Math.max(1,Date.now()-objdrag.t);objdrag=null;"
+		."if(Math.abs(dbldx)<=40||Math.abs(dbldx)<=Math.abs(dbldy)){window.setTimeout(function(){intdragged=false;},0);return;}"
+		."var arrcards=f_cards();var dblwidth=(arrcards[lngindex]&&arrcards[lngindex].offsetWidth)||150;var lngsteps=1;"
+		."if(Math.abs(dbldx)/lngms>0.6&&Math.abs(dbldx)>dblwidth){lngsteps=Math.max(1,Math.round(Math.abs(dbldx)/(dblwidth*0.4)));}"
+		."f_go(lngindex+(dbldx<0?lngsteps:-lngsteps));window.setTimeout(function(){intdragged=false;},0);}"
+		."objgrid.addEventListener('pointerup',f_dragend);objgrid.addEventListener('pointercancel',function(){objdrag=null;});"
+		."objgrid.addEventListener('dragstart',function(e){if(inton){e.preventDefault();}});"
+		."objgrid.addEventListener('wheel',function(e){if(!inton||Math.abs(e.deltaX)<=Math.abs(e.deltaY)){return;}e.preventDefault();lngwheel+=e.deltaX;"
+		."if(Math.abs(lngwheel)>=40){f_go(lngindex+(lngwheel>0?1:-1));lngwheel=0;}},{passive:false});"
+		."f_sync();"
+		."})();";
 }

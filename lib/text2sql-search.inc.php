@@ -985,6 +985,9 @@ if ($intdbavailable) {
 				//t2sShowSequence). The number starts at the offset of the page, so the cards that
 				//infinite scroll appends (a loadmore call, render=card) go on counting.
 				$intt2ssequence=in_array("sequence-strip", $arrt2scardreps, true);
+				//Cover flow is these cards on a stage (f_t2srep_coverflow_js()): the same elements, so the
+				//same records in the same order, the same pictures and links
+				$intt2scoverflow=in_array("cover-flow", $arrt2scardreps, true);
 				$lngt2ssequencebase=(isset($jsontext2sql['offset']) && f_t2srep_is_number($jsontext2sql['offset'])) ? (int)$jsontext2sql['offset'] : max(0, ($lngpage-1)*(isset($lngrowsperpage) ? (int)$lngrowsperpage : 0));
 				$intt2sviews=($intt2sanswer && isset($jsontext2sql['representation']) && trim((string)$jsontext2sql['representation'])!="");
 				//A full page may have another behind it (the same test as the card grid's
@@ -2541,6 +2544,10 @@ if ($intdbavailable) {
 									if ($strcardmedia!="" || $strcardtext!="") {
 												if ($strcardmedia!="" && strpos($strcardcontent, "search-poster-card-media")===false) {
 													$strcardmedia=f_cardmediawikifit($strcardmedia);
+													//Under a cover flow only the centre card and its first neighbours load at once
+													if ($intt2scoverflow && ($intloadmore || $lngrow>=3) && strpos($strcardmedia, "loading=")===false) {
+														$strcardmedia=preg_replace('#<img #', "<img loading=\"lazy\" ", $strcardmedia, 1);
+													}
 													if ($strcardreveal!="" && strpos($strcardcontent, "search-poster-card-reveal")===false) {
 														$strcardmedia=substr($strcardmedia, 0, -6).$strcardreveal."</div>";
 													}
@@ -2583,6 +2590,10 @@ if ($intdbavailable) {
 					if ($lngrow>0) {
 						echo "</div>";
 					}
+					if (!$intloadmore && $intt2scoverflow) {
+						//The centre card's title, the counter and the buttons, under the stage
+						echo f_t2srep_coverflow_bar_html(array("prev"=>(string)get_movie_string('lib_t2s_coverflow_prev'), "next"=>(string)get_movie_string('lib_t2s_coverflow_next')));
+					}
 					if (!$intloadmore) {
 						echo "<div id=\"search-poster-card-grid-loader\" class=\"muted\" style=\"display:none; margin-top:12px;\"></div>";
 						echo "<button type=\"button\" id=\"search-poster-card-grid-loadmore\" class=\"responsive-input\" style=\"display:none; margin-top:12px;\"></button>";
@@ -2619,12 +2630,15 @@ if ($intdbavailable) {
 						// Under sequence-strip the grid is one horizontal row that scrolls inside its frame:
 						// the next page is due when its right end comes near, and its bottom never moves.
 						echo "function isStrip(){return !!(grid.closest&&grid.closest('.t2sShowSequence'));}\n";
-						echo "function getRemainingDistance(){if(isStrip()){return grid.scrollWidth-grid.scrollLeft-grid.clientWidth;}var rect=grid.getBoundingClientRect();return rect.bottom-window.innerHeight;}\n";
+						// Under cover-flow the cards sit on a stage: the next page is due when few cards are left
+						// right of the centre (data-t2scfleft, kept by the cover flow script), counted as card widths.
+						echo "function isCover(){return grid.hasAttribute('data-t2scfleft');}\n";
+						echo "function getRemainingDistance(){if(isCover()){return parseInt(grid.getAttribute('data-t2scfleft')||'0',10)*100;}if(isStrip()){return grid.scrollWidth-grid.scrollLeft-grid.clientWidth;}var rect=grid.getBoundingClientRect();return rect.bottom-window.innerHeight;}\n";
 						// The grid can sit in a hidden view (another chip is active); a hidden
 						// grid measures 0 and would load page after page, so it waits until it is shown.
-						echo "function shouldAutoLoad(){if(!hasMore||loading){return false;}if(grid.offsetParent===null){return false;}if(autoPagesLoaded>=maxAutoPages){return false;}return getRemainingDistance()<(isStrip()?Math.max(grid.clientWidth,600):preloadDistance);}\n";
+						echo "function shouldAutoLoad(){if(!hasMore||loading){return false;}if(grid.offsetParent===null){return false;}if(autoPagesLoaded>=maxAutoPages){return false;}return getRemainingDistance()<(isCover()?600:(isStrip()?Math.max(grid.clientWidth,600):preloadDistance));}\n";
 						echo "function loadNext(isAuto){if(!hasMore||loading){return;}loading=true;setEndMessage(false);setLoadMoreButton(false);lastTriggerBottom=grid.getBoundingClientRect().bottom;setLoading(true);baseUrl.searchParams.set('page',String(nextPage));fetch(baseUrl.toString(),{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(html){var wrap=document.createElement('div');wrap.innerHTML=html;var cards=wrap.querySelectorAll('.search-poster-card');if(!cards.length){hasMore=false;grid.setAttribute('data-has-more','0');refreshStatusText();setEndMessage(true);return;}cards.forEach(function(card){grid.appendChild(card);});refreshStatusText();var nextGrid=wrap.querySelector('.search-poster-card-grid');if(nextGrid&&nextGrid.getAttribute('data-has-more')==='0'){hasMore=false;grid.setAttribute('data-has-more','0');setEndMessage(true);}else if(cards.length<50){hasMore=false;grid.setAttribute('data-has-more','0');setEndMessage(true);}nextPage+=1;if(isAuto){autoPagesLoaded+=1;}}).catch(function(){hasMore=false;grid.setAttribute('data-has-more','0');refreshStatusText();setEndMessage(true);}).finally(function(){loading=false;setLoading(false);if(hasMore&&autoPagesLoaded>=maxAutoPages){setLoadMoreButton(true);}if(window.f_t2srepcaptionupdate){window.f_t2srepcaptionupdate('sequence-strip',hasMore);}});}\n";
-						echo "function maybeLoadNext(){if(!shouldAutoLoad()){if(hasMore&&!loading&&autoPagesLoaded>=maxAutoPages){setLoadMoreButton(true);}return;}var currentBottom=grid.getBoundingClientRect().bottom;if(!isStrip()&&lastTriggerBottom!==null&&Math.abs(currentBottom-lastTriggerBottom)<120){return;}loadNext(true);}\n";
+						echo "function maybeLoadNext(){if(!shouldAutoLoad()){if(hasMore&&!loading&&autoPagesLoaded>=maxAutoPages){setLoadMoreButton(true);}return;}var currentBottom=grid.getBoundingClientRect().bottom;if(!isStrip()&&!isCover()&&lastTriggerBottom!==null&&Math.abs(currentBottom-lastTriggerBottom)<120){return;}loadNext(true);}\n";
 						echo "if(loadMoreBtn){loadMoreBtn.addEventListener('click',function(){autoPagesLoaded=0;loadNext(false);});}\n";
 						echo "window.addEventListener('scroll',maybeLoadNext,{passive:true});\n";
 						echo "grid.addEventListener('scroll',maybeLoadNext,{passive:true});\n";
@@ -2634,6 +2648,11 @@ if ($intdbavailable) {
 						echo "maybeLoadNext();\n";
 						echo "})();\n";
 						echo "</script>";
+						if ($intt2scoverflow) {
+							//The stage is named by the caption the card grid would show, else by the chip
+							$strt2scflabel=(isset($strt2scaption) && $strt2scaption!="") ? $strt2scaption : (string)get_movie_string('lib_t2s_rep_cover_flow');
+							echo "<script>".f_t2srep_coverflow_js(array("label"=>$strt2scflabel, "roledescription"=>(string)get_movie_string('lib_t2s_coverflow_roledescription')))."</script>";
+						}
 					}
 					echo "</div>";
 				} else {

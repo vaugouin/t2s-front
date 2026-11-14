@@ -2805,3 +2805,142 @@ a.t2sChainCard:focus-visible .t2sChainTitle {
 .t2sFeedbackStatusError {
   color: var(--error);
 }
+
+/* Cover flow: the cards of the card grid as a poster carousel. Mirror of voice-agent; keep both
+   in step. Without script (t2sShowCoverFlow alone) the cards are one horizontal row that scrolls
+   inside its frame, never the page. With script (t2sCoverFlowLive) the grid is a stage: the
+   cards sit on top of each other in its middle and the script moves and turns them. */
+.t2sShowCoverFlow .search-poster-card-grid {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.t2sShowCoverFlow .search-poster-card {
+  flex: 0 0 200px;
+  scroll-snap-align: center;
+}
+.t2sCoverFlowLive {
+  --t2scfw: clamp(150px, calc(15vw + 20px), 210px);
+}
+.t2sCoverFlowLive .search-poster-card-grid {
+  display: block;
+  position: relative;
+  height: calc(var(--t2scfw) * 1.8);
+  padding: 0;
+  overflow: hidden;
+  perspective: 1000px;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  background: linear-gradient(to bottom, var(--bg-secondary) 0%, var(--bg-secondary) 84%, var(--bg-tertiary) 84%, var(--bg-primary) 100%);
+}
+.t2sCoverFlowLive .search-poster-card-grid:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+.t2sCoverFlowLive .search-poster-card {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--t2scfw) * 0.12);
+  width: var(--t2scfw);
+  max-width: none;
+  margin-left: calc(var(--t2scfw) / -2);
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.6);
+  transition: transform 350ms ease;
+}
+.t2sCoverFlowLive .search-poster-card:hover {
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.6);
+}
+.t2sCoverFlowLive .search-poster-card:hover img {
+  transform: none;
+}
+.t2sCoverFlowLive .search-poster-card-link {
+  -webkit-user-drag: none;
+}
+.t2sCoverFlowLive .search-poster-card img {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+/* The title is written under the stage; a card with no picture keeps its text */
+.t2sCoverFlowLive .search-poster-card-media ~ .search-poster-card-text,
+.t2sCoverFlowLive .search-poster-card-reveal,
+.t2sCoverFlowLive .t2sSeqNumber {
+  display: none;
+}
+.t2sCoverFlowLive .search-poster-card:not(.t2sCoverFlowCentre) {
+  filter: brightness(0.72);
+}
+.t2sCoverFlowLive #search-poster-card-grid-end {
+  display: none !important;
+}
+.t2sCoverFlowBar {
+  padding: 10px 12px 14px;
+  text-align: center;
+  background: var(--bg-tertiary);
+}
+.t2sCoverFlowBar[hidden] {
+  display: none;
+}
+.t2sCoverFlowTitle {
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  min-height: 1.3em;
+  overflow-wrap: anywhere;
+}
+.t2sCoverFlowSub {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  min-height: 1.2em;
+}
+.t2sCoverFlowSub:empty {
+  min-height: 0;
+}
+.t2sCoverFlowNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+.t2sCoverFlowCount {
+  color: var(--text-secondary);
+  min-width: 4.5em;
+  font-variant-numeric: tabular-nums;
+}
+.t2sCoverFlowButton {
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+.t2sCoverFlowButton:hover:not(:disabled),
+.t2sCoverFlowButton:focus-visible {
+  border-color: var(--accent-primary);
+}
+.t2sCoverFlowButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+@media (max-width: 600px) {
+  .t2sShowCoverFlow .search-poster-card {
+    flex-basis: 150px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t2sCoverFlowLive .search-poster-card {
+    transition: none;
+  }
+}

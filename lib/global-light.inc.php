@@ -4201,7 +4201,7 @@ function f_headerdisplay($strtitle="",$strh1extra="",$arrsocial=array()) {
     echo "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">";
     echo "<title>".$strtitle." - ".htmlspecialchars(f_sitename(),ENT_QUOTES,'UTF-8')."</title>";
     f_socialmetadisplay($strtitle,$arrsocial);
-    echo "<link rel=\"stylesheet\" href=\"../css/t2s-dark-20261114-2.css\">";
+    echo "<link rel=\"stylesheet\" href=\"../css/t2s-dark-20261114-3.css\">";
 	//In <head> so it exists before any card image loads. A Wikipedia image more
 	//than 5% away from 2:3 gets t2s-media-fit on its frame (shown whole, dark background).
 	echo "<script>function f_wikifit(img){var w=img.naturalWidth,h=img.naturalHeight;if(w&&h&&Math.abs(w/h-2/3)>2/3*0.05&&img.parentNode){img.parentNode.classList.add('t2s-media-fit');}}</script>";

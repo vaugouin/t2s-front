@@ -59,6 +59,11 @@
  * place in the frame, the places not on the map, the markup, the list linked as the cards, and the
  * card grid when the map cannot be drawn.
  *
+ * The cover flow (fixtures cf-*) is the card grid's cards on a stage: the chip after card-grid, the
+ * default when asked for, the caption of the card grid word for word, one card view for both (so
+ * the same cards in the same order), the card grid when fewer than two rows carry a picture, the
+ * line under the stage, and the script through node --check.
+ *
  * Phase 3 lot A adds scatter on the 1.1.20 answers of the scatter evaluations reclassified with
  * the API module of that lot (fixtures p3a-*): the axes, their ticks and titles (money, minutes,
  * years, a log axis of votes), the points and the highest one, the rendering, the chips, and the
@@ -1461,6 +1466,72 @@ f_check("drill SEASON_COUNT en",f_t2srep_drill_question($arrsc['question'],f_t2s
 	"Among the items counted in \"How are HBO series distributed by number of seasons?\", list those whose number of seasons is 3.");
 f_check("drill SEASON_COUNT fr",f_t2srep_drill_question($arrsc['question'],f_t2srep_drill_word($arrscmodel['column'],"fr"),f_t2srep_drill_bin_value($arrscbins[2],$arrscmodel['histogram'],"fr"),"fr"),
 	"Parmi les éléments comptés dans « How are HBO series distributed by number of seasons? », liste ceux dont le nombre de saisons est 3.");
+
+f_group("Cover flow: the card grid's cards as a poster carousel (fixtures cf-*)");
+$arrcfoffered=array("cf-pixar-en","cf-miyazaki-fr","cf-bond-actors-en","cf-breaking-fr","cf-samurai-en");
+foreach ($arrcfoffered as $strcfkey) {
+	$arrcfopts=f_t2srep_options($arrfix[$strcfkey]);
+	$lngcfgrid=array_search("card-grid",$arrcfopts,true);
+	f_check("cover-flow right after card-grid, ".$strcfkey,$lngcfgrid!==false && array_search("cover-flow",$arrcfopts,true)===$lngcfgrid+1,true);
+	f_check("cover-flow is not the default, ".$strcfkey,f_t2srep_active($arrfix[$strcfkey])!="cover-flow",true);
+	f_check("render=cover-flow honoured, ".$strcfkey,f_t2srep_active($arrfix[$strcfkey],"cover-flow"),"cover-flow");
+}
+$arrcfasked=$arrfix['cf-pixar-asked-en'];
+f_check("cover-flow asked for is the default",f_t2srep_active($arrcfasked),"cover-flow");
+f_check("cover-flow asked for, chips",f_t2srep_options($arrcfasked),array("cover-flow","card-grid","table"));
+f_check("cover-flow is drawn by the card renderer",array(f_t2srep_is_card_rep("cover-flow"),f_t2srep_choose($arrcfasked),in_array("cover-flow",f_t2srep_module_reps(),true)),array(true,"",false));
+f_check("rows with a picture",array(f_t2srep_picture_count($arrfix['cf-pixar-en']),f_t2srep_picture_count($arrfix['cf-miyazaki-fr']),f_t2srep_picture_count($arrfix['cf-bond-actors-en']),f_t2srep_picture_count($arrfix['cf-breaking-fr']),f_t2srep_picture_count($arrfix['cf-samurai-en'])),
+	array(39,27,13,5,3));
+//The caption of the cover flow is the card grid's, word for word
+foreach (array_merge($arrcfoffered,array("cf-pixar-asked-en")) as $strcfkey) {
+	$arrcfas=$arrfix[$strcfkey];
+	$arrcfas['representation']="cover-flow";
+	$arrcfgrid=$arrfix[$strcfkey];
+	$arrcfgrid['representation']="card-grid";
+	$strcfcaption=f_t2srep_caption($arrcfgrid,substr($strcfkey,-2));
+	f_check("cover-flow caption is the card grid's, ".$strcfkey,f_t2srep_caption($arrcfas,substr($strcfkey,-2)),$strcfcaption);
+	f_check("cover-flow caption with more pages, ".$strcfkey,f_t2srep_caption($arrcfas,substr($strcfkey,-2),true),f_t2srep_caption($arrcfgrid,substr($strcfkey,-2),true));
+}
+//One view holds both: the cover flow draws the very cards of the card grid, so their number and
+//their order are the card grid's by construction
+$strcfview=f_t2srep_view_open(array("card-grid","cover-flow","value-cards"),"cover-flow","t2sCaption");
+f_contains("one card view for card-grid and cover-flow",$strcfview,"data-t2sreps=\"card-grid cover-flow value-cards\"");
+f_contains("the card view carries t2sShowCoverFlow",$strcfview,"class=\"t2sRepView t2sRepCards t2sShowCoverFlow\"");
+f_check("the card view is shown under cover-flow",strpos($strcfview," hidden")===false,true);
+f_check("no t2sShowCoverFlow under card-grid",strpos(f_t2srep_view_open(array("card-grid","cover-flow"),"card-grid"),"t2sShowCoverFlow")===false,true);
+f_contains("the chips toggle the cover flow",f_t2srep_chips_js(),"objview.classList.toggle('t2sShowCoverFlow',strrep==='cover-flow')");
+f_contains("the chips tell the cover flow",f_t2srep_chips_js(),"new Event('t2srepchange')");
+//The fallback: fewer than two rows with a picture is the card grid, even when asked for
+$arrcffew=$arrfix['cf-bond-actors-en'];
+foreach ($arrcffew['result'] as $lngcfi => $arrcfrow) {
+	if ($lngcfi>0) {
+		$arrcffew['result'][$lngcfi]['data']['PROFILE_PATH']=null;
+	}
+}
+$arrcffew['representation']="cover-flow";
+$arrcffew['representation_options']=array("cover-flow","card-grid","table");
+f_check("fallback: one picture, chips",f_t2srep_options($arrcffew),array("card-grid","table"));
+f_check("fallback: one picture, the card grid is drawn",f_t2srep_active($arrcffew),"card-grid");
+f_check("fallback: one picture, render=cover-flow",f_t2srep_active($arrcffew,"cover-flow"),"card-grid");
+$arrcffew['representation_options']=array("cover-flow","table");
+f_check("fallback: no card-grid option, it takes the place",f_t2srep_options($arrcffew),array("card-grid","table"));
+$arrcfnone=$arrcffew;
+$arrcfnone['result']=array();
+f_check("fallback: no rows",array(f_t2srep_options($arrcfnone),f_t2srep_active($arrcfnone)),array(array("card-grid","table"),"card-grid"));
+//The line under the stage and the script
+$strcfbar=f_t2srep_coverflow_bar_html(array("prev"=>"Précédent","next"=>"Suivant"));
+f_contains("bar: previous button",$strcfbar,"id=\"t2sCoverFlowPrev\" aria-label=\"Précédent\"");
+f_contains("bar: next button",$strcfbar,"id=\"t2sCoverFlowNext\" aria-label=\"Suivant\"");
+f_contains("bar: the counter is announced",$strcfbar,"id=\"t2sCoverFlowCount\" aria-live=\"polite\"");
+f_contains("bar: hidden without script",$strcfbar,"id=\"t2sCoverFlowBar\" hidden>");
+$strcfjs=f_t2srep_coverflow_js(array("label"=>"Les \"films\" </script>","roledescription"=>"carrousel"));
+f_check("script: the label is escaped",strpos($strcfjs,"</script>")===false,true);
+f_contains("script: the role description",$strcfjs,"\"role\":\"carrousel\"");
+f_contains("script: 60 degrees towards the centre",$strcfjs,"rotateY('+(-lngsign*60)+'deg) scale(0.85)");
+f_contains("script: four cards on each side",$strcfjs,"visibility=lngabs>4?'hidden':''");
+f_contains("script: Home and End",$strcfjs,"e.key==='Home'");
+f_contains("script: a drag over 40 px",$strcfjs,"Math.abs(dbldx)<=40");
+f_nodecheck("the cover flow script",$strcfjs);
 
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);
