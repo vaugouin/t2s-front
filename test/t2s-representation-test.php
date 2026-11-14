@@ -1085,6 +1085,8 @@ $arrcaptionsp3d=array(
 	"p3d-places-john-ford-states-en"=>"Twelve places on the map: Arizona, Alabama Hills, California and nine more.",
 	"p3d-places-lawrence-en"=>"Five places on the map: London, Spain, Morocco and two more.",
 	"p3d-places-lawrence-fr"=>"Cinq lieux sur la carte : Londres, Espagne, Maroc et deux autres.",
+	"p3d-places-live-amelie-en"=>"Five places on the map: Paris, Cologne, Porte des Lilas - Cinéma and two more.",
+	"p3d-places-live-ozu-en"=>"Two places on the map: Japan and West Berlin.",
 	"p3d-places-lost-in-translation-en"=>"Four places on the map: Japan, Tokyo, Kyoto and Heian Jingū.",
 	"p3d-places-lost-in-translation-fr"=>"Quatre lieux sur la carte : Japon, Kyoto, Tokyo et sanctuaire Heian.",
 	"p3d-places-nolan-en"=>"49 places on the map: New York City, London, Los Angeles and 46 more; Shepperton Studios is not on it (no coordinates).",
@@ -1121,6 +1123,8 @@ $arrframesp3d=array(
 	"p3d-places-john-ford-states-en"=>array("71 130 506 232",12,""),
 	"p3d-places-lawrence-en"=>array("916 87 326 208",5,""),
 	"p3d-places-lawrence-fr"=>array("916 87 326 208",5,""),
+	"p3d-places-live-amelie-en"=>array("941 85 160 100",5,""),
+	"p3d-places-live-ozu-en"=>array("945 0 859 391",2,""),
 	"p3d-places-lost-in-translation-en"=>array("1616 177 160 100",4,""),
 	"p3d-places-lost-in-translation-fr"=>array("1616 177 160 100",4,""),
 	"p3d-places-nolan-en"=>array("178 0 1744 793",49,"Not on the map: Shepperton Studios (no coordinates)."),
@@ -1145,6 +1149,18 @@ $arrpm=f_t2srep_place_map_model($arrfix["p3d-places-akira-hand-en"],"en");
 f_check("places model akira-hand-en",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("1617 177 160 100","Not on the map: Neo-Tokyo (a fictional place), Studio lot (no coordinates).",array(array(1,"pin",202,"Tokyo","City",55.3,48.17),array(2,"area",30,"Japan","Country",45.26,52.79))));
 $arrpm=f_t2srep_place_map_model($arrfix["p3d-places-tokyo-single-hand-fr"],"fr");
 f_check("places model tokyo-single-hand-fr",array($arrpm['viewBox'],$arrpm['offText'],f_places_marks($arrpm)),array("1625 175 160 100","",array(array(1,"pin",202,"Tokyo","Ville",50.3,50.17))));
+//The groups drawn on the map (marks on one spot share one), all fields
+function f_places_groups($arrmodel) {
+	$arrout=array();
+	foreach ($arrmodel['groups'] as $arrg) {
+		$arrout[]=array($arrg['kind'],$arrg['n'],$arrg['members'],(float)$arrg['left'],(float)$arrg['top'],$arrg['text'],$arrg['tip']);
+	}
+	return $arrout;
+}
+f_check("places groups live-amelie-en",f_places_groups(f_t2srep_place_map_model($arrfix["p3d-places-live-amelie-en"],"en")),array(array("pin",1,array(1,3,4,5),43.67,56.83,"1+3","1. Paris, 3. Porte des Lilas - Cinéma, 4. Montmartre, 5. Gare d'Ermont - Eaubonne"),array("pin",2,array(2),56.66,44.69,"2","2. Cologne · City")));
+f_check("places groups nolan-en",f_places_groups(f_t2srep_place_map_model($arrfix["p3d-places-nolan-en"],"en")),array(array("pin",1,array(1,11,13,17,22,25,43),26.33,24.24,"1+6","1. New York City, 11. Chicago, 13. Toronto, 17. Washington, D.C., 22. Pittsburgh, 25. Detroit, 43. Waukegan"),array("pin",2,array(2,4,7,32,33,38,42,44,45,47,48),47.1,15.94,"2+10","2. London, 4. Paris, 7. Pinewood Studios, 32. Warner Bros. Studios, Leavesden, 33. Oslo, 38. Palais Galliera, 42. Canary Wharf, 44. Coalhouse Fort, 45. Mentmore Towers, 47. Abbey Mills Pumping Station, 48. Mill Hill"),array("pin",3,array(3,23,41),12.59,29.78,"3+2","3. Los Angeles, 23. Malibu, 41. Universal Studios Lot"),array("area",5,array(5,16,21),12.64,27.3,"5+2","5. California, 16. New Mexico, 21. Colorado"),array("pin",6,array(6),82.19,40.16,"6","6. Hong Kong · City"),array("area",8,array(8),26.1,24.82,"8","8. New Jersey · Region"),array("pin",9,array(9),14.59,17.59,"9","9. Vancouver · City"),array("area",10,array(10),86.66,28.98,"10","10. Japan · Country"),array("pin",12,array(12),87.58,28.4,"12","12. Tokyo · City"),array("area",14,array(14,20,28,29,39),53.69,26.05,"14+4","14. Greece, 20. Sicily, 28. Florence, 29. Monaco, 39. Amalfi"),array("pin",15,array(15),20.29,33.3,"15","15. New Orleans · City"),array("pin",18,array(18),69.74,43.08,"18","18. Mumbai · City"),array("area",19,array(19),45.36,31.54,"19","19. Morocco · Country"),array("area",24,array(24,27,46),42.8,7.24,"24+2","24. Iceland, 27. United Kingdom, 46. Vatnajökull"),array("area",26,array(26),18.06,13.83,"26","26. Alberta · Region"),array("area",30,array(30,36,37,49),47.08,15.66,"30+3","30. Hertfordshire, 36. Dunkirk, 37. RAF Cardington, 49. Farnborough Airport"),array("pin",31,array(31,35,40),45.45,28.33,"31+2","31. Tangier, 35. Marrakech, 40. Essaouira"),array("pin",34,array(34),53.1,10.56,"34","34. Tallinn · City")));
+f_check("places groups lawrence-en",f_places_groups(f_t2srep_place_map_model($arrfix["p3d-places-lawrence-en"],"en")),array(array("pin",1,array(1),25.59,18.96,"1","1. London · City"),array("area",2,array(2),20.49,52.17,"2","2. Spain · Country"),array("area",3,array(3),16.29,78.44,"3","3. Morocco · Country"),array("area",4,array(4),83.63,81.08,"4","4. Jordan · Country"),array("area",5,array(5),22.01,62.18,"5","5. Almería Province · Region")));
+f_check("places groups third-man-en",f_places_groups(f_t2srep_place_map_model($arrfix["p3d-places-third-man-en"],"en")),array(array("pin",1,array(1),53.82,49.7,"1","1. Vienna · City"),array("area",2,array(2),46.99,50.95,"2","2. Austria · Country")));
 f_check("places: no model for a map of countries",f_t2srep_place_map_model($arrfix['p3b-map-films-2020-en'],"en"),null);
 f_check("places: no model without places",f_t2srep_place_map_model($arrfix['lotc-share-hbo-type-en'],"en"),null);
 $arrnone=$arrfix['p3d-places-akira-hand-en'];
@@ -1170,11 +1186,11 @@ f_check("places: the projection of the outline",array($arrworld['projection']['n
 $strhtml=f_t2srep_render("map",$arrfix['p3d-places-lawrence-en'],"en");
 f_contains("places map: the frame cropped",$strhtml,"<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:326 / 208\"><svg class=\"t2sMapSvg\" viewBox=\"916 87 326 208\" role=\"img\" aria-label=\"Map of the places\"><path class=\"t2sMapLand\" d=\"M");
 f_check("places map: every country neutral, none shaded",strpos($strhtml,"t2sMapCountry"),false);
-f_contains("places map: a pin",$strhtml,"<span class=\"t2sPlacePin\" role=\"button\" tabindex=\"0\" style=\"left:25.59%;top:18.96%\" title=\"1. London, City\" aria-label=\"1. London, City\" data-t2smap=\"p1\" data-t2stip=\"1. London \u{00B7} City\">1</span>");
-f_contains("places map: an area, a ring and its badge",$strhtml,"<span class=\"t2sPlaceArea\" role=\"button\" tabindex=\"0\" style=\"left:20.49%;top:52.17%\" title=\"2. Spain, Country\" aria-label=\"2. Spain, Country\" data-t2smap=\"p2\" data-t2stip=\"2. Spain \u{00B7} Country\"><span class=\"t2sPlaceBadge\">2</span></span>");
+f_contains("places map: a pin",$strhtml,"<span class=\"t2sPlacePin\" role=\"button\" tabindex=\"0\" style=\"left:25.59%;top:18.96%\" title=\"1. London \u{00B7} City\" aria-label=\"1. London \u{00B7} City\" data-t2smap=\"g1\" data-t2stip=\"1. London \u{00B7} City\">1</span>");
+f_contains("places map: an area, a ring and its badge",$strhtml,"<span class=\"t2sPlaceArea\" role=\"button\" tabindex=\"0\" style=\"left:20.49%;top:52.17%\" title=\"2. Spain \u{00B7} Country\" aria-label=\"2. Spain \u{00B7} Country\" data-t2smap=\"g2\" data-t2stip=\"2. Spain \u{00B7} Country\"><span class=\"t2sPlaceBadge\">2</span></span>");
 f_check("places map: one mark a place",array(substr_count($strhtml,"class=\"t2sPlacePin\""),substr_count($strhtml,"class=\"t2sPlaceArea\""),substr_count($strhtml,"<li class=\"t2sPlaceItem\"")),array(1,4,5));
 f_contains("places map: the tip line",$strhtml,"<p class=\"t2sMapTip\" aria-live=\"polite\">Tap or hover over a number to see its place.</p>");
-f_contains("places map: the list links as the cards",$strhtml,"<li class=\"t2sPlaceItem\" data-t2smap=\"p1\" data-t2stip=\"1. London \u{00B7} City\"><span class=\"t2sPlaceNum isPin\" aria-hidden=\"true\">1</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=21\">London</a> <span class=\"t2sPlaceType\">City</span></span></li>");
+f_contains("places map: the list links as the cards",$strhtml,"<li class=\"t2sPlaceItem\" data-t2smap=\"g1\" data-t2stip=\"1. London \u{00B7} City\"><span class=\"t2sPlaceNum isPin\" aria-hidden=\"true\">1</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=21\">London</a> <span class=\"t2sPlaceType\">City</span></span></li>");
 f_contains("places map: an area in the list",$strhtml,"<span class=\"t2sPlaceNum isArea\" aria-hidden=\"true\">5</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=1144\">");
 f_contains("places map: the hidden table",$strhtml,"<div class=\"t2sSrOnly\"><table><thead><tr><th scope=\"col\">Place</th><th scope=\"col\">Type</th><th scope=\"col\">On the map</th></tr></thead><tbody><tr><td>London</td><td>City</td><td>yes</td></tr>");
 f_check("places map: no note when every place is on it",strpos($strhtml,"t2sMapOff"),false);
@@ -1184,9 +1200,15 @@ f_contains("places map fr: the hidden table, the reasons",$strhtml,"<tr><td>Neo-
 f_contains("places map fr: the tip line",$strhtml,"Touchez ou survolez un numéro pour voir son lieu.");
 $strhtml=f_t2srep_render("map",$arrfix['p3d-places-harry-potter-uk-en'],"en");
 $arrhp=f_t2srep_place_map_model($arrfix['p3d-places-harry-potter-uk-en'],"en");
+$arrhpgroup=array();
+foreach ($arrhp['groups'] as $arrg) {
+	foreach ($arrg['members'] as $lngmember) {
+		$arrhpgroup[$lngmember]="g".$arrg['n'];
+	}
+}
 $lnglinked=0;
 foreach ($arrhp['marks'] as $arrm) {
-	$strneedle="data-t2smap=\"p".$arrm['n']."\" data-t2stip=\"".f_t2srep_h($arrm['n'].". ".$arrm['label']." \u{00B7} ".$arrm['typeText'])."\"><span class=\"t2sPlaceNum is"
+	$strneedle="data-t2smap=\"".$arrhpgroup[$arrm['n']]."\" data-t2stip=\"".f_t2srep_h($arrm['n'].". ".$arrm['label']." \u{00B7} ".$arrm['typeText'])."\"><span class=\"t2sPlaceNum is"
 		.($arrm['kind']=="area" ? "Area" : "Pin")."\" aria-hidden=\"true\">".$arrm['n']."</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=".$arrm['id']."\">";
 	if (strpos($strhtml,$strneedle)!==false) {
 		$lnglinked++;
@@ -1194,6 +1216,14 @@ foreach ($arrhp['marks'] as $arrm) {
 }
 f_check("places map: a place on several rows links from its first row",$lnglinked,17);
 f_check("places map: one item a place, not a row",substr_count($strhtml,"<li class=\"t2sPlaceItem\""),17);
+$strhtml=f_t2srep_render("map",$arrfix['p3d-places-live-amelie-en'],"en");
+f_contains("places map: four places on one spot share one disc",$strhtml,"<span class=\"t2sPlacePin isGroup\" role=\"button\" tabindex=\"0\" style=\"left:43.67%;top:56.83%\""
+	." title=\"1. Paris, 3. Porte des Lilas - Cinéma, 4. Montmartre, 5. Gare d&#039;Ermont - Eaubonne\" aria-label=\"1. Paris, 3. Porte des Lilas - Cinéma, 4. Montmartre, 5. Gare d&#039;Ermont - Eaubonne\" data-t2smap=\"g1\"");
+f_contains("places map: the group's text",$strhtml,"data-t2stip=\"1. Paris, 3. Porte des Lilas - Cinéma, 4. Montmartre, 5. Gare d&#039;Ermont - Eaubonne\">1+3</span>");
+f_check("places map: two marks drawn, five places listed",array(substr_count($strhtml,"class=\"t2sPlacePin"),substr_count($strhtml,"<li class=\"t2sPlaceItem\""),substr_count($strhtml,"<li class=\"t2sPlaceItem\" data-t2smap=\"g1\"")),array(2,5,4));
+f_contains("places map: a grouped place keeps its own line",$strhtml,"<li class=\"t2sPlaceItem\" data-t2smap=\"g1\" data-t2stip=\"4. Montmartre \u{00B7} ");
+$strhtml=f_t2srep_render("map",$arrfix['p3d-places-live-ozu-en'],"en");
+f_check("places map: two rings apart",array(substr_count($strhtml,"class=\"t2sPlaceArea\""),strpos($strhtml,"isGroup")),array(2,false));
 f_contains("places map without the outline: the table",f_t2srep_render_map($arrfix['p3d-places-lawrence-en'],"en",array("nothing")),"<table");
 f_check("places map without the outline: no map",strpos(f_t2srep_render_map($arrfix['p3d-places-lawrence-en'],"en",array("nothing")),"t2sPlaceMap"),false);
 f_nodecheck("the map hover script, with the places",f_t2srep_map_js());

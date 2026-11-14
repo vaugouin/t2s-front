@@ -3190,11 +3190,13 @@ function f_t2srep_render_map($jsontext2sql, $strlang='en', $arrworld=null) {
 function f_t2srep_map_js() {
 	//Purpose: As voice-agent: hovering, focusing or tapping a country or a dot outlines it (with
 	//			its dot or shape) and writes its name and count, its aria-label, in the line under
-	//			the map. On the map of places (phase 3 lot D), a mark or its list item highlights
-	//			both and writes its data-t2stip line. A plain string with no PHP value in it.
+	//			the map. On the map of places (phase 3 lot D), a mark (a group of places) highlights
+	//			itself and its places in the list, a list item itself and its group's mark; either
+	//			writes its data-t2stip line. A plain string with no PHP value in it.
 	return "(function(){function show(el){var root=el.closest('.t2sMap');if(!root){return;}var tip=root.querySelector('.t2sMapTip');"
 		."if(tip){tip.textContent=el.getAttribute('data-t2stip')||el.getAttribute('aria-label')||'';}var old=root.querySelectorAll('.isSelected'),i;for(i=0;i<old.length;i++){old[i].classList.remove('isSelected');}"
-		."var marks=root.querySelectorAll('[data-t2smap=\"'+el.getAttribute('data-t2smap')+'\"]');for(i=0;i<marks.length;i++){marks[i].classList.add('isSelected');}}"
+		."var sel='[data-t2smap=\"'+el.getAttribute('data-t2smap')+'\"]';if(el.classList.contains('t2sPlaceItem')){sel='.t2sMapFrame '+sel;el.classList.add('isSelected');}"
+		."var marks=root.querySelectorAll(sel);for(i=0;i<marks.length;i++){marks[i].classList.add('isSelected');}}"
 		."function find(ev){var t=ev.target;return t&&t.closest?t.closest('.t2sMap [data-t2smap]'):null;}"
 		."['mouseover','focusin','click'].forEach(function(n){document.addEventListener(n,function(ev){var el=find(ev);if(el){show(el);}});});})();";
 }
@@ -3361,11 +3363,53 @@ function f_t2srep_place_frame($arrpoints, $arrworld) {
 	return array("x"=>$lngx, "y"=>$lngy, "width"=>(int)min(ceil($dblw), $dblwidth-$lngx), "height"=>(int)min(ceil($dblh), $dblheight-$lngy));
 }
 
+function f_t2srep_place_groups($arrmarks, $arrframe) {
+	//Purpose: Mirrors groups(): the marks drawn on the map. Marks of one kind closer than 5.5
+	//			percent of the frame's width share one disc (or ring), greedy in number order: a
+	//			mark joins the first group of its kind whose first member is near enough, else
+	//			starts a group. The distance is in percent of the width on both axes (top rescaled
+	//			by height / width). Each group: kind, n (first member), members (numbers), left and
+	//			top (the first member's), text ("5", or "1+3" for four marks) and tip ("5. Paris ·
+	//			City", or "1. Paris, 3. Montmartre" for several). The list keeps every mark.
+	$dblratio=(float)$arrframe['height']/(float)$arrframe['width'];
+	$arrgroups=array();
+	$arrlabels=array();
+	foreach ($arrmarks as $arrmark) {
+		$intjoined=false;
+		foreach ($arrgroups as $lngg=>$arrgroup) {
+			if ($arrgroup['kind']!==$arrmark['kind']) {
+				continue;
+			}
+			$dbldx=(float)$arrmark['left']-(float)$arrgroup['left'];
+			$dbldy=((float)$arrmark['top']-(float)$arrgroup['top'])*$dblratio;
+			if (hypot($dbldx, $dbldy)<5.5) {
+				$arrgroups[$lngg]['members'][]=$arrmark['n'];
+				$arrlabels[$lngg][]=$arrmark['n'].". ".$arrmark['label'];
+				$intjoined=true;
+				break;
+			}
+		}
+		if (!$intjoined) {
+			$arrgroups[]=array("kind"=>$arrmark['kind'], "n"=>$arrmark['n'], "members"=>array($arrmark['n']), "left"=>$arrmark['left'], "top"=>$arrmark['top'],
+				"text"=>"", "tip"=>$arrmark['n'].". ".$arrmark['label']." \u{00B7} ".$arrmark['typeText']);
+			$arrlabels[]=array($arrmark['n'].". ".$arrmark['label']);
+		}
+	}
+	foreach ($arrgroups as $lngg=>$arrgroup) {
+		$lngextra=count($arrgroup['members'])-1;
+		$arrgroups[$lngg]['text']=$lngextra>0 ? $arrgroup['n']."+".$lngextra : (string)$arrgroup['n'];
+		if ($lngextra>0) {
+			$arrgroups[$lngg]['tip']=implode(", ", $arrlabels[$lngg]);
+		}
+	}
+	return $arrgroups;
+}
+
 function f_t2srep_place_map_model($jsontext2sql, $strlang='en', $arrworld=null) {
 	//Purpose: Mirrors text2SqlPlaceMapModel() (model() of the reference): the frame, the marks
 	//			numbered in row order with their place in the frame (percent, two decimals), the
 	//			places not on the map and the caption
-	//Returns: array(viewBox, frame, marks, offText, caption), or null without summary_facts.places,
+	//Returns: array(viewBox, frame, marks, groups, offText, caption), or null without summary_facts.places,
 	//			with no place located, or without the outline or its projection
 	$arrplaces=f_t2srep_places_facts($jsontext2sql);
 	if ($arrworld===null) {
@@ -3410,6 +3454,7 @@ function f_t2srep_place_map_model($jsontext2sql, $strlang='en', $arrworld=null) 
 		"viewBox"=>$arrframe['x']." ".$arrframe['y']." ".$arrframe['width']." ".$arrframe['height'],
 		"frame"=>$arrframe,
 		"marks"=>$arrmarks,
+		"groups"=>f_t2srep_place_groups($arrmarks, $arrframe),
 		"offText"=>$stroff,
 		"caption"=>f_t2srep_caption_places($jsontext2sql, $strlang),
 	);
@@ -3418,7 +3463,8 @@ function f_t2srep_place_map_model($jsontext2sql, $strlang='en', $arrworld=null) 
 function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null) {
 	//Purpose: Mirrors renderPlaceMap(): the outline cropped to the frame as neutral land, the marks
 	//			laid over it by percentage (a numbered disc for a pin, a dashed ring with a numbered
-	//			badge for an area, so it does not read as a point; the same size at any width), a
+	//			badge for an area, so it does not read as a point; the same size at any width; marks
+	//			on one spot share one, "1+3", f_t2srep_place_groups()), a
 	//			line under the map for the mark under the finger (f_t2srep_map_js()), the numbered
 	//			list of the places linked as their cards are, the places not on the map, and a
 	//			visually hidden table. Without the outline the page shows the card grid
@@ -3440,17 +3486,26 @@ function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null)
 	}
 	$strland.=isset($arrworld['other']) ? (string)$arrworld['other'] : "";
 	$arrframe=$arrmodel['frame'];
+	//The map draws the groups (marks on one spot share one disc or ring, "1+3"); each list item
+	//carries its group's key, so a group highlights its places and an item its group's mark
 	$strmarks="";
+	$arrgroupof=array();
+	foreach ($arrmodel['groups'] as $arrgroup) {
+		$strkey="g".$arrgroup['n'];
+		foreach ($arrgroup['members'] as $lngmember) {
+			$arrgroupof[$lngmember]=$strkey;
+		}
+		$strclass=($arrgroup['kind']=="area" ? "t2sPlaceArea" : "t2sPlacePin").(count($arrgroup['members'])>1 ? " isGroup" : "");
+		$strtext=f_t2srep_h($arrgroup['text']);
+		$strinner=$arrgroup['kind']=="area" ? "<span class=\"t2sPlaceBadge\">".$strtext."</span>" : $strtext;
+		$strmarks.="<span class=\"".$strclass."\" role=\"button\" tabindex=\"0\" style=\"left:".$arrgroup['left']."%;top:".$arrgroup['top']."%\""
+			." title=\"".f_t2srep_h($arrgroup['tip'])."\" aria-label=\"".f_t2srep_h($arrgroup['tip'])."\" data-t2smap=\"".$strkey."\" data-t2stip=\"".f_t2srep_h($arrgroup['tip'])."\">".$strinner."</span>";
+	}
 	$strlist="";
 	foreach ($arrmodel['marks'] as $arrmark) {
 		$strn=(string)$arrmark['n'];
-		$strkey="p".$strn;
-		$strlabel=$strn.". ".$arrmark['label'].", ".$arrmark['typeText'];
+		$strkey=isset($arrgroupof[$arrmark['n']]) ? $arrgroupof[$arrmark['n']] : "g".$strn;
 		$strtip=$strn.". ".$arrmark['label']." \u{00B7} ".$arrmark['typeText'];
-		$strclass=$arrmark['kind']=="area" ? "t2sPlaceArea" : "t2sPlacePin";
-		$strinner=$arrmark['kind']=="area" ? "<span class=\"t2sPlaceBadge\">".$strn."</span>" : $strn;
-		$strmarks.="<span class=\"".$strclass."\" role=\"button\" tabindex=\"0\" style=\"left:".$arrmark['left']."%;top:".$arrmark['top']."%\""
-			." title=\"".f_t2srep_h($strlabel)."\" aria-label=\"".f_t2srep_h($strlabel)."\" data-t2smap=\"".$strkey."\" data-t2stip=\"".f_t2srep_h($strtip)."\">".$strinner."</span>";
 		$arrrecord=isset($arrrecords[$arrmark['index']]) ? $arrrecords[$arrmark['index']] : array();
 		$strhref=f_t2srep_entity_href_for($arrrecord, "ID_LOCATION");
 		if ($strhref=="") {
