@@ -174,7 +174,7 @@ Three files, one idiom, and all three must move together. A new selector needs: 
 
 ## Result feedback
 
-The thumbs up / down under the answer follows the same rule as the picture upload: the browser posts to the same-origin shim `html/app/feedback.php`, which adds the key. Never a direct `fetch` to the API, and `client` is fixed by the shim, never read from the browser. A vote is sent once and never retried (a retry could count it twice). The block is printed once per search, never in a `loadmore` call, and above the rows on purpose: below an infinite-scroll grid it would be reached only once every page is in. Details in `README.md`, "Result feedback".
+The thumbs up / down under the answer follows the same rule as the picture upload: the browser posts to the same-origin shim `html/app/feedback.php`, which adds the key. Never a direct `fetch` to the API, and `client` is fixed by the shim, never read from the browser. A vote is sent once and never retried (a retry could count it twice). The block is printed once per search, never in a `loadmore` call, and above the rows on purpose: below an infinite-scroll grid it would be reached only once every page is in. The thumbs sit at the right end of the chip bar (`.t2sRepBar`, one line that never wraps, the chips scrolling inside it); an answer drawn with its views waits for its chips (`$strt2sfeedbackthumbs` in the card case), every other outcome prints the thumbs alone on their row where the block is built. When you change the condition that sets `$intt2sviews`, change `$intt2sfeedbackdefer` with it, or the thumbs vanish. Details in `README.md`, "Result feedback".
 
 ## Samples page and result representations: mirrors of another front
 

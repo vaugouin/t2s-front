@@ -231,43 +231,84 @@ if (!function_exists('f_feedbackhtmltext')) {
 	}
 }
 
-if (!function_exists('f_feedbackblockhtml')) {
-	function f_feedbackblockhtml($arrlabels) {
-		//Purpose: Build the markup of the feedback block printed once under the answer of a search
+if (!function_exists('f_feedbacklabeltexts')) {
+	function f_feedbacklabeltexts($arrlabels) {
+		//Purpose: Escape the labels of the feedback markup once, every key present
 		//Params:	$arrlabels: Localized strings, keys question, up, down, commentlabel,
 		//				commentplaceholder, send, skip
-		//Returns: The HTML of the block, as a string
-		//
-		//The block is printed hidden and the script shows it: without JavaScript the buttons could
-		//not send anything, and a button that does nothing is worse than no button. The emoji are
-		//aria-hidden; each button is named by its aria-label, and aria-pressed says which choice
-		//stands. The comment field is labelled for screen readers only, its placeholder says the
-		//same thing to the eye.
+		//Returns: Associative array of the same keys, HTML-escaped, "" for a missing one
 		$arrlabels=is_array($arrlabels)?$arrlabels:array();
 		$arrtext=array();
 		foreach (array("question","up","down","commentlabel","commentplaceholder","send","skip") as $strkey) {
 			$arrtext[$strkey]=f_feedbackhtmltext(isset($arrlabels[$strkey])?$arrlabels[$strkey]:"");
 		}
-		$arrlimits=f_feedbackfieldlimits();
-		$lngmaxcomment=(int)$arrlimits["comment"];
+		return $arrtext;
+	}
+}
+
+if (!function_exists('f_feedbackthumbshtml')) {
+	function f_feedbackthumbshtml($arrlabels) {
+		//Purpose: Build the two thumbs, the part of the feedback that sits on the row of the
+		//			representation chips, after the last chip (f_t2srep_render_chips()), or alone on
+		//			that row when the answer has no chip (f_feedbackbarhtml())
+		//Params:	$arrlabels: Localized strings, see f_feedbacklabeltexts()
+		//Returns: The HTML of the thumbs group, as a string
+		//
+		//The question ("Was this result right?") is not printed: it is the accessible name of the
+		//group, so a screen reader still hears it, and the eye sees two small round buttons the
+		//height of a chip. The group is printed hidden and the script shows it: without JavaScript
+		//the buttons could not send anything, and a button that does nothing is worse than no
+		//button. The emoji are aria-hidden; each button is named by its aria-label, and
+		//aria-pressed says which choice stands. The status (sending, thanks, an error) is a short
+		//line before the thumbs, empty at rest.
+		$arrtext=f_feedbacklabeltexts($arrlabels);
 		$strhtml="";
-		$strhtml.="<div id=\"t2sFeedback\" class=\"t2sFeedback\" role=\"group\" aria-labelledby=\"t2sFeedbackQuestion\" hidden>";
-		$strhtml.="<div class=\"t2sFeedbackRow\">";
-		$strhtml.="<span id=\"t2sFeedbackQuestion\" class=\"t2sFeedbackQuestion\">".$arrtext["question"]."</span>";
+		$strhtml.="<div id=\"t2sFeedback\" class=\"t2sFeedback\" role=\"group\" aria-label=\"".$arrtext["question"]."\" hidden>";
+		$strhtml.="<span id=\"t2sFeedbackStatus\" class=\"t2sFeedbackStatus\" role=\"status\" aria-live=\"polite\"></span>";
 		$strhtml.="<span class=\"t2sFeedbackButtons\">";
 		$strhtml.="<button type=\"button\" id=\"t2sFeedbackUp\" class=\"t2sFeedbackButton\" aria-pressed=\"false\" aria-label=\"".$arrtext["up"]."\" title=\"".$arrtext["up"]."\"><span aria-hidden=\"true\">&#x1F44D;</span></button>";
 		$strhtml.="<button type=\"button\" id=\"t2sFeedbackDown\" class=\"t2sFeedbackButton\" aria-pressed=\"false\" aria-label=\"".$arrtext["down"]."\" title=\"".$arrtext["down"]."\"><span aria-hidden=\"true\">&#x1F44E;</span></button>";
 		$strhtml.="</span>";
 		$strhtml.="</div>";
+		return $strhtml;
+	}
+}
+
+if (!function_exists('f_feedbackcommenthtml')) {
+	function f_feedbackcommenthtml($arrlabels) {
+		//Purpose: Build the comment row that a click on a thumb opens, printed right under the row
+		//			that holds the thumbs
+		//Params:	$arrlabels: Localized strings, see f_feedbacklabeltexts()
+		//Returns: The HTML of the comment row, hidden, as a string
+		//
+		//The comment field is labelled for screen readers only, its placeholder says the same thing
+		//to the eye.
+		$arrtext=f_feedbacklabeltexts($arrlabels);
+		$arrlimits=f_feedbackfieldlimits();
+		$lngmaxcomment=(int)$arrlimits["comment"];
+		$strhtml="";
 		$strhtml.="<div id=\"t2sFeedbackCommentRow\" class=\"t2sFeedbackCommentRow\" hidden>";
 		$strhtml.="<label for=\"t2sFeedbackComment\" class=\"t2sSrOnly\">".$arrtext["commentlabel"]."</label>";
 		$strhtml.="<input type=\"text\" id=\"t2sFeedbackComment\" class=\"t2sFeedbackComment\" maxlength=\"".$lngmaxcomment."\" autocomplete=\"off\" enterkeyhint=\"send\" placeholder=\"".$arrtext["commentplaceholder"]."\">";
 		$strhtml.="<button type=\"button\" id=\"t2sFeedbackSend\" class=\"t2sFeedbackAction\">".$arrtext["send"]."</button>";
 		$strhtml.="<button type=\"button\" id=\"t2sFeedbackSkip\" class=\"t2sFeedbackAction t2sFeedbackActionSecondary\">".$arrtext["skip"]."</button>";
 		$strhtml.="</div>";
-		$strhtml.="<div id=\"t2sFeedbackStatus\" class=\"t2sFeedbackStatus\" role=\"status\" aria-live=\"polite\"></div>";
-		$strhtml.="</div>";
 		return $strhtml;
+	}
+}
+
+if (!function_exists('f_feedbackbarhtml')) {
+	function f_feedbackbarhtml($arrlabels) {
+		//Purpose: Build the row of an answer without chips: the thumbs alone, at the right end of
+		//			the place the chips would take, then the comment row
+		//Params:	$arrlabels: Localized strings, see f_feedbacklabeltexts()
+		//Returns: The HTML, as a string
+		//
+		//The row is the bar of the chip row (.t2sRepBar), so it is never taller than it. It is
+		//printed hidden with the thumbs, and the script shows both: without JavaScript nothing of
+		//the feedback takes room on the page.
+		return "<div id=\"t2sFeedbackBar\" class=\"t2sRepBar t2sFeedbackBar\" hidden>".f_feedbackthumbshtml($arrlabels)."</div>"
+			.f_feedbackcommenthtml($arrlabels);
 	}
 }
 
@@ -315,6 +356,7 @@ if (!function_exists('f_feedbackjs')) {
 		$arrlines[]="var objsend=document.getElementById('t2sFeedbackSend');";
 		$arrlines[]="var objskip=document.getElementById('t2sFeedbackSkip');";
 		$arrlines[]="var objstatus=document.getElementById('t2sFeedbackStatus');";
+		$arrlines[]="var objbar=document.getElementById('t2sFeedbackBar');";
 		//No fetch, no block: the markup stays hidden rather than offering buttons that cannot send.
 		$arrlines[]="if(!objroot||!objup||!objdown||!objstatus||!window.fetch||!window.JSON){return;}";
 		$arrlines[]="var strendpoint=".json_encode($strendpoint,$intjsonflags).";";
@@ -326,10 +368,12 @@ if (!function_exists('f_feedbackjs')) {
 		$arrlines[]="var lngrating=0;";
 		$arrlines[]="var lngpending=0;";
 		$arrlines[]="var intbusy=false;";
-		$arrlines[]="function f_fbstatus(strtext,intiserror){objstatus.textContent=strtext;if(intiserror){objstatus.className='t2sFeedbackStatus t2sFeedbackStatusError';}else{objstatus.className='t2sFeedbackStatus';}}";
+		$arrlines[]="function f_fbstatus(strtext,intiserror){objstatus.textContent=strtext;objstatus.removeAttribute('title');if(intiserror){objstatus.className='t2sFeedbackStatus t2sFeedbackStatusError';}else{objstatus.className='t2sFeedbackStatus';}}";
 		$arrlines[]="function f_fbpressed(){var lngshown=lngpending!==0?lngpending:lngrating;objup.setAttribute('aria-pressed',lngshown===1?'true':'false');objdown.setAttribute('aria-pressed',lngshown===-1?'true':'false');}";
 		$arrlines[]="function f_fbbusy(intvalue){intbusy=intvalue;objup.disabled=intvalue;objdown.disabled=intvalue;if(objsend){objsend.disabled=intvalue;}if(objskip){objskip.disabled=intvalue;}}";
-		$arrlines[]="function f_fbthanks(){return lngrating===-1&&strlabelrecompute?strlabelthanks+' '+strlabelrecompute:strlabelthanks;}";
+		//The confirmation next to the thumbs stays short. After a thumbs down the sentence saying that
+		//the answer will be computed again is read by a screen reader and shown on hover, not drawn.
+		$arrlines[]="function f_fbthanks(){f_fbstatus(strlabelthanks,false);if(lngrating===-1&&strlabelrecompute){var objextra=document.createElement('span');objextra.className='t2sSrOnly';objextra.textContent=' '+strlabelrecompute;objstatus.appendChild(objextra);objstatus.setAttribute('title',strlabelrecompute);}}";
 		$arrlines[]="function f_fbopencomment(){if(!objcommentrow||!objcomment){return;}objcommentrow.hidden=false;if(objcomment.focus){objcomment.focus();}}";
 		$arrlines[]="function f_fbclosecomment(){if(!objcommentrow){return;}objcommentrow.hidden=true;if(objcomment){objcomment.value='';}}";
 		$arrlines[]="function f_fbcomment(){return objcomment?objcomment.value.replace(/^\s+|\s+$/g,''):'';}";
@@ -338,13 +382,14 @@ if (!function_exists('f_feedbackjs')) {
 		$arrlines[]="function f_fbbody(lngvalue,strcomment){var objbody={rating:lngvalue};var strkey='';for(strkey in objcontext){if(Object.prototype.hasOwnProperty.call(objcontext,strkey)&&objcontext[strkey]!==''){objbody[strkey]=objcontext[strkey];}}if(strcomment){objbody.comment=strcomment;}return objbody;}";
 		$arrlines[]="function f_fbpost(lngvalue,strcomment){return fetch(strendpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(f_fbbody(lngvalue,strcomment))}).then(function(objresponse){return objresponse.json().then(function(objjson){return {ok:objresponse.ok,body:objjson};},function(){return {ok:false,body:{}};});});}";
 		$arrlines[]="function f_fbfailure(objresult){var strmessage=(objresult&&objresult.body&&typeof objresult.body.error==='string'&&objresult.body.error)?objresult.body.error:strlabelerror;f_fbstatus(strmessage,true);}";
-		$arrlines[]="function f_fbrate(lngvalue){if(intbusy){return;}if(lngvalue===lngrating&&lngpending===0){return;}if(lngvalue===lngrating){lngpending=0;f_fbpressed();f_fbclosecomment();f_fbstatus(f_fbthanks(),false);return;}lngpending=lngvalue;f_fbpressed();f_fbstatus('',false);f_fbopencomment();}";
-		$arrlines[]="function f_fbsubmit(strcomment){if(intbusy||lngpending===0){return;}var lngvalue=lngpending;f_fbbusy(true);f_fbstatus(strlabelsending,false);f_fbpost(lngvalue,strcomment).then(function(objresult){f_fbbusy(false);if(!objresult.ok||!objresult.body||!objresult.body.id_feedback){f_fbfailure(objresult);return;}lngrating=lngvalue;lngpending=0;f_fbpressed();f_fbclosecomment();f_fbstatus(f_fbthanks(),false);}).catch(function(){f_fbbusy(false);f_fbfailure(null);});}";
+		$arrlines[]="function f_fbrate(lngvalue){if(intbusy){return;}if(lngvalue===lngrating&&lngpending===0){return;}if(lngvalue===lngrating){lngpending=0;f_fbpressed();f_fbclosecomment();f_fbthanks();return;}lngpending=lngvalue;f_fbpressed();f_fbstatus('',false);f_fbopencomment();}";
+		$arrlines[]="function f_fbsubmit(strcomment){if(intbusy||lngpending===0){return;}var lngvalue=lngpending;f_fbbusy(true);f_fbstatus(strlabelsending,false);f_fbpost(lngvalue,strcomment).then(function(objresult){f_fbbusy(false);if(!objresult.ok||!objresult.body||!objresult.body.id_feedback){f_fbfailure(objresult);return;}lngrating=lngvalue;lngpending=0;f_fbpressed();f_fbclosecomment();f_fbthanks();}).catch(function(){f_fbbusy(false);f_fbfailure(null);});}";
 		$arrlines[]="objup.addEventListener('click',function(){f_fbrate(1);});";
 		$arrlines[]="objdown.addEventListener('click',function(){f_fbrate(-1);});";
 		$arrlines[]="if(objsend){objsend.addEventListener('click',function(){f_fbsubmit(f_fbcomment());});}";
 		$arrlines[]="if(objskip){objskip.addEventListener('click',function(){f_fbsubmit('');});}";
 		$arrlines[]="if(objcomment){objcomment.addEventListener('keydown',function(objevent){if(objevent.key==='Enter'||objevent.keyCode===13){objevent.preventDefault();f_fbsubmit(f_fbcomment());}else if(objevent.key==='Escape'||objevent.keyCode===27){objevent.preventDefault();f_fbsubmit('');}});}";
+		$arrlines[]="if(objbar){objbar.hidden=false;}";
 		$arrlines[]="objroot.hidden=false;";
 		$arrlines[]="})();";
 		return implode("\n",$arrlines)."\n";

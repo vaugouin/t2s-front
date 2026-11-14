@@ -625,13 +625,23 @@ if ($intdbavailable) {
 			echo "function f_t2stracecopy(){var strtext=f_t2stracetext();if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(strtext).then(function(){f_t2stracefeedback(strt2scopyok);},function(){f_t2stracefallback(strtext);});}else{f_t2stracefallback(strtext);}}";
 			echo "</script>";
 		}
-		//Thumbs up / down on the result, once per search, never in a loadmore call. Printed here, under
+		//Thumbs up / down on the result, once per search, never in a loadmore call. Built here, under
 		//the answer and its trace and above the rows, rather than after the rows: in card mode the
 		//grid loads its next pages as the visitor scrolls, so a block placed after it would keep
 		//moving away and be reached only once every page is in. This place is also common to the
 		//three outcomes (rows, no row, error), so one block covers them all. The question is
 		//required by the API; a search that has none (a photo alone, refused before an answer) gets
 		//no block.
+		//The thumbs sit on the row of the representation chips, after the last chip. An answer drawn
+		//with its views (the card case below, rows or an empty verdict, with a representation hint)
+		//prints its chips after the caption: the thumbs wait in $strt2sfeedbackthumbs and are printed
+		//there, on the chip row, or on a row of their own when the answer has no chip. Every other
+		//outcome (no row, an error, the grid mode, an API without hint) prints the thumbs alone on
+		//their row here. The condition below is the one that sets $intt2sviews in the card case.
+		$strt2sfeedbackthumbs="";
+		$strt2sfeedbackcomment="";
+		$strt2sfeedbackbar="";
+		$strt2sfeedbackscript="";
 		if (!$intloadmore && trim((string)$strsearch)!="") {
 			$strfeedbackapiversion=isset($jsontext2sql['api_version'])?trim((string)$jsontext2sql['api_version']):"";
 			if ($strfeedbackapiversion=="") {
@@ -642,7 +652,7 @@ if ($intdbavailable) {
 			//Same-origin shim, in the folder the visitor is browsing, like the upload shim above: the
 			//key stays on the server, and the colour the question went to is passed along.
 			$strfeedbackendpointurl=rtrim(str_replace("\\","/",dirname((string)$strphpself)),"/")."/feedback.php?apicolor=".rawurlencode($strapicolor);
-			echo f_feedbackblockhtml(array(
+			$arrt2sfeedbacklabels=array(
 				"question" => (string)get_movie_string('lib_t2s_feedback_question'),
 				"up" => (string)get_movie_string('lib_t2s_feedback_up'),
 				"down" => (string)get_movie_string('lib_t2s_feedback_down'),
@@ -650,9 +660,11 @@ if ($intdbavailable) {
 				"commentplaceholder" => (string)get_movie_string('lib_t2s_feedback_comment_placeholder'),
 				"send" => (string)get_movie_string('lib_t2s_feedback_send'),
 				"skip" => (string)get_movie_string('lib_t2s_feedback_skip')
-			));
-			echo "<script>\n";
-			echo f_feedbackjs(
+			);
+			$strt2sfeedbackthumbs=f_feedbackthumbshtml($arrt2sfeedbacklabels);
+			$strt2sfeedbackcomment=f_feedbackcommenthtml($arrt2sfeedbacklabels);
+			$strt2sfeedbackbar=f_feedbackbarhtml($arrt2sfeedbacklabels);
+			$strt2sfeedbackscript="<script>\n".f_feedbackjs(
 				array(
 					"endpoint" => $strfeedbackendpointurl,
 					"question" => (string)$strsearch,
@@ -669,8 +681,14 @@ if ($intdbavailable) {
 					"recompute" => (string)get_movie_string('lib_t2s_feedback_recompute'),
 					"error" => (string)get_movie_string('lib_t2s_feedback_error')
 				)
-			);
-			echo "</script>";
+			)."</script>";
+			$strt2sfeedbackrep=isset($jsontext2sql['representation']) ? trim((string)$jsontext2sql['representation']) : "";
+			$intt2sfeedbackdefer=($strrender=="card" && isset($jsontext2sql['result']) && is_array($jsontext2sql['result']) && $strt2sfeedbackrep!=""
+				&& (count($jsontext2sql['result'])>0 || ($strt2sfeedbackrep=="verdict" && isset($jsontext2sql['summary_facts']) && is_array($jsontext2sql['summary_facts']))));
+			if (!$intt2sfeedbackdefer) {
+				echo $strt2sfeedbackbar.$strt2sfeedbackscript;
+				$strt2sfeedbackscript="";
+			}
 		}
 
 		// Use the results from the API response instead of executing SQL directly
@@ -1032,8 +1050,19 @@ if ($intdbavailable) {
 							$arrt2shrefs[$strt2soption]=(isset($arrurlparsed['path'])?$arrurlparsed['path']:'')."?".http_build_query($arrt2squery)."#answer";
 							$arrt2slabels[$strt2soption]=get_movie_string('lib_t2s_rep_'.str_replace("-","_",$strt2soption));
 						}
-						echo f_t2srep_render_chips($arrt2soptions, $strt2srepactive, $arrt2shrefs, $arrt2slabels, get_movie_string('lib_t2s_rep_chips'));
+						echo f_t2srep_render_chips($arrt2soptions, $strt2srepactive, $arrt2shrefs, $arrt2slabels, get_movie_string('lib_t2s_rep_chips'),
+							$strt2sfeedbackscript!="" ? $strt2sfeedbackthumbs : "");
 						echo "<script>".f_t2srep_chips_js()."</script>";
+						if ($strt2sfeedbackscript!="") {
+							//The thumbs are on the chip row; the comment opens under it
+							echo $strt2sfeedbackcomment.$strt2sfeedbackscript;
+							$strt2sfeedbackscript="";
+						}
+					}
+					if ($strt2sfeedbackscript!="") {
+						//No chip: the thumbs alone, on a row where the chips would be
+						echo $strt2sfeedbackbar.$strt2sfeedbackscript;
+						$strt2sfeedbackscript="";
 					}
 					//The views this module draws: the default, and every other option as a hidden
 					//alternative

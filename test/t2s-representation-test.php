@@ -205,6 +205,13 @@ $strchips=f_t2srep_render_chips(array("value-cards","table"),"table",array("valu
 f_contains("chip href carries render=",$strchips,"href=\"/app/index.php?search=a&amp;render=value-cards#answer\"");
 f_contains("active chip marked",$strchips,"class=\"t2sChip t2sChipActive\" data-t2srep=\"table\"");
 f_contains("active chip aria-current",$strchips,"aria-current=\"true\">Table</a>");
+f_check("no trailing HTML: the row ends with the last chip",substr($strchips,-15),"Table</a></nav>");
+$strchipsthumbs=f_t2srep_render_chips(array("value-cards","table"),"table",array(),array("value-cards"=>"Cards with values","table"=>"Table"),"Show the result as","<div id=\"t2sFeedback\"></div>");
+f_check("the thumbs sit on the chip row, after the chips, in one bar",substr($strchipsthumbs,-49),"Table</a></nav><div id=\"t2sFeedback\"></div></div>");
+f_check("the bar opens before the chips",strpos($strchipsthumbs,"<div class=\"t2sRepBar\"><nav class=\"t2sChips\" id=\"t2sRepChips\""),0);
+f_contains("the chips script keeps the active chip in view without moving the page",f_t2srep_chips_js(),"objbar.scrollLeft+=objchip.right-objbox.right+24;");
+f_contains("the chips script marks a box with chips hidden on its right",f_t2srep_chips_js(),"objbar.classList.toggle('t2sChipsMore',");
+f_check("one option: no row, not even for the thumbs",f_t2srep_render_chips(array("table"),"table",array(),array(),"","<div></div>"),"");
 f_check("card view holds card-grid and value-cards, values shown",f_t2srep_view_open(array("card-grid","value-cards"),"value-cards","t2sCaption"),
 	"<div class=\"t2sRepView t2sRepCards t2sShowValues\" data-t2sreps=\"card-grid value-cards\" aria-describedby=\"t2sCaption\">");
 f_check("card view under card-grid: values hidden",f_t2srep_view_open(array("card-grid","value-cards"),"card-grid"),

@@ -1162,11 +1162,14 @@ function f_t2srep_caption($jsontext2sql, $strlang='en', $inthasmore=false) {
 	return $strlead.($strextreme!="" ? ($intfr ? " ; " : "; ").$strextreme : "").".";
 }
 
-function f_t2srep_render_chips($arroptions, $stractive, $arrhrefs, $arrlabels, $strarialabel="") {
+function f_t2srep_render_chips($arroptions, $stractive, $arrhrefs, $arrlabels, $strarialabel="", $strtrailhtml="") {
 	//Purpose: The representation chips, one link per option; "" with fewer than two options.
 	//			Each link reloads the page with render=<option> (shareable, survives a reload);
 	//			f_t2srep_chips_js() turns the click into a local switch, no API call.
 	//Params:	$arrhrefs, $arrlabels: option => URL, option => visible label (built by the page)
+	//			$strtrailhtml: HTML put on the row after the chips, the thumbs of the result feedback
+	//			(f_feedbackthumbshtml()). The row is then a .t2sRepBar that never wraps: the chips
+	//			scroll sideways inside their own box and the thumbs keep the right end of the line
 	if (count($arroptions)<2) {
 		return "";
 	}
@@ -1176,7 +1179,11 @@ function f_t2srep_render_chips($arroptions, $stractive, $arrhrefs, $arrlabels, $
 		$strhtml.="<a class=\"t2sChip".($intactive ? " t2sChipActive" : "")."\" data-t2srep=\"".f_t2srep_h($stroption)."\" href=\"".f_t2srep_h(isset($arrhrefs[$stroption]) ? $arrhrefs[$stroption] : "")."\"".($intactive ? " aria-current=\"true\"" : "").">"
 			.f_t2srep_h(isset($arrlabels[$stroption]) ? $arrlabels[$stroption] : $stroption)."</a>";
 	}
-	return $strhtml."</nav>";
+	$strhtml.="</nav>";
+	if ($strtrailhtml!="") {
+		$strhtml="<div class=\"t2sRepBar\">".$strhtml.$strtrailhtml."</div>";
+	}
+	return $strhtml;
 }
 
 function f_t2srep_view_open($arrreps, $stractive, $strcaptionid="") {
@@ -1206,11 +1213,19 @@ function f_t2srep_chips_js() {
 	//			The views are looked up at click time: the script is echoed right after the chip bar,
 	//			before the views exist, and a lookup at load found none (live bug of 2026-11-08: the
 	//			chip turned active, the view never changed).
+	//			On a .t2sRepBar the chips do not wrap and scroll inside their box: the script keeps
+	//			the active chip in view (scrollLeft only, never scrollIntoView, which would move the
+	//			page) and marks with t2sChipsMore the box that has chips hidden on its right, which
+	//			the stylesheet fades.
 	return "(function(){var objbar=document.getElementById('t2sRepChips');if(!objbar){return;}"
+		."function f_t2srepfit(){objbar.classList.toggle('t2sChipsMore',objbar.scrollLeft+objbar.clientWidth<objbar.scrollWidth-2);}"
+		."function f_t2srepreveal(){var objactive=objbar.querySelector('.t2sChipActive');if(!objactive||objbar.scrollWidth<=objbar.clientWidth){return;}var objbox=objbar.getBoundingClientRect();var objchip=objactive.getBoundingClientRect();if(objchip.right>objbox.right-24){objbar.scrollLeft+=objchip.right-objbox.right+24;}else if(objchip.left<objbox.left){objbar.scrollLeft-=objbox.left-objchip.left+8;}}"
+		."function f_t2sreplayout(){f_t2srepreveal();f_t2srepfit();}"
 		."function f_t2srepshow(strrep){var i;var arrviews=document.querySelectorAll('.t2sRepView');for(i=0;i<arrviews.length;i++){var objview=arrviews[i];var arrreps=(objview.getAttribute('data-t2sreps')||'').split(' ');objview.hidden=arrreps.indexOf(strrep)<0;if(objview.classList.contains('t2sRepCards')){objview.classList.toggle('t2sShowValues',strrep==='value-cards');objview.classList.toggle('t2sShowSequence',strrep==='sequence-strip');objview.classList.toggle('t2sShowCoverFlow',strrep==='cover-flow');}}"
-		."var arrchips=objbar.querySelectorAll('a[data-t2srep]');for(i=0;i<arrchips.length;i++){var intactive=arrchips[i].getAttribute('data-t2srep')===strrep;arrchips[i].classList.toggle('t2sChipActive',intactive);if(intactive){arrchips[i].setAttribute('aria-current','true');}else{arrchips[i].removeAttribute('aria-current');}}"
+		."var arrchips=objbar.querySelectorAll('a[data-t2srep]');for(i=0;i<arrchips.length;i++){var intactive=arrchips[i].getAttribute('data-t2srep')===strrep;arrchips[i].classList.toggle('t2sChipActive',intactive);if(intactive){arrchips[i].setAttribute('aria-current','true');}else{arrchips[i].removeAttribute('aria-current');}}f_t2sreplayout();"
 		."try{window.dispatchEvent(new Event('t2srepchange'));window.dispatchEvent(new Event('scroll'));}catch(e){}}"
 		."objbar.addEventListener('click',function(e){var objchip=e.target&&e.target.closest?e.target.closest('a[data-t2srep]'):null;if(!objchip){return;}if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey){return;}e.preventDefault();f_t2srepshow(objchip.getAttribute('data-t2srep'));if(window.history&&window.history.replaceState){window.history.replaceState(null,'',objchip.getAttribute('href'));}});"
+		."objbar.addEventListener('scroll',f_t2srepfit,{passive:true});window.addEventListener('resize',f_t2sreplayout);if(window.ResizeObserver){new ResizeObserver(f_t2sreplayout).observe(objbar);}f_t2sreplayout();"
 		."})();";
 }
 

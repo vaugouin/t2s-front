@@ -255,8 +255,16 @@ $arrhostile=array(
 	"send" => "Send & go",
 	"skip" => "Skip"
 );
-$strhtml=f_feedbackblockhtml($arrhostile);
-f_check("the block is printed hidden, the script shows it",true,strpos($strhtml,"id=\"t2sFeedback\" class=\"t2sFeedback\" role=\"group\" aria-labelledby=\"t2sFeedbackQuestion\" hidden>")!==false);
+$strhtml=f_feedbackbarhtml($arrhostile);
+$strthumbs=f_feedbackthumbshtml($arrhostile);
+$strcomment=f_feedbackcommenthtml($arrhostile);
+f_check("the bar is the thumbs then the comment row",$strhtml,"<div id=\"t2sFeedbackBar\" class=\"t2sRepBar t2sFeedbackBar\" hidden>".$strthumbs."</div>".$strcomment);
+f_check("the thumbs are printed hidden, the script shows them",true,strpos($strthumbs,"<div id=\"t2sFeedback\" class=\"t2sFeedback\" role=\"group\" aria-label=\"Who&#039;s &quot;the&quot; best?")===0);
+f_check("the question is the name of the group, never printed as text",false,strpos($strhtml,">Who&#039;s")!==false || strpos($strhtml,"t2sFeedbackQuestion")!==false);
+f_check("the thumbs hold the two buttons and the status, no comment field",true,strpos($strthumbs,"id=\"t2sFeedbackUp\"")!==false && strpos($strthumbs,"id=\"t2sFeedbackDown\"")!==false
+	&& strpos($strthumbs,"id=\"t2sFeedbackStatus\"")!==false && strpos($strthumbs,"t2sFeedbackComment")===false);
+f_check("the two thumbs share one wrapper, so they never part",true,(bool)preg_match('/<span class="t2sFeedbackButtons"><button[^>]*id="t2sFeedbackUp".*?<\/button><button[^>]*id="t2sFeedbackDown".*?<\/button><\/span>/',$strthumbs));
+f_check("the comment row is printed hidden",0,strpos($strcomment,"<div id=\"t2sFeedbackCommentRow\" class=\"t2sFeedbackCommentRow\" hidden>"));
 f_check("both buttons start unpressed",2,substr_count($strhtml,"aria-pressed=\"false\""));
 f_check("the status line is polite",true,strpos($strhtml,"role=\"status\" aria-live=\"polite\"")!==false);
 f_check("the comment field has a label",true,strpos($strhtml,"<label for=\"t2sFeedbackComment\"")!==false);
@@ -298,14 +306,26 @@ f_check("a click on a thumb posts nothing, it only marks the pending vote",false
 f_check("Send records the vote with its comment",true,strpos($strjs,"objsend.addEventListener('click',function(){f_fbsubmit(f_fbcomment());});")!==false);
 f_check("Skip records the vote without a comment",true,strpos($strjs,"objskip.addEventListener('click',function(){f_fbsubmit('');});")!==false);
 f_check("the thumb already recorded does not post again",true,strpos($strjs,"if(lngvalue===lngrating&&lngpending===0){return;}")!==false);
+f_check("the script shows the thumbs-only row when there is one",true,strpos($strjs,"if(objbar){objbar.hidden=false;}")!==false);
+f_check("the confirmation stays short: the recompute sentence is for screen readers and the hover",true,strpos($strjs,"objextra.className='t2sSrOnly';")!==false && strpos($strjs,"objstatus.setAttribute('title',strlabelrecompute);")!==false);
 f_check("the script never names the API or its key",false,stripos($strjs,"apikey")!==false || stripos($strjs,"text2sql")!==false);
 f_nodecheck("the feedback script with hostile values",$strjs);
 f_nodecheck("the feedback script with empty values",f_feedbackjs(array(),array()));
 
 //The search page must keep calling the two builders, with the shim URL and outside loadmore.
 f_check("the search page includes the helpers",true,strpos($strsearchsource,"include(__DIR__.\"/feedback-ui.inc.php\");")!==false);
-f_check("the search page prints the block",true,strpos($strsearchsource,"echo f_feedbackblockhtml(")!==false);
-f_check("the search page prints the script",true,strpos($strsearchsource,"echo f_feedbackjs(")!==false);
+f_check("the search page builds the thumbs, the comment row and the bar",true,strpos($strsearchsource,"\$strt2sfeedbackthumbs=f_feedbackthumbshtml(")!==false
+	&& strpos($strsearchsource,"\$strt2sfeedbackcomment=f_feedbackcommenthtml(")!==false && strpos($strsearchsource,"\$strt2sfeedbackbar=f_feedbackbarhtml(")!==false);
+f_check("the thumbs go on the chip row, after the last chip",true,strpos($strsearchsource,"get_movie_string('lib_t2s_rep_chips'),\n\t\t\t\t\t\t\t\$strt2sfeedbackscript!=\"\" ? \$strt2sfeedbackthumbs : \"\");")!==false);
+f_check("the comment row opens under the chip row",true,strpos($strsearchsource,"echo \$strt2sfeedbackcomment.\$strt2sfeedbackscript;")!==false);
+f_check("without chip, the thumbs alone on their row (views, and every other outcome)",2,substr_count($strsearchsource,"echo \$strt2sfeedbackbar.\$strt2sfeedbackscript;"));
+f_check("the bar without chip sits in the views block after the chips",true,(function($strsource) {
+	$lngchips=strpos($strsource,"echo f_t2srep_render_chips(");
+	$lngviews=strpos($strsource,"foreach (\$arrt2soptions as \$strt2soption) {\n\t\t\t\t\t\tif (in_array(\$strt2soption, f_t2srep_module_reps(), true)) {");
+	$lngbar=strrpos($strsource,"echo \$strt2sfeedbackbar.\$strt2sfeedbackscript;");
+	return $lngchips!==false && $lngviews!==false && $lngbar!==false && $lngchips<$lngbar && $lngbar<$lngviews;
+})($strsearchsource));
+f_check("the search page builds the script",true,strpos($strsearchsource,"\$strt2sfeedbackscript=\"<script>\\n\".f_feedbackjs(")!==false);
 f_check("the search page points to the same-origin shim",true,strpos($strsearchsource,"\"/feedback.php?apicolor=\"")!==false);
 f_check("the block is guarded against loadmore calls",true,strpos($strsearchsource,"if (!\$intloadmore && trim((string)\$strsearch)!=\"\") {")!==false);
 f_check("the shell of the shim includes its body",true,strpos((string)file_get_contents(__DIR__."/../html/app/feedback.php"),"include(__DIR__.\"/../../lib/feedback.inc.php\");")!==false);

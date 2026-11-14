@@ -1075,6 +1075,40 @@ summary.fiche-section-summary:hover {
   gap: 8px;
   margin: 8px 0 4px;
 }
+/* The chip row with the thumbs of the result feedback at its right end. One line, never wrapped:
+   the chips take what the thumbs leave, do not wrap and scroll sideways inside their own box
+   (no scrollbar drawn; .t2sChipsMore, set by the chips script, fades the right edge while chips
+   are hidden there). An answer without chips gets the same bar with the thumbs alone. */
+.t2sRepBar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+  max-width: 100%;
+}
+.t2sRepBar > .t2sChips {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: 2px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.t2sRepBar > .t2sChips::-webkit-scrollbar {
+  display: none;
+}
+.t2sRepBar > .t2sChips.t2sChipsMore {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.t2sRepBar .t2sChip {
+  flex: none;
+  white-space: nowrap;
+}
 .t2sChip {
   display: inline-block;
   padding: 4px 12px;
@@ -2707,49 +2741,53 @@ a.t2sChainCard:focus-visible .t2sChainTitle {
   }
 }
 
-/* Thumbs up / down under the answer of a search (lib/feedback-ui.inc.php). One block per
-   search, printed hidden and shown by its script. The buttons are 44 px targets for a finger,
-   aria-pressed marks the choice that stands, and the comment row wraps under the field at
-   phone width rather than widening the page. */
+/* Thumbs up / down of a search result (lib/feedback-ui.inc.php). The two thumbs sit at the right
+   end of the bar of the representation chips (.t2sRepBar), on the chips' line; an answer without
+   chips gets the same bar with the thumbs alone (.t2sFeedbackBar). Each thumb is a small round
+   button, the two never part, and the question is the accessible name of the group, not printed.
+   The status (the short thanks, an error) sits before the thumbs; a long error wraps in its
+   narrow column rather than pushing the thumbs off the line. The comment row opens under the bar
+   after a click, and wraps under its field at phone width rather than widening the page. Printed
+   hidden, shown by the script. */
 .t2sFeedback {
-  margin: 12px 0;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--bg-secondary);
-  max-width: 100%;
+  display: inline-flex;
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 .t2sFeedback[hidden],
+.t2sFeedbackBar[hidden],
 .t2sFeedbackCommentRow[hidden] {
   display: none;
 }
-.t2sFeedbackRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-}
-.t2sFeedbackQuestion {
-  color: var(--text-secondary);
-}
 .t2sFeedbackButtons {
   display: inline-flex;
-  gap: 8px;
+  flex: 0 0 auto;
+  gap: 6px;
 }
 .t2sFeedbackButton {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 10px;
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
   line-height: 1;
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: 50%;
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
   cursor: pointer;
 }
 .t2sFeedbackButton:hover {
-  border-color: var(--text-secondary);
+  border-color: var(--accent-secondary);
 }
 .t2sFeedbackButton:focus-visible,
 .t2sFeedbackAction:focus-visible {
@@ -2770,10 +2808,10 @@ a.t2sChainCard:focus-visible .t2sChainTitle {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin: 4px 0 8px;
 }
 .t2sFeedbackCommentRow input[type="text"].t2sFeedbackComment {
-  flex: 1 1 220px;
+  flex: 1 1 160px;
   min-width: 0;
   width: auto;
   margin: 0;
@@ -2794,13 +2832,15 @@ a.t2sChainCard:focus-visible .t2sChainTitle {
   color: var(--text-primary);
 }
 .t2sFeedbackStatus {
-  margin-top: 6px;
-  min-height: 1.6em;
+  max-width: 11em;
   color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 .t2sFeedbackStatus:empty {
-  min-height: 0;
-  margin-top: 0;
+  display: none;
 }
 .t2sFeedbackStatusError {
   color: var(--error);
