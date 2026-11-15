@@ -1202,7 +1202,7 @@ f_check("places map: every country neutral, none shaded",strpos($strhtml,"t2sMap
 f_contains("places map: a pin",$strhtml,"<span class=\"t2sPlacePin\" role=\"button\" tabindex=\"0\" style=\"left:25.59%;top:18.96%\" title=\"1. London \u{00B7} City\" aria-label=\"1. London \u{00B7} City\" data-t2smap=\"g1\" data-t2stip=\"1. London \u{00B7} City\">1</span>");
 f_contains("places map: an area, a ring and its badge",$strhtml,"<span class=\"t2sPlaceArea\" role=\"button\" tabindex=\"0\" style=\"left:20.49%;top:52.17%\" title=\"2. Spain \u{00B7} Country\" aria-label=\"2. Spain \u{00B7} Country\" data-t2smap=\"g2\" data-t2stip=\"2. Spain \u{00B7} Country\"><span class=\"t2sPlaceBadge\">2</span></span>");
 f_check("places map: one mark a place",array(substr_count($strhtml,"class=\"t2sPlacePin\""),substr_count($strhtml,"class=\"t2sPlaceArea\""),substr_count($strhtml,"<li class=\"t2sPlaceItem\"")),array(1,4,5));
-f_contains("places map: the tip line",$strhtml,"<p class=\"t2sMapTip\" aria-live=\"polite\">Tap or hover over a number to see its place.</p>");
+f_contains("places map: the tip line",$strhtml,"<p class=\"t2sMapTip\" aria-live=\"polite\">Tap a number to open its place, hover over it to see its name.</p>");
 f_contains("places map: the list links as the cards",$strhtml,"<li class=\"t2sPlaceItem\" data-t2smap=\"g1\" data-t2stip=\"1. London \u{00B7} City\"><span class=\"t2sPlaceNum isPin\" aria-hidden=\"true\">1</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=21\">London</a> <span class=\"t2sPlaceType\">City</span></span></li>");
 f_contains("places map: an area in the list",$strhtml,"<span class=\"t2sPlaceNum isArea\" aria-hidden=\"true\">5</span><span class=\"t2sPlaceText\"><a href=\"location.php?locationid=1144\">");
 f_contains("places map: the hidden table",$strhtml,"<div class=\"t2sSrOnly\"><table><thead><tr><th scope=\"col\">Place</th><th scope=\"col\">Type</th><th scope=\"col\">On the map</th></tr></thead><tbody><tr><td>London</td><td>City</td><td>yes</td></tr>");
@@ -1210,7 +1210,7 @@ f_check("places map: no note when every place is on it",strpos($strhtml,"t2sMapO
 $strhtml=f_t2srep_render("map",$arrfix['p3d-places-akira-hand-fr'],"fr");
 f_contains("places map fr: the places not on it",$strhtml,"<p class=\"t2sMapOff\">Absents de la carte : Neo-Tokyo (lieu fictif), Studio lot (sans coordonnées).</p>");
 f_contains("places map fr: the hidden table, the reasons",$strhtml,"<tr><td>Neo-Tokyo</td><td>Lieu fictif</td><td>lieu fictif</td></tr><tr><td>Studio lot</td><td>Lieu</td><td>sans coordonnées</td></tr>");
-f_contains("places map fr: the tip line",$strhtml,"Touchez ou survolez un numéro pour voir son lieu.");
+f_contains("places map fr: the tip line",$strhtml,"Touchez un numéro pour ouvrir son lieu, survolez-le pour voir son nom.");
 $strhtml=f_t2srep_render("map",$arrfix['p3d-places-harry-potter-uk-en'],"en");
 $arrhp=f_t2srep_place_map_model($arrfix['p3d-places-harry-potter-uk-en'],"en");
 $arrhpgroup=array();
@@ -1243,12 +1243,18 @@ f_nodecheck("the map hover script, with the places",f_t2srep_map_js());
 //Zoom on the map of places (as voice-agent): the data the script reads, then its pure helpers run
 //in node on Amélie, whose Paris places share one mark at the whole view and split once framed
 f_nodecheck("the place map zoom script",f_t2srep_place_map_js());
+f_contains("place map: a tap on a single mark opens its page",f_t2srep_place_map_js(),"var href=data.marks[members[0]-1]&&data.marks[members[0]-1].href;");
 $strhtml=f_t2srep_render("map",$arrfix['p3d-places-live-amelie-en'],"en");
 $arrzoom=preg_match('/data-t2splaces="([^"]*)"/',$strhtml,$arrm) ? json_decode(html_entity_decode($arrm[1],ENT_QUOTES,"UTF-8"),true) : null;
 $arrpm=f_t2srep_place_map_model($arrfix['p3d-places-live-amelie-en'],"en");
 f_check("place zoom data: outline, default frame, five marks with their points",
 	array($arrzoom['w'],$arrzoom['h'],$arrzoom['base'],count($arrzoom['marks']),$arrzoom['marks'][1]['label'],$arrzoom['labels']['in']),
 	array(2000,863,$arrpm['frame'],5,"Cologne","Zoom in"));
+$arrlihrefs=array();
+foreach ((preg_match_all('/<li class="t2sPlaceItem".*?<\/li>/',$strhtml,$arrli) ? $arrli[0] : array()) as $strli) {
+	$arrlihrefs[]=preg_match('/<a href="([^"]*)"/',$strli,$arra) ? html_entity_decode($arra[1],ENT_QUOTES,"UTF-8") : "";
+}
+f_check("place zoom data: each mark carries the page of its list link",array(array_column($arrzoom['marks'],'href'),count(array_filter($arrlihrefs))),array($arrlihrefs,5));
 f_check("place zoom data, French labels",json_decode(html_entity_decode(preg_match('/data-t2splaces="([^"]*)"/',f_t2srep_render("map",$arrfix['p3d-places-live-amelie-en'],"fr"),$arrm) ? $arrm[1] : "",ENT_QUOTES,"UTF-8"),true)['labels'],
 	array("in"=>"Zoomer","out"=>"Dézoomer","whole"=>"Revenir à la vue d'ensemble"));
 $strjs=f_t2srep_place_map_js();

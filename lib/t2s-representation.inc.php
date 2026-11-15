@@ -3363,7 +3363,15 @@ function setup(frame){
 		var el=ev.target.closest?ev.target.closest('[data-t2smembers]'):null;
 		if(!el||dragged){return;}
 		var members=el.getAttribute('data-t2smembers').split(',').map(Number);
-		if(members.length>1){go(fit(members.map(point),b));}
+		if(members.length>1){go(fit(members.map(point),b));return;}
+		//A single place opens its page, as its name in the list does
+		var href=data.marks[members[0]-1]&&data.marks[members[0]-1].href;
+		if(href){window.location.href=href;}
+	});
+	frame.addEventListener('keydown',function(ev){
+		if(ev.key!=='Enter'&&ev.key!==' '){return;}
+		var el=ev.target.closest?ev.target.closest('[data-t2smembers]'):null;
+		if(el){ev.preventDefault();el.click();}
 	});
 	var pointers={},count=0,gesture=null;
 	function centre(){return {cx:cur.x+cur.width/2,cy:cur.y+cur.height/2};}
@@ -3726,7 +3734,8 @@ function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null)
 			." title=\"".f_t2srep_h($arrgroup['tip'])."\" aria-label=\"".f_t2srep_h($arrgroup['tip'])."\" data-t2smap=\"".$strkey."\" data-t2stip=\"".f_t2srep_h($arrgroup['tip'])."\">".$strinner."</span>";
 	}
 	$strlist="";
-	foreach ($arrmodel['marks'] as $arrmark) {
+	$arrhrefs=array();
+	foreach ($arrmodel['marks'] as $lngi=>$arrmark) {
 		$strn=(string)$arrmark['n'];
 		$strkey=isset($arrgroupof[$arrmark['n']]) ? $arrgroupof[$arrmark['n']] : "g".$strn;
 		$strtip=$strn.". ".$arrmark['label']." \u{00B7} ".$arrmark['typeText'];
@@ -3735,6 +3744,7 @@ function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null)
 		if ($strhref=="") {
 			$strhref=f_t2srep_entity_href($arrrecord);
 		}
+		$arrhrefs[$lngi]=$strhref;
 		$strname=f_t2srep_h($arrmark['label']);
 		$strlist.="<li class=\"t2sPlaceItem\" data-t2smap=\"".$strkey."\" data-t2stip=\"".f_t2srep_h($strtip)."\">"
 			."<span class=\"t2sPlaceNum ".($arrmark['kind']=="area" ? "isArea" : "isPin")."\" aria-hidden=\"true\">".$strn."</span>"
@@ -3742,11 +3752,11 @@ function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null)
 			." <span class=\"t2sPlaceType\">".f_t2srep_h($arrmark['typeText'])."</span></span></li>";
 	}
 	//What the zoom needs (f_t2srep_place_map_js()): the outline's size, the default frame, every
-	//mark at its point in outline units, and the button labels
+	//mark at its point in outline units with its page (a tap on a single mark opens it), and the button labels
 	$arrzoommarks=array();
 	foreach ($arrmodel['marks'] as $lngi=>$arrmark) {
 		$arrzoommarks[]=array("n"=>$arrmark['n'], "kind"=>$arrmark['kind'], "label"=>$arrmark['label'], "typeText"=>$arrmark['typeText'],
-			"x"=>round($arrmodel['points'][$lngi][0], 4), "y"=>round($arrmodel['points'][$lngi][1], 4));
+			"x"=>round($arrmodel['points'][$lngi][0], 4), "y"=>round($arrmodel['points'][$lngi][1], 4), "href"=>$arrhrefs[$lngi]);
 	}
 	$strzoom=json_encode(array("w"=>(float)$arrworld['width'], "h"=>(float)$arrworld['height'], "base"=>$arrframe, "marks"=>$arrzoommarks,
 		"labels"=>array("in"=>$intfr ? "Zoomer" : "Zoom in", "out"=>$intfr ? "Dézoomer" : "Zoom out", "whole"=>$intfr ? "Revenir à la vue d'ensemble" : "Back to the whole view")),
@@ -3755,7 +3765,7 @@ function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null)
 		." data-t2splaces=\"".f_t2srep_h($strzoom)."\">"
 		."<svg class=\"t2sMapSvg\" viewBox=\"".$arrmodel['viewBox']."\" role=\"img\" aria-label=\"".($intfr ? "Carte des lieux" : "Map of the places")."\">"
 		."<path class=\"t2sMapLand\" d=\"".f_t2srep_h($strland)."\"/></svg>".$strmarks."</div>"
-		."<p class=\"t2sMapTip\" aria-live=\"polite\">".($intfr ? "Touchez ou survolez un numéro pour voir son lieu." : "Tap or hover over a number to see its place.")."</p>"
+		."<p class=\"t2sMapTip\" aria-live=\"polite\">".($intfr ? "Touchez un numéro pour ouvrir son lieu, survolez-le pour voir son nom." : "Tap a number to open its place, hover over it to see its name.")."</p>"
 		."<ol class=\"t2sPlaceList\">".$strlist."</ol>";
 	if ($arrmodel['offText']!=="") {
 		$strhtml.="<p class=\"t2sMapOff\">".f_t2srep_h($arrmodel['offText'])."</p>";
