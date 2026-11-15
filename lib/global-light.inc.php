@@ -165,6 +165,9 @@ $strtext2sqlapibluedomainurl=env('TEXT2SQL_API_BLUE_URL', isset($strtext2sqlapib
 $strtext2sqlapigreendomainurl=env('TEXT2SQL_API_GREEN_URL', isset($strtext2sqlapigreendomainurl) ? $strtext2sqlapigreendomainurl : '');
 $strtext2sqlapikeyname=env('TEXT2SQL_API_KEY_NAME', isset($strtext2sqlapikeyname) ? $strtext2sqlapikeyname : '');
 $strtext2sqlapikeyvalue=env('TEXT2SQL_API_KEY_VALUE', isset($strtext2sqlapikeyvalue) ? $strtext2sqlapikeyvalue : '');
+//The Text2SQL API holds no OpenAI key: each client sends its own in the X-OpenAI-Key header, and
+//the API pays every model call of the request with it. Server-side only, never sent to the page.
+$stropenaiapikey=env('OPENAI_API_KEY', isset($stropenaiapikey) ? $stropenaiapikey : '');
 $strtmdbapidomainurl="https://api.themoviedb.org";
 $strlanguagecountry="en-US";
 $strlanguage="en";
@@ -3744,6 +3747,7 @@ function f_movietext2sqlsearch($strsearch, $strquestionhashed="", $lngpage=1, $s
 	global $strtext2sqlapigreendomainurl;
 	global $strtext2sqlapikeyname;
 	global $strtext2sqlapikeyvalue;
+	global $stropenaiapikey;
 	global $intretrievefromcache;
 	global $intstoretocache;
 	
@@ -3826,11 +3830,11 @@ function f_movietext2sqlsearch($strsearch, $strquestionhashed="", $lngpage=1, $s
 		CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
 		CURLOPT_CUSTOMREQUEST => 'POST',
 		CURLOPT_POSTFIELDS => $json_payload,
-		CURLOPT_HTTPHEADER => array(
+		CURLOPT_HTTPHEADER => array_merge(array(
 			$strtext2sqlapikeyname.": ".$strtext2sqlapikeyvalue,
 			"Content-Type: application/json",
 			"Content-Length: " . strlen($json_payload)
-		),
+		), $stropenaiapikey !== "" ? array("X-OpenAI-Key: ".$stropenaiapikey) : array()),
 		CURLOPT_HEADERFUNCTION => function($curl,$strheader) use (&$arrresponseheaders) {
 			$lngheaderlen=strlen($strheader);
 			$strheadertrim=trim($strheader);
