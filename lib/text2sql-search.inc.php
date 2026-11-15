@@ -333,7 +333,8 @@ if ($intdbavailable) {
 	//Database is available
 	if (!$intloadmore) {
 		$strh1extra="<a href=\"text2sql-settings.php\" alt=\"".get_movie_string('lib_text2sql_settings')."\" title=\"".get_movie_string('lib_text2sql_settings')."\" class=\"no-hover\">⚙️</a>";
-		switch ($strapicolor) {
+		//No colour switch in the demo mode: the colour is the one set in global-light.inc.php
+		switch (empty($intbyok) ? $strapicolor : "") {
 		case "Blue":
 			$strcoloralturl="index.php?search=".urlencode($strsearch)."&amp;apicolor=Green";
 			$strh1extra.=" <a href=\"".$strcoloralturl."\" alt=\"".get_movie_string('lib_t2s_api_blue_to_green')."\" title=\"".get_movie_string('lib_t2s_api_blue_to_green')."\" class=\"no-hover\">🔵</a>";

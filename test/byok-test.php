@@ -58,6 +58,11 @@ $arrdemomap=array(
 f_check("the key cookie goes to every demo prefix, and to no other",f_byokcookiepaths($arrdemomap,"/demo/openai-key.php"),array("/demo/","/demo-fr/"));
 f_check("no demo prefix in the map: the folder of the page",f_byokcookiepaths(array(),"/demo/openai-key.php"),array("/demo/"));
 
+echo "\nOpenAI models only\n";
+f_check("Claude leaves the list",f_byokopenaimodels(array("gpt-6-sol","claude-opus-5-5","gpt-6-luna-decisions")),array("gpt-6-sol","gpt-6-luna-decisions"));
+f_check("Gemini and Gemma leave too, o-series stays",f_byokopenaimodels(array("gemini-2.5-flash","gemma-4","o3")),array("o3"));
+f_check("empty list",f_byokopenaimodels(array()),array());
+
 echo "\nThe return URL stays in the folder\n";
 f_check("search page kept",f_byokreturnurl("index.php?search=Who+directed+Alien%3F"),"index.php?search=Who+directed+Alien%3F");
 f_check("another page kept",f_byokreturnurl("movie.php?id=348"),"movie.php?id=348");
@@ -76,10 +81,13 @@ echo "\nWiring\n";
 $strgloballight=file_get_contents(__DIR__."/../lib/global-light.inc.php");
 $lngposstate=strpos($strgloballight,'$intbyok=$arrprefixstate["byok"];');
 f_check("global-light reads the mode from the prefix map",$lngposstate!==false,true);
-f_check("global-light replaces the site's key with the visitor's in the demo mode",strpos($strgloballight,"if (\$intbyok) {\n\t\$stropenaiapikey=f_byokcookiekey(\$_COOKIE);\n}")!==false,true);
+f_check("global-light replaces the site's key with the visitor's in the demo mode",strpos($strgloballight,"if (\$intbyok) {\n\t\$stropenaiapikey=f_byokcookiekey(\$_COOKIE);\n")!==false,true);
 $strsearch=file_get_contents(__DIR__."/../lib/text2sql-search.inc.php");
 $lngposgate=strpos($strsearch,'!empty($intbyok) && $stropenaiapikey==""');
 $lngposcall=strpos($strsearch,'$arrtext2sql=f_movietext2sqlsearch(');
+f_check("demo mode ignores the colour parameter and cookie",strpos($strgloballight,"unset(\$_GET['apicolor'],\$_POST['apicolor'],\$_COOKIE['apicolor']);")!==false,true);
+f_check("demo mode filters the three model lists",substr_count($strgloballight,"=f_byokopenaimodels(\$arrallowed"),3);
+f_check("demo mode: these come after the model lists are defined",strpos($strgloballight,"=f_byokopenaimodels(")>strpos($strgloballight,"$arrallowedcomplexmodels=array("),true);
 f_check("the search page asks for a key before it can call the API",$lngposgate!==false && $lngposcall!==false && $lngposgate<$lngposcall,true);
 $strupload=file_get_contents(__DIR__."/../lib/upload-vision.inc.php");
 f_check("the upload shim refuses a demo visitor without a key",strpos($strupload,'!empty($intbyok) && $stropenaiapikey===""')!==false,true);

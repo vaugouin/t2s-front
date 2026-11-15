@@ -80,6 +80,22 @@ if (!function_exists('f_byokcookiepaths')) {
 	}
 }
 
+if (!function_exists('f_byokopenaimodels')) {
+	function f_byokopenaimodels($arrmodels) {
+		//Purpose: The models a demo visitor may pick: OpenAI ones only, since any other provider
+		//			would be paid with the site's own key, not with the visitor's
+		//Params:	$arrmodels: list of model names
+		//Returns: the same list without the names that do not start with gpt- or o<digit>
+		$arrkept=array();
+		foreach ((array)$arrmodels as $strmodel) {
+			if (preg_match('/^(gpt-|o[0-9])/',(string)$strmodel)===1) {
+				$arrkept[]=$strmodel;
+			}
+		}
+		return $arrkept;
+	}
+}
+
 if (!function_exists('f_byokreturnurl')) {
 	function f_byokreturnurl($strurl) {
 		//Purpose: Where to send the visitor once the key is saved, without ever leaving the prefix

@@ -180,8 +180,12 @@ if ($intdbavailable) {
 	}
 	echo "</select>";
 
-	echo "<div style=\"margin-top:8px;\"><strong>API color</strong></div>";
-	foreach (array("Blue","Green") as $strcolor) {
+	//Demo mode: no colour choice (global-light.inc.php ignores it)
+	$arrcolors=(empty($intbyok) ? array("Blue","Green") : array());
+	if (count($arrcolors)>0) {
+		echo "<div style=\"margin-top:8px;\"><strong>API color</strong></div>";
+	}
+	foreach ($arrcolors as $strcolor) {
 		$intchecked=($strapicolor===$strcolor);
 		echo "<label style=\"display:block; margin:4px 0;\">";
 		echo "<input type=\"radio\" name=\"apicolor\" value=\"".htmlspecialchars($strcolor,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";

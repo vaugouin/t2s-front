@@ -4350,6 +4350,13 @@ include_once(__DIR__."/byok.inc.php");
 $intbyok=$arrprefixstate["byok"];
 if ($intbyok) {
 	$stropenaiapikey=f_byokcookiekey($_COOKIE);
+	//What a demo visitor cannot choose. The API colour is the one written at the top of this file
+	//($strtext2sqlapicolor): the parameter and the cookie are ignored, wherever they are read. Only
+	//OpenAI models are offered, since another provider would be paid with the site's own key.
+	unset($_GET['apicolor'],$_POST['apicolor'],$_COOKIE['apicolor']);
+	$arrallowedmodels=f_byokopenaimodels($arrallowedmodels);
+	$arrallowedcomplexmodels=f_byokopenaimodels($arrallowedcomplexmodels);
+	$arrallowedresultentitymodels=f_byokopenaimodels($arrallowedresultentitymodels);
 }
 
 function f_searchlink($strexpr) {
