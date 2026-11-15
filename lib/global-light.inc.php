@@ -4194,6 +4194,10 @@ function f_socialmetadisplay($strtitle="",$arrsocial=array()) {
 }
 
 function f_headerdisplay($strtitle="",$strh1extra="",$arrsocial=array()) {
+	global $intbyok;
+	global $struilang;
+	global $struilangalt;
+	global $struilangalturl;
 	global $strlibhome;
 	global $struilang;
 	global $intprivate;
@@ -4222,6 +4226,12 @@ function f_headerdisplay($strtitle="",$strh1extra="",$arrsocial=array()) {
 		echo " ".$strh1extra;
 	}
 	echo " <a href=\"#footer\">▼</a>";
+	//Demo mode: the other language of the demo at the top of every page, not only in the footer,
+	//since a visitor arriving from a shared link has no other way to find it.
+	if (!empty($intbyok) && $struilangalt!="") {
+		$strlangtext=get_movie_string('lib_footer_lang_switch')." ".f_tmdboriginallanguagetranslate($struilangalt, $struilang);
+		echo " <a href=\"".f_htmlattr($struilangalturl)."\" class=\"t2s-byok-lang\" title=\"".f_htmlattr($strlangtext)."\"><img src=\"images/lang-".f_htmlattr($struilangalt).".png\" width=\"31\" height=\"16\" alt=\"".f_htmlattr($strlangtext)."\"></a>";
+	}
 	echo "</h1>";
 	echo "<div id=\"burgeroverlay\" class=\"burger-overlay\" onclick=\"f_burgerclose()\"></div>";
 	echo "<nav id=\"burgermenu\" class=\"burger-menu\" aria-label=\"".f_htmlattr(get_movie_string('lib_home_menu'))."\">";
@@ -4235,6 +4245,10 @@ function f_headerdisplay($strtitle="",$strh1extra="",$arrsocial=array()) {
 	//Hook menu.items: entries of the plugins, private mode only since plugins load only there
 	echo f_pluginhtml("menu.items");
 	echo "<a href=\"text2sql-settings.php\">".get_movie_string('lib_text2sql_settings_short')."</a>";
+	if (!empty($intbyok)) {
+		//Demo mode: where the visitor enters, changes or forgets their own OpenAI key
+		echo "<a href=\"openai-key.php?return=".rawurlencode(f_byokrequestpage(isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : ""))."\">".get_movie_string('lib_byok_menu')."</a>";
+	}
 	echo "<a href=\"about.php\">".get_movie_string('lib_about')."</a>";
 	echo "</nav>";
 	echo "<script>\n";
@@ -4329,6 +4343,14 @@ $struilang=$arrprefixstate["lang"];
 //Empty when the map offers no public prefix in another language: the footer then shows no switch
 $struilangalt=$arrprefixstate["langalt"];
 $struilangalturl=$arrprefixstate["langalturl"];
+//Demo mode (prefix flagged byok, lib/byok.inc.php): the visitor's own OpenAI key, read from its
+//HttpOnly cookie, replaces the site's key, which is never used under such a prefix, not even
+//when the visitor has none: the search page then asks for one instead of calling the API.
+include_once(__DIR__."/byok.inc.php");
+$intbyok=$arrprefixstate["byok"];
+if ($intbyok) {
+	$stropenaiapikey=f_byokcookiekey($_COOKIE);
+}
 
 function f_searchlink($strexpr) {
 	$strlink="<a href=\"?search=".urlencode($strexpr)."&val=Rechercher\">".$strexpr."</a><br />";

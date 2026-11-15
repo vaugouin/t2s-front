@@ -36,16 +36,16 @@ $strconfig="/en/:en,/fr/:fr,/staff/:en:private,/equipe/:fr:private";
 echo "\nReading the prefix list\n";
 $arrmap=f_prefixparse($strconfig,"en");
 f_check("four entries",count($arrmap),4);
-f_check("first entry",$arrmap[0],array("prefix"=>"/en/","lang"=>"en","private"=>0));
-f_check("private entry",$arrmap[2],array("prefix"=>"/staff/","lang"=>"en","private"=>1));
+f_check("first entry",$arrmap[0],array("prefix"=>"/en/","lang"=>"en","private"=>0,"byok"=>0));
+f_check("private entry",$arrmap[2],array("prefix"=>"/staff/","lang"=>"en","private"=>1,"byok"=>0));
 f_check("slashes are optional in the configuration",f_prefixparse("en:en, fr/:fr ,/staff:en:private","en"),f_prefixparse("/en/:en,/fr/:fr,/staff/:en:private","en"));
 f_check("empty configuration, empty map",f_prefixparse("","en"),array());
-f_check("unknown language falls back to the default",f_prefixparse("/x/:de","fr"),array(array("prefix"=>"/x/","lang"=>"fr","private"=>0)));
-f_check("no language falls back to the default",f_prefixparse("/x/","fr"),array(array("prefix"=>"/x/","lang"=>"fr","private"=>0)));
-f_check("a prefix listed twice keeps its first entry",f_prefixparse("/x/:en,/x/:fr:private","en"),array(array("prefix"=>"/x/","lang"=>"en","private"=>0)));
-f_check("an entry without a usable prefix is skipped",f_prefixparse(":en:private,/<x>/:en:private,/ok/:fr","en"),array(array("prefix"=>"/ok/","lang"=>"fr","private"=>0)));
-f_check("private is a word, not a position",f_prefixparse("/x/:en:other:private","en"),array(array("prefix"=>"/x/","lang"=>"en","private"=>1)));
-f_check("anything else than the word private is public",f_prefixparse("/x/:en:1","en"),array(array("prefix"=>"/x/","lang"=>"en","private"=>0)));
+f_check("unknown language falls back to the default",f_prefixparse("/x/:de","fr"),array(array("prefix"=>"/x/","lang"=>"fr","private"=>0,"byok"=>0)));
+f_check("no language falls back to the default",f_prefixparse("/x/","fr"),array(array("prefix"=>"/x/","lang"=>"fr","private"=>0,"byok"=>0)));
+f_check("a prefix listed twice keeps its first entry",f_prefixparse("/x/:en,/x/:fr:private","en"),array(array("prefix"=>"/x/","lang"=>"en","private"=>0,"byok"=>0)));
+f_check("an entry without a usable prefix is skipped",f_prefixparse(":en:private,/<x>/:en:private,/ok/:fr","en"),array(array("prefix"=>"/ok/","lang"=>"fr","private"=>0,"byok"=>0)));
+f_check("private is a word, not a position",f_prefixparse("/x/:en:other:private","en"),array(array("prefix"=>"/x/","lang"=>"en","private"=>1,"byok"=>0)));
+f_check("anything else than the word private is public",f_prefixparse("/x/:en:1","en"),array(array("prefix"=>"/x/","lang"=>"en","private"=>0,"byok"=>0)));
 f_check("default language: a known one is kept",f_prefixdefaultlang("fr"),"fr");
 f_check("default language: an unknown one becomes the first known",f_prefixdefaultlang("de"),"en");
 
@@ -75,7 +75,7 @@ f_check("the shorter prefix keeps its own pages",f_privatemodepath("/a/movie.php
 
 echo "\nWhat a page learns from its prefix\n";
 $arrstate=f_prefixstate("/fr/movie.php","/fr/movie.php?movieid=11",$arrmap,"en");
-f_check("public French page",$arrstate,array("prefix"=>"/fr/","private"=>0,"lang"=>"fr","langalt"=>"en","langalturl"=>"/en/movie.php?movieid=11"));
+f_check("public French page",$arrstate,array("prefix"=>"/fr/","private"=>0,"byok"=>0,"lang"=>"fr","langalt"=>"en","langalturl"=>"/en/movie.php?movieid=11"));
 $arrstate=f_prefixstate("/en/movie.php","/en/movie.php?movieid=11",$arrmap,"en");
 f_check("public English page switches to French",$arrstate["langalturl"],"/fr/movie.php?movieid=11");
 $arrstate=f_prefixstate("/staff/movie.php","/staff/movie.php?movieid=11",$arrmap,"en");
@@ -83,7 +83,7 @@ f_check("private page is private",$arrstate["private"],1);
 f_check("private page has its language",$arrstate["lang"],"en");
 f_check("the switch of a private page leads to a PUBLIC prefix, never to a private one",$arrstate["langalturl"],"/fr/movie.php?movieid=11");
 $arrstate=f_prefixstate("/other/movie.php","/other/movie.php",$arrmap,"fr");
-f_check("unlisted prefix: public, default language, no switch",$arrstate,array("prefix"=>"","private"=>0,"lang"=>"fr","langalt"=>"","langalturl"=>""));
+f_check("unlisted prefix: public, default language, no switch",$arrstate,array("prefix"=>"","private"=>0,"byok"=>0,"lang"=>"fr","langalt"=>"","langalturl"=>""));
 $arrstate=f_prefixstate("/en/movie.php","/en/movie.php",f_prefixparse("/en/:en,/staff/:fr:private","en"),"en");
 f_check("no public prefix in another language, no switch",array($arrstate["langalt"],$arrstate["langalturl"]),array("",""));
 
@@ -99,6 +99,22 @@ f_check("no PHP_SELF at all is public",f_privatemoderequest(),0);
 if ($strphpselfbackup!==null) {
 	$_SERVER['PHP_SELF']=$strphpselfbackup;
 }
+
+echo "\nThe key-bringing mode (byok)\n";
+$arrbyokmap=f_prefixparse("/en/:en,/fr/:fr,/demo/:en:byok,/staff/:en:private","en");
+f_check("byok entry is read",$arrbyokmap[2],array("prefix"=>"/demo/","lang"=>"en","private"=>0,"byok"=>1));
+f_check("byok is a word, not a position",f_prefixparse("/x/:en:other:byok","en"),array(array("prefix"=>"/x/","lang"=>"en","private"=>0,"byok"=>1)));
+f_check("byok page is public",f_privatemodepath("/demo/index.php",$arrbyokmap),0);
+$arrbyokstate=f_prefixstate("/demo/index.php","/demo/index.php?search=x",$arrbyokmap,"en");
+f_check("byok page knows its mode",$arrbyokstate["byok"],1);
+f_check("byok page has its language",$arrbyokstate["lang"],"en");
+f_check("byok page offers no switch to a page that spends the site's key",array($arrbyokstate["langalt"],$arrbyokstate["langalturl"]),array("",""));
+$arrfrstate=f_prefixstate("/fr/index.php","/fr/index.php",$arrbyokmap,"en");
+f_check("a public page never switches to the byok prefix",$arrfrstate["langalturl"],"/en/index.php");
+f_check("a public page is not byok",$arrfrstate["byok"],0);
+$arrbyok2=f_prefixparse("/demo/:en:byok,/demo-fr/:fr:byok,/en/:en","en");
+f_check("two byok prefixes switch to each other",f_prefixstate("/demo/a.php","/demo/a.php",$arrbyok2,"en")["langalturl"],"/demo-fr/a.php");
+f_check("unlisted prefix is not byok",f_prefixstate("/other/a.php","/other/a.php",$arrbyokmap,"en")["byok"],0);
 
 echo "\nThe guard, run in a real PHP process\n";
 //f_privatemoderequire() exits, so it is run in a child process, which reads the prefix list from

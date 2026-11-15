@@ -55,6 +55,12 @@ $strvisionapikeyname=isset($strtext2sqlapikeyname)?(string)$strtext2sqlapikeynam
 $strvisionapikeyvalue=isset($strtext2sqlapikeyvalue)?(string)$strtext2sqlapikeyvalue:"";
 $strvisionmethod=isset($_SERVER['REQUEST_METHOD'])?strtoupper((string)$_SERVER['REQUEST_METHOD']):"GET";
 
+//Demo mode (lib/byok.inc.php): no deposit without the visitor's key, since the question that
+//follows would be refused anyway, and an anonymous visitor should not fill the upload folder.
+if (!empty($intbyok) && $stropenaiapikey==="") {
+	f_visionjsonresponse(401,array("error" => get_movie_string('lib_byok_needed')));
+}
+
 if (!function_exists('curl_init')) {
 	//The container that runs the site has the extension, the search page could not call the API at
 	//all without it. A checkout that does not is a configuration fault, and it must read as one

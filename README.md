@@ -95,6 +95,7 @@ Each entry is `prefix:language`, followed by `:private` when the prefix is a pri
 - A request under a prefix that is not listed is public and uses `T2S_DEFAULT_LANG`. Without `T2S_URL_PREFIXES` the whole site is therefore public, in one language, with no language switch.
 - When several listed prefixes match, the longest one wins.
 - The language switch of the footer leads to the same page under the first public prefix in the other language. It is not shown when there is none, and it never points to a private prefix.
+- A third flag, `:byok`, puts a prefix in the demo mode described below (for example `/demo/:en:byok`). A demo prefix only switches language to another demo prefix, and a regular prefix never switches to a demo one.
 
 Only `html/app/` exists in the repository. Every prefix is expected to be an alias or a symbolic link to it, created on the server (`/en/` to `html/app/`, and so on).
 
@@ -194,6 +195,19 @@ One URL path is used by the pages and is not part of the repository. It must be 
 
 Without it the pages work and the corresponding images are missing.
 
+## Demo mode: the visitor brings their own OpenAI key
+
+A prefix flagged `:byok` serves the public pages, but every question sent to the Text2SQL API is paid with the visitor's own OpenAI key. `OPENAI_API_KEY` from `.env` is never used under such a prefix, not even when the visitor has no key. Code: `lib/byok.inc.php`, the page `openai-key.php`.
+
+- **Browsing is free.** The entity pages (movies, series, persons, ...) and the samples page call no model.
+- **A question without a key** shows the key form in place of the answer, and comes back to the same search once the key is saved. The picture upload shim refuses a demo visitor without a key (401).
+- **The key form** (`openai-key.php`, also in the menu as *OpenAI key*) checks the key with OpenAI through one free call that lists the models. It then stores the key in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie, written once for each demo prefix: no script of the page can read it, it follows the visitor across the language switch between two demo prefixes (`/demo/:en:byok,/demo-fr/:fr:byok`), and it never travels to a regular prefix. It is a session cookie, or a 30-day one with *Remember on this device*. *Forget my key* removes it.
+- **On every request**, `lib/global-light.inc.php` reads the key from the cookie, and `f_movietext2sqlsearch()` sends it to the API in the `X-OpenAI-Key` header. The key is never logged, written or printed back into a page.
+- `openai-key.php` answers 404 under any other prefix.
+- **Two languages.** List one demo prefix per language (`/demo/:en:byok,/demo-fr/:fr:byok`): they link to each other with the flag at the top of every page and with the language switch of the footer, and the key follows the visitor from one to the other.
+
+The web server serves a demo prefix like any public one: an alias to `html/app/`, and no authentication. Since the database and the server are still the site's, put a request limit per address in front of it.
+
 ## Tests
 
 There is no framework and nothing to install. The tests are plain PHP scripts, run from the repository root, that need neither a database nor a web server nor the network. Each one exits with 0 when every check passes and 1 otherwise.
@@ -201,6 +215,7 @@ There is no framework and nothing to install. The tests are plain PHP scripts, r
 ```bash
 php test/api-version-test.php
 php test/award-format-test.php
+php test/byok-test.php
 php test/feedback-test.php                # needs node on the PATH for one check
 php test/image-gallery-test.php
 php test/open-credits-format-test.php
@@ -218,6 +233,7 @@ php test/work-properties-format-test.php
 |---|---|
 | `api-version-test.php` | `lib/api-version.inc.php`: the version read from the API and its file cache |
 | `award-format-test.php` | `lib/award-format.inc.php`: the wins of an award turned into text, with their years and, for a person, the movie or series each was won for |
+| `byok-test.php` | `lib/byok.inc.php`: the shape of a key, the cookie and its path, the return URL that never leaves the folder, and the wiring that keeps the site's key out of the demo mode and the API call behind the key form |
 | `feedback-test.php` | `lib/feedback-ui.inc.php`: the validation and the payload of the result feedback, the whitelist of the answer, the labels in English and in French, the markup and the JavaScript of the block |
 | `image-gallery-test.php` | `lib/image-gallery.inc.php`: the size announced to PhotoSwipe, the gallery markup and script, and the three gallery pages |
 | `open-credits-format-test.php` | `lib/open-credits-format.inc.php`: on-screen credits put back into rows |

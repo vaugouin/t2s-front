@@ -8,7 +8,8 @@
 //	T2S_URL_PREFIXES=/en/:en,/fr/:fr,/staff/:en:private
 //	T2S_DEFAULT_LANG=en
 //
-//Each entry is prefix:language, followed by :private when the prefix is a private one. No folder
+//Each entry is prefix:language, followed by :private when the prefix is a private one, and by
+//:byok when the visitor brings their own OpenAI key (the demo mode, lib/byok.inc.php). No folder
 //name is written in the code. A request under a prefix that is not listed is public and uses the
 //default language.
 //
@@ -77,7 +78,8 @@ if (!function_exists('f_prefixparse')) {
 		//Params:	$strconfig: value of T2S_URL_PREFIXES, entries separated by commas, each one
 		//			prefix:language[:private]
 		//			$strdefaultlang: language of an entry that names none or an unknown one
-		//Returns: list of array("prefix"=>"/en/","lang"=>"en","private"=>0), in the order written.
+		//Returns: list of array("prefix"=>"/en/","lang"=>"en","private"=>0,"byok"=>0), in the order
+		//			written; "byok" is 1 when the entry carries the word byok.
 		//			An entry without a usable prefix is skipped, and so is a prefix already listed.
 		$strdefaultlang=f_prefixdefaultlang($strdefaultlang);
 		$arrlanguages=f_prefixlanguages();
@@ -94,13 +96,17 @@ if (!function_exists('f_prefixparse')) {
 				$strlang=$strdefaultlang;
 			}
 			$intentryprivate=0;
+			$intentrybyok=0;
 			for ($lngpart=2; $lngpart<count($arrparts); $lngpart++) {
-				if (strtolower(trim($arrparts[$lngpart]))=="private") {
+				$strflag=strtolower(trim($arrparts[$lngpart]));
+				if ($strflag=="private") {
 					$intentryprivate=1;
+				} elseif ($strflag=="byok") {
+					$intentrybyok=1;
 				}
 			}
 			$arrseen[$strprefix]=1;
-			$arrmap[]=array("prefix"=>$strprefix,"lang"=>$strlang,"private"=>$intentryprivate);
+			$arrmap[]=array("prefix"=>$strprefix,"lang"=>$strlang,"private"=>$intentryprivate,"byok"=>$intentrybyok);
 		}
 		return $arrmap;
 	}
@@ -145,12 +151,12 @@ if (!function_exists('f_prefixofpath')) {
 		//			$arrmap: prefix map, the configured one when null
 		//			$strdefaultlang: language of an unlisted prefix, T2S_DEFAULT_LANG when null
 		//Returns: the entry of the longest listed prefix the path starts with. When none matches:
-		//			array("prefix"=>"","lang"=>default language,"private"=>0), so an unknown prefix
-		//			is public. Private mode is never the default.
+		//			array("prefix"=>"","lang"=>default language,"private"=>0,"byok"=>0), so an unknown
+		//			prefix is public. Private mode is never the default, nor the key-bringing mode.
 		if (!is_array($arrmap)) {
 			$arrmap=f_prefixmap();
 		}
-		$arrfound=array("prefix"=>"","lang"=>f_prefixdefaultlang($strdefaultlang),"private"=>0);
+		$arrfound=array("prefix"=>"","lang"=>f_prefixdefaultlang($strdefaultlang),"private"=>0,"byok"=>0);
 		foreach ($arrmap as $arrentry) {
 			if (f_pathinfolder($strpath,$arrentry["prefix"]) && strlen($arrentry["prefix"])>strlen($arrfound["prefix"])) {
 				$arrfound=$arrentry;
@@ -167,12 +173,14 @@ if (!function_exists('f_prefixalternate')) {
 		//			$arrmap: prefix map, the configured one when null
 		//Returns: the first PUBLIC entry in another language, or null when the map has none. A
 		//			private prefix is never offered as a switch target: its link would only raise a
-		//			password prompt.
+		//			password prompt. The key-bringing mode only switches to a prefix of the same
+		//			mode, so a demo visitor is never sent to a page that spends the site's own key.
 		if (!is_array($arrmap)) {
 			$arrmap=f_prefixmap();
 		}
+		$intbyok=(!empty($arrentry["byok"]) ? 1 : 0);
 		foreach ($arrmap as $arrother) {
-			if (!$arrother["private"] && $arrother["lang"]!=$arrentry["lang"]) {
+			if (!$arrother["private"] && (!empty($arrother["byok"]) ? 1 : 0)==$intbyok && $arrother["lang"]!=$arrentry["lang"]) {
 				return $arrother;
 			}
 		}
@@ -189,11 +197,12 @@ if (!function_exists('f_prefixstate')) {
 		//Returns: array with
 		//			"prefix": the matching prefix, "" when unlisted
 		//			"private": 1 or 0
+		//			"byok": 1 when the visitor brings their own OpenAI key (lib/byok.inc.php), else 0
 		//			"lang": interface language
 		//			"langalt": language of the switch, "" when there is nowhere to switch to
 		//			"langalturl": URL of the same page under the other language, "" likewise
 		$arrentry=f_prefixofpath($strpath,$arrmap,$strdefaultlang);
-		$arrstate=array("prefix"=>$arrentry["prefix"],"private"=>($arrentry["private"] ? 1 : 0),"lang"=>$arrentry["lang"],"langalt"=>"","langalturl"=>"");
+		$arrstate=array("prefix"=>$arrentry["prefix"],"private"=>($arrentry["private"] ? 1 : 0),"byok"=>(!empty($arrentry["byok"]) ? 1 : 0),"lang"=>$arrentry["lang"],"langalt"=>"","langalturl"=>"");
 		$arralternate=f_prefixalternate($arrentry,$arrmap);
 		$strrequesturi=(string)$strrequesturi;
 		if ($arralternate!==null && $arrentry["prefix"]!="" && f_pathinfolder($strrequesturi,$arrentry["prefix"])) {
@@ -224,6 +233,19 @@ if (!function_exists('f_privatemoderequest')) {
 			$strphpself=(string)$_SERVER['PHP_SELF'];
 		}
 		return f_privatemodepath($strphpself);
+	}
+}
+
+if (!function_exists('f_byokmoderequest')) {
+	function f_byokmoderequest() {
+		//Purpose: Is the current request served in the key-bringing mode (prefix flagged byok)?
+		//Returns: 1 or 0. Reads PHP_SELF, the value global-light.inc.php uses.
+		$strphpself="";
+		if (isset($_SERVER['PHP_SELF'])) {
+			$strphpself=(string)$_SERVER['PHP_SELF'];
+		}
+		$arrentry=f_prefixofpath($strphpself,null,"en");
+		return (!empty($arrentry["byok"]) ? 1 : 0);
 	}
 }
 

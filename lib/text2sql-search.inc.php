@@ -454,7 +454,13 @@ if ($intdbavailable) {
 	//nothing but the hidden imageref would render a page with no result block at all, in silence,
 	//and the arrow fixed just above would look broken. The API validator has accepted a request
 	//that carries an image_ref alone.
-	if ($strsearch!="" || $strquestionhashed!="" || $strimageref!="") {
+	if (($strsearch!="" || $strquestionhashed!="" || $strimageref!="") && !empty($intbyok) && $stropenaiapikey=="") {
+		//Demo mode without a key: the question would be paid with the visitor's key, and there is
+		//none yet. Ask for it here, and come back to this very search once it is saved.
+		if (!$intloadmore) {
+			echo f_byokformhtml(f_byokrequestpage(isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : ""),get_movie_string('lib_byok_needed'),0);
+		}
+	} elseif ($strsearch!="" || $strquestionhashed!="" || $strimageref!="") {
 		//We display the result for the current page
 		$arrtext2sql=f_movietext2sqlsearch($strsearch,$strquestionhashed,$lngpage,$streemodel,$strt2smodel,$strcomplexmodel,$strresultentitymodel,$stranswermodel,$strimageref);
 		$jsontext2sql=json_decode($arrtext2sql,true);
