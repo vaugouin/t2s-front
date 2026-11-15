@@ -125,6 +125,31 @@ $arrfasttasks=array(
 	"result_entity"=>"llm_fast_result_entity"
 );
 
+//OpenAI Ultrafast mode per task, the tier above Fast: about six times the standard price, and only
+//two models have it (gpt-6-astra and gpt-6.1-sol; the API falls back to Fast on the others). Kept in
+//the `ultrafasttasks` cookie, sent only when ticked, like Fast.
+$arrultrafasttasks=array(
+	"entity_extraction"=>"llm_ultrafast_entity_extraction",
+	"text2sql"=>"llm_ultrafast_text2sql",
+	"complex"=>"llm_ultrafast_complex",
+	"result_entity"=>"llm_ultrafast_result_entity"
+);
+
+//The Ultrafast tasks saved in the cookie, filtered to the known keys.
+function f_text2sqlultrafasttasks() {
+	global $arrultrafasttasks;
+	$arrtasks=array();
+	if (isset($_COOKIE['ultrafasttasks'])) {
+		foreach (explode(",",(string)$_COOKIE['ultrafasttasks']) as $strtask) {
+			$strtask=trim($strtask);
+			if (isset($arrultrafasttasks[$strtask]) && !in_array($strtask,$arrtasks,true)) {
+				$arrtasks[]=$strtask;
+			}
+		}
+	}
+	return $arrtasks;
+}
+
 //The Fast tasks saved in the cookie, filtered to the known keys.
 function f_text2sqlfasttasks() {
 	global $arrfasttasks;
@@ -3793,6 +3818,11 @@ function f_movietext2sqlsearch($strsearch, $strquestionhashed="", $lngpage=1, $s
 	global $arrfasttasks;
 	foreach (f_text2sqlfasttasks() as $strtask) {
 		$payload[$arrfasttasks[$strtask]]=true;
+	}
+	//Ultrafast mode, same rule; the API gives it precedence over Fast on the same task.
+	global $arrultrafasttasks;
+	foreach (f_text2sqlultrafasttasks() as $strtask) {
+		$payload[$arrultrafasttasks[$strtask]]=true;
 	}
 	//The reference of an image deposited beforehand through the same-origin shim
 	//(html/app/upload-vision.php, then POST /uploads/vision on the API). Same omit-when-empty rule

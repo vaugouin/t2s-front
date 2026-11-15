@@ -122,6 +122,17 @@ if (f_requestisfieldset("fastset")) {
 	$_COOKIE['fasttasks']=implode(",",$arrfastticked);
 }
 $arrfasttasksset=f_text2sqlfasttasks();
+if (f_requestisfieldset("ultrafastset")) {
+	$arrultrafastticked=array();
+	foreach ($arrultrafasttasks as $strtask=>$strfield) {
+		if (trim(f_request2("ultrafast_".$strtask))=="1") {
+			$arrultrafastticked[]=$strtask;
+		}
+	}
+	setcookie("ultrafasttasks",implode(",",$arrultrafastticked),$lngcookieexpires,"/");
+	$_COOKIE['ultrafasttasks']=implode(",",$arrultrafastticked);
+}
+$arrultrafasttasksset=f_text2sqlultrafasttasks();
 
 $strreturnurl=trim(f_request2("return"));
 if ($strreturnurl=="") {
@@ -242,6 +253,17 @@ if ($intdbavailable) {
 		$intchecked=in_array($strtask,$arrfasttasksset,true);
 		echo "<label style=\"display:block; margin:4px 0;\">";
 		echo "<input type=\"checkbox\" name=\"fast_".htmlspecialchars($strtask,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\" value=\"1\"".($intchecked?" checked":"")."> ";
+		echo htmlspecialchars($strlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+		echo "</label>";
+	}
+
+	//OpenAI Ultrafast mode per task, the tier above Fast
+	echo "<div style=\"margin-top:10px;\"><strong>🚀 OpenAI Ultrafast mode (fastest, about six times the price, GPT-6 Astra and GPT-6.1 Sol only, Fast on the other models)</strong></div>";
+	echo "<input type=\"hidden\" name=\"ultrafastset\" value=\"1\">";
+	foreach ($arrfastlabels as $strtask=>$strlabel) {
+		$intchecked=in_array($strtask,$arrultrafasttasksset,true);
+		echo "<label style=\"display:block; margin:4px 0;\">";
+		echo "<input type=\"checkbox\" name=\"ultrafast_".htmlspecialchars($strtask,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\" value=\"1\"".($intchecked?" checked":"")."> ";
 		echo htmlspecialchars($strlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 		echo "</label>";
 	}
