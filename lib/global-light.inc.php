@@ -122,7 +122,8 @@ $arrfasttasks=array(
 	"entity_extraction"=>"llm_fast_entity_extraction",
 	"text2sql"=>"llm_fast_text2sql",
 	"complex"=>"llm_fast_complex",
-	"result_entity"=>"llm_fast_result_entity"
+	"result_entity"=>"llm_fast_result_entity",
+	"vision"=>"llm_fast_vision"
 );
 
 //OpenAI Ultrafast mode per task, the tier above Fast: about six times the standard price, and only
@@ -132,7 +133,8 @@ $arrultrafasttasks=array(
 	"entity_extraction"=>"llm_ultrafast_entity_extraction",
 	"text2sql"=>"llm_ultrafast_text2sql",
 	"complex"=>"llm_ultrafast_complex",
-	"result_entity"=>"llm_ultrafast_result_entity"
+	"result_entity"=>"llm_ultrafast_result_entity",
+	"vision"=>"llm_ultrafast_vision"
 );
 
 //The Ultrafast tasks saved in the cookie, filtered to the known keys.

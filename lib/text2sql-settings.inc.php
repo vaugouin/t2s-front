@@ -109,29 +109,26 @@ if ($intcomplexmodelset) {
 	setcookie("complexmodel",$strcomplexmodel,$lngcookieexpires,"/");
 	$_COOKIE['complexmodel']=$strcomplexmodel;
 }
-//An unticked checkbox is not sent at all, so the hidden `fastset` field says
-//the form was submitted and the cookie is rewritten from the ticked boxes only.
-if (f_requestisfieldset("fastset")) {
+//Speed per task: one radio group per task, normal, fast or ultrafast. Kept in the two cookies the
+//search reads (fasttasks, ultrafasttasks), a task sitting in one of them at most. The hidden
+//`speedset` field says the form was submitted.
+if (f_requestisfieldset("speedset")) {
 	$arrfastticked=array();
+	$arrultrafastticked=array();
 	foreach ($arrfasttasks as $strtask=>$strfield) {
-		if (trim(f_request2("fast_".$strtask))=="1") {
+		$strspeed=trim(f_request2("speed_".$strtask));
+		if ($strspeed=="ultrafast" && isset($arrultrafasttasks[$strtask])) {
+			$arrultrafastticked[]=$strtask;
+		} elseif ($strspeed=="fast") {
 			$arrfastticked[]=$strtask;
 		}
 	}
 	setcookie("fasttasks",implode(",",$arrfastticked),$lngcookieexpires,"/");
 	$_COOKIE['fasttasks']=implode(",",$arrfastticked);
-}
-$arrfasttasksset=f_text2sqlfasttasks();
-if (f_requestisfieldset("ultrafastset")) {
-	$arrultrafastticked=array();
-	foreach ($arrultrafasttasks as $strtask=>$strfield) {
-		if (trim(f_request2("ultrafast_".$strtask))=="1") {
-			$arrultrafastticked[]=$strtask;
-		}
-	}
 	setcookie("ultrafasttasks",implode(",",$arrultrafastticked),$lngcookieexpires,"/");
 	$_COOKIE['ultrafasttasks']=implode(",",$arrultrafastticked);
 }
+$arrfasttasksset=f_text2sqlfasttasks();
 $arrultrafasttasksset=f_text2sqlultrafasttasks();
 
 $strreturnurl=trim(f_request2("return"));
@@ -240,32 +237,38 @@ if ($intdbavailable) {
 		echo "</label>";
 	}
 
-	//OpenAI Fast mode per task.
+	//Speed per task: three states, so radio buttons. Ultrafast wins over Fast in the API, and it
+	//exists only for GPT-6 Astra and GPT-6.1 Sol (Fast on the other models).
 	$arrfastlabels=array(
 		"entity_extraction"=>"Entity extraction",
 		"text2sql"=>"Text-to-SQL",
 		"complex"=>"Complex questions",
-		"result_entity"=>"Answer-entity classifier"
+		"result_entity"=>"Answer-entity classifier",
+		"vision"=>"Picture recognition"
 	);
-	echo "<div style=\"margin-top:10px;\"><strong>⚡ OpenAI Fast mode (faster, about twice the price, GPT-6 only)</strong></div>";
-	echo "<input type=\"hidden\" name=\"fastset\" value=\"1\">";
+	$arrspeedlabels=array(
+		"normal"=>"Normal",
+		"fast"=>"⚡ Fast (about twice the price)",
+		"ultrafast"=>"🚀 Ultrafast (about six times the price, GPT-6 Astra and GPT-6.1 Sol only)"
+	);
+	echo "<div style=\"margin-top:10px;\"><strong>Speed per task (OpenAI service tier)</strong></div>";
+	echo "<input type=\"hidden\" name=\"speedset\" value=\"1\">";
 	foreach ($arrfastlabels as $strtask=>$strlabel) {
-		$intchecked=in_array($strtask,$arrfasttasksset,true);
-		echo "<label style=\"display:block; margin:4px 0;\">";
-		echo "<input type=\"checkbox\" name=\"fast_".htmlspecialchars($strtask,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\" value=\"1\"".($intchecked?" checked":"")."> ";
-		echo htmlspecialchars($strlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-		echo "</label>";
-	}
-
-	//OpenAI Ultrafast mode per task, the tier above Fast
-	echo "<div style=\"margin-top:10px;\"><strong>🚀 OpenAI Ultrafast mode (fastest, about six times the price, GPT-6 Astra and GPT-6.1 Sol only, Fast on the other models)</strong></div>";
-	echo "<input type=\"hidden\" name=\"ultrafastset\" value=\"1\">";
-	foreach ($arrfastlabels as $strtask=>$strlabel) {
-		$intchecked=in_array($strtask,$arrultrafasttasksset,true);
-		echo "<label style=\"display:block; margin:4px 0;\">";
-		echo "<input type=\"checkbox\" name=\"ultrafast_".htmlspecialchars($strtask,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\" value=\"1\"".($intchecked?" checked":"")."> ";
-		echo htmlspecialchars($strlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-		echo "</label>";
+		$strcurrent="normal";
+		if (in_array($strtask,$arrultrafasttasksset,true)) {
+			$strcurrent="ultrafast";
+		} elseif (in_array($strtask,$arrfasttasksset,true)) {
+			$strcurrent="fast";
+		}
+		echo "<fieldset style=\"margin:6px 0; border:1px solid #444; border-radius:6px; padding:4px 10px;\">";
+		echo "<legend>".htmlspecialchars($strlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."</legend>";
+		foreach ($arrspeedlabels as $strspeed=>$strspeedlabel) {
+			echo "<label style=\"display:block; margin:2px 0;\">";
+			echo "<input type=\"radio\" name=\"speed_".htmlspecialchars($strtask,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\" value=\"".$strspeed."\"".($strcurrent===$strspeed?" checked":"")."> ";
+			echo htmlspecialchars($strspeedlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+			echo "</label>";
+		}
+		echo "</fieldset>";
 	}
 
 	echo "<div style=\"margin-top:10px;\">";
