@@ -1574,7 +1574,7 @@ if ($intdbavailable) {
 											}
 										}
 										$strmoviefulltitle=$strmovietitle." (".$strmoviereleaseyear.")";
-										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getmovieposterpicture($strmovieposterpath,4))."\" alt=\"".f_htmlattr($strmoviefulltitle)."\" title=\"".f_htmlattr($strmoviefulltitle)."\" /></div>";
+										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getmovieposterpicture($strmovieposterpath,4))."\"".f_t2srep_card_srcset(f_getmovieposterpicture($strmovieposterpath,4))." alt=\"".f_htmlattr($strmoviefulltitle)."\" title=\"".f_htmlattr($strmoviefulltitle)."\" /></div>";
 										$strcardtext="<div class=\"search-poster-card-text\">";
 										$strcardtext.="<div class=\"search-poster-card-title\">".f_htmlspecialchars($strmovietitle)."</div>";
 										//Always emitted, empty year included: the line is reserved in CSS so every
@@ -1692,7 +1692,7 @@ if ($intdbavailable) {
 											$strserieyeardisplay=$strseriefirstairyear."-".$strserielastairyear;
 											break;
 										}
-										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getmovieposterpicture($strserieposterpath,4))."\" alt=\"".f_htmlattr($strseriefulltitle)."\" title=\"".f_htmlattr($strseriefulltitle)."\" /></div>";
+										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getmovieposterpicture($strserieposterpath,4))."\"".f_t2srep_card_srcset(f_getmovieposterpicture($strserieposterpath,4))." alt=\"".f_htmlattr($strseriefulltitle)."\" title=\"".f_htmlattr($strseriefulltitle)."\" /></div>";
 										$strcardtext="<div class=\"search-poster-card-text\">";
 										$strcardtext.="<div class=\"search-poster-card-title\">".f_htmlspecialchars($strserietitle)."</div>";
 										if ($strserieyeardisplay=="-") {
@@ -1751,7 +1751,7 @@ if ($intdbavailable) {
 											$strpersonname=f_descfromcode("T_WC_TMDB_PERSON","ID_PERSON","PERSON_NAME",$strvalue);
 										}
 										$strpersonfullname=$strpersonname;
-										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getpersonprofilepicture($strpersonprofilepath,2))."\" alt=\"".f_htmlattr($strpersonfullname)."\" title=\"".f_htmlattr($strpersonfullname)."\" /></div>";
+										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getpersonprofilepicture($strpersonprofilepath,2))."\"".f_t2srep_card_srcset(f_getpersonprofilepicture($strpersonprofilepath,2))." alt=\"".f_htmlattr($strpersonfullname)."\" title=\"".f_htmlattr($strpersonfullname)."\" /></div>";
 										$strcardtext="<div class=\"search-poster-card-text\"><div class=\"search-poster-card-title\">".f_htmlspecialchars($strpersonfullname)."</div></div>";
 										// Hover-reveal (E1)
 										$strcardreveal="<div class=\"search-poster-card-reveal\">";
@@ -2449,7 +2449,7 @@ if ($intdbavailable) {
 										if ($lngrecordid>0) {
 											$arrresultkeyvalues[]=$lngrecordid;
 										}
-										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getpersonprofilepicture($strvalue,2))."\" alt=\"".f_htmlattr($stralttext)."\" title=\"".f_htmlattr($stralttext)."\" /></div>";
+										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr(f_getpersonprofilepicture($strvalue,2))."\"".f_t2srep_card_srcset(f_getpersonprofilepicture($strvalue,2))." alt=\"".f_htmlattr($stralttext)."\" title=\"".f_htmlattr($stralttext)."\" /></div>";
 										$strcardtext="<div class=\"search-poster-card-text\"><div class=\"search-poster-card-title\">".f_htmlspecialchars($stralttext)."</div></div>";
 										$strcell=$strcardmedia.$strcardtext;
 										break;

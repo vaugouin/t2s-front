@@ -161,6 +161,28 @@ function f_t2srep_h($value) {
 	return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
+function f_t2srep_card_srcset($strurl) {
+	//Purpose: The srcset and sizes attributes of a result card picture. TMDb serves a poster only at
+	//			fixed widths and a card used to load w342 (faces w185) whatever its size on screen, so a
+	//			large card (the desktop cover flow) showed it stretched and soft. The browser now picks
+	//			the smallest rung that covers the card in device pixels: w342 / w500 / w780 for posters,
+	//			w185 / h632 for faces (h632 is 421 px wide at 2:3). Only .jpg paths: a logo (.png,
+	//			.svg) keeps its single file. sizes is the card grid's card width (two columns on a
+	//			phone, about 240 px wider); the cover flow script replaces it with its card width.
+	//			Mirror of the voice-agent's tmdbCardSrcset().
+	//Params:	$strurl: the card's picture URL
+	//Returns:	' srcset="..." sizes="..."' (with its leading space), or "" for any other picture
+	if (!preg_match('~^https://(?:image\.tmdb\.org|media\.themoviedb\.org)/t/p/(w342|w185)(/[^/?#]+\.jpe?g)$~i', (string)$strurl, $arrmatch)) {
+		return "";
+	}
+	$arrrungs=strtolower($arrmatch[1])=="w185" ? array("w185"=>185, "h632"=>421) : array("w342"=>342, "w500"=>500, "w780"=>780);
+	$arrset=array();
+	foreach ($arrrungs as $strsize => $lngwidth) {
+		$arrset[]="https://image.tmdb.org/t/p/".$strsize.$arrmatch[2]." ".$lngwidth."w";
+	}
+	return " srcset=\"".f_t2srep_h(implode(", ", $arrset))."\" sizes=\"(max-width: 600px) 45vw, 240px\"";
+}
+
 function f_t2srep_is_number($value) {
 	//Purpose: Tells whether a cell is a finite number (JS Number.isFinite(Number(v)) on a non-blank value)
 	if ($value===null || is_bool($value) || is_array($value)) {
@@ -635,7 +657,7 @@ function f_t2srep_render_ranked_bars($arrrecords, $arrcolumns, $strlang, $fnpost
 			//Numbered, as the leaderboards do (rank, poster, title, value)
 			$strhtml.="<div class=\"search-poster-card t2sRankCard\"><div class=\"t2sRankNumber\" aria-hidden=\"true\">".($lngi+1)."</div>";
 			$strhtml.=$strhref!="" ? "<a class=\"search-poster-card-link\" href=\"".f_t2srep_h($strhref)."\">" : "";
-			$strhtml.="<div class=\"search-poster-card-media\"><img src=\"".f_t2srep_h($arrposter['url'])."\" alt=\"".f_t2srep_h($strtitle)."\" loading=\"lazy\"></div>";
+			$strhtml.="<div class=\"search-poster-card-media\"><img src=\"".f_t2srep_h($arrposter['url'])."\"".f_t2srep_card_srcset($arrposter['url'])." alt=\"".f_t2srep_h($strtitle)."\" loading=\"lazy\"></div>";
 			$strhtml.="<div class=\"search-poster-card-text\"><div class=\"search-poster-card-title\">".f_t2srep_h($strtitle)."</div></div>";
 			$strhtml.=$strhref!="" ? "</a>" : "";
 			$value=isset($arrrecord[$arrmetric['name']]) ? $arrrecord[$arrmetric['name']] : null;
@@ -4579,6 +4601,7 @@ function f_t2srep_coverflow_js($arrconfig) {
 		."if(lngk===0){strtransform='translateX(0) rotateY(0deg) scale(1)';}else{var lngpos=Math.min(lngabs,5);strtransform='translateX('+(lngsign*(dbla+(lngpos-1)*dblb)).toFixed(1)+'px) rotateY('+(-lngsign*60)+'deg) scale(0.85)';}"
 		."objcard.style.transform=strtransform;objcard.style.zIndex=String(100-Math.min(lngabs,99));objcard.style.visibility=lngabs>4?'hidden':'';"
 		."objcard.classList.toggle('t2sCoverFlowCentre',lngk===0);"
+		."if(lngabs<=4){var objimg=objcard.querySelector('img[srcset]');var strsizes=Math.round(dblwidth)+'px';if(objimg&&objimg.getAttribute('sizes')!==strsizes){if(!objimg.hasAttribute('data-t2sgridsizes')){objimg.setAttribute('data-t2sgridsizes',objimg.getAttribute('sizes')||'');}objimg.setAttribute('sizes',strsizes);}}"
 		."var objlink=objcard.querySelector('a');if(objlink){objlink.setAttribute('tabindex',lngk===0?'0':'-1');var strname=f_text(objcard,'.search-poster-card-title');if(strname){objlink.setAttribute('aria-label',strname);}}}"
 		."var objcentre=arrcards[lngindex];if(objtitle){objtitle.textContent=f_text(objcentre,'.search-poster-card-title');}"
 		."if(objsub){objsub.textContent=f_text(objcentre,'.search-poster-card-year')||f_text(objcentre,'.search-poster-card-meta');}"
@@ -4591,6 +4614,7 @@ function f_t2srep_coverflow_js($arrconfig) {
 		."if(window.MutationObserver&&!objobserver){objobserver=new MutationObserver(function(){if(inton){f_layout();}});objobserver.observe(objgrid,{childList:true});}}"
 		."function f_off(){inton=false;objview.classList.remove('t2sCoverFlowLive');var arrattrs=['role','aria-roledescription','aria-label','tabindex','data-t2scfleft'];var i;for(i=0;i<arrattrs.length;i++){objgrid.removeAttribute(arrattrs[i]);}"
 		."if(objbar){objbar.hidden=true;}var arrcards=f_cards();for(i=0;i<arrcards.length;i++){arrcards[i].style.transform='';arrcards[i].style.zIndex='';arrcards[i].style.visibility='';arrcards[i].classList.remove('t2sCoverFlowCentre');"
+		."var objimg=arrcards[i].querySelector('img[data-t2sgridsizes]');if(objimg){objimg.setAttribute('sizes',objimg.getAttribute('data-t2sgridsizes'));objimg.removeAttribute('data-t2sgridsizes');}"
 		."var objlink=arrcards[i].querySelector('a');if(objlink){objlink.removeAttribute('tabindex');objlink.removeAttribute('aria-label');}}}"
 		."function f_sync(){var intwant=objview.classList.contains('t2sShowCoverFlow')&&!objview.hidden;if(intwant&&!inton){f_on();}else if(!intwant&&inton){f_off();}else if(inton){f_layout();}}"
 		."window.addEventListener('t2srepchange',f_sync);window.addEventListener('resize',function(){if(inton){f_layout();}},{passive:true});"

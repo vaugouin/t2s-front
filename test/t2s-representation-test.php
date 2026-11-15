@@ -1539,6 +1539,17 @@ f_contains("script: four cards on each side",$strcfjs,"visibility=lngabs>4?'hidd
 f_contains("script: Home and End",$strcfjs,"e.key==='Home'");
 f_contains("script: a drag over 40 px",$strcfjs,"Math.abs(dbldx)<=40");
 f_nodecheck("the cover flow script",$strcfjs);
+f_contains("script: the cover flow card width as sizes",$strcfjs,"strsizes=Math.round(dblwidth)+'px'");
+f_contains("script: the grid sizes given back",$strcfjs,"getAttribute('data-t2sgridsizes')");
+
+f_group("Card pictures: larger TMDb rungs offered to the browser");
+f_check("srcset: poster",f_t2srep_card_srcset("https://image.tmdb.org/t/p/w342/abc.jpg"),
+	" srcset=\"https://image.tmdb.org/t/p/w342/abc.jpg 342w, https://image.tmdb.org/t/p/w500/abc.jpg 500w, https://image.tmdb.org/t/p/w780/abc.jpg 780w\" sizes=\"(max-width: 600px) 45vw, 240px\"");
+f_contains("srcset: face",f_t2srep_card_srcset("https://media.themoviedb.org/t/p/w185/face.jpg"),
+	"srcset=\"https://image.tmdb.org/t/p/w185/face.jpg 185w, https://image.tmdb.org/t/p/h632/face.jpg 421w\"");
+f_check("srcset: none for a logo, another size, a placeholder or nothing",
+	array(f_t2srep_card_srcset("https://image.tmdb.org/t/p/w342/logo.png"),f_t2srep_card_srcset("https://image.tmdb.org/t/p/w780/x.jpg"),
+	f_t2srep_card_srcset("images/movie-default-130x195.png"),f_t2srep_card_srcset("")),array("","","",""));
 
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s)\n";
 exit($lngfailures>0 ? 1 : 0);
