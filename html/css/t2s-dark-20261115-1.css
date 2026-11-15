@@ -2863,7 +2863,9 @@ a.t2sChainCard:focus-visible .t2sChainTitle {
   scroll-snap-align: center;
 }
 .t2sCoverFlowLive {
-  --t2scfw: clamp(150px, calc(15vw + 20px), 210px);
+  /* The card grows with the screen, bounded by the window height so the stage and its buttons
+     stay on one screen. */
+  --t2scfw: clamp(150px, min(22vw, 32vh), 360px);
 }
 .t2sCoverFlowLive .search-poster-card-grid {
   display: block;
@@ -2871,7 +2873,7 @@ a.t2sChainCard:focus-visible .t2sChainTitle {
   height: calc(var(--t2scfw) * 1.8);
   padding: 0;
   overflow: hidden;
-  perspective: 1000px;
+  perspective: calc(var(--t2scfw) * 5);
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
