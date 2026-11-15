@@ -1196,7 +1196,8 @@ f_check("places: a single place offers the map",array(f_t2srep_options($arrfix['
 	array(array("card-grid","map","table"),"map"));
 f_check("places: the projection of the outline",array($arrworld['projection']['name'],$arrworld['projection']['y0']),array("equal-earth",-483));
 $strhtml=f_t2srep_render("map",$arrfix['p3d-places-lawrence-en'],"en");
-f_contains("places map: the frame cropped",$strhtml,"<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:326 / 208\"><svg class=\"t2sMapSvg\" viewBox=\"916 87 326 208\" role=\"img\" aria-label=\"Map of the places\"><path class=\"t2sMapLand\" d=\"M");
+f_contains("places map: the frame cropped",$strhtml,"<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:326 / 208\" data-t2splaces=\"");
+f_contains("places map: the frame cropped, the outline",$strhtml,"\"><svg class=\"t2sMapSvg\" viewBox=\"916 87 326 208\" role=\"img\" aria-label=\"Map of the places\"><path class=\"t2sMapLand\" d=\"M");
 f_check("places map: every country neutral, none shaded",strpos($strhtml,"t2sMapCountry"),false);
 f_contains("places map: a pin",$strhtml,"<span class=\"t2sPlacePin\" role=\"button\" tabindex=\"0\" style=\"left:25.59%;top:18.96%\" title=\"1. London \u{00B7} City\" aria-label=\"1. London \u{00B7} City\" data-t2smap=\"g1\" data-t2stip=\"1. London \u{00B7} City\">1</span>");
 f_contains("places map: an area, a ring and its badge",$strhtml,"<span class=\"t2sPlaceArea\" role=\"button\" tabindex=\"0\" style=\"left:20.49%;top:52.17%\" title=\"2. Spain \u{00B7} Country\" aria-label=\"2. Spain \u{00B7} Country\" data-t2smap=\"g2\" data-t2stip=\"2. Spain \u{00B7} Country\"><span class=\"t2sPlaceBadge\">2</span></span>");
@@ -1239,6 +1240,37 @@ f_check("places map: two rings apart",array(substr_count($strhtml,"class=\"t2sPl
 f_contains("places map without the outline: the table",f_t2srep_render_map($arrfix['p3d-places-lawrence-en'],"en",array("nothing")),"<table");
 f_check("places map without the outline: no map",strpos(f_t2srep_render_map($arrfix['p3d-places-lawrence-en'],"en",array("nothing")),"t2sPlaceMap"),false);
 f_nodecheck("the map hover script, with the places",f_t2srep_map_js());
+//Zoom on the map of places (as voice-agent): the data the script reads, then its pure helpers run
+//in node on Amélie, whose Paris places share one mark at the whole view and split once framed
+f_nodecheck("the place map zoom script",f_t2srep_place_map_js());
+$strhtml=f_t2srep_render("map",$arrfix['p3d-places-live-amelie-en'],"en");
+$arrzoom=preg_match('/data-t2splaces="([^"]*)"/',$strhtml,$arrm) ? json_decode(html_entity_decode($arrm[1],ENT_QUOTES,"UTF-8"),true) : null;
+$arrpm=f_t2srep_place_map_model($arrfix['p3d-places-live-amelie-en'],"en");
+f_check("place zoom data: outline, default frame, five marks with their points",
+	array($arrzoom['w'],$arrzoom['h'],$arrzoom['base'],count($arrzoom['marks']),$arrzoom['marks'][1]['label'],$arrzoom['labels']['in']),
+	array(2000,863,$arrpm['frame'],5,"Cologne","Zoom in"));
+f_check("place zoom data, French labels",json_decode(html_entity_decode(preg_match('/data-t2splaces="([^"]*)"/',f_t2srep_render("map",$arrfix['p3d-places-live-amelie-en'],"fr"),$arrm) ? $arrm[1] : "",ENT_QUOTES,"UTF-8"),true)['labels'],
+	array("in"=>"Zoomer","out"=>"Dézoomer","whole"=>"Revenir à la vue d'ensemble"));
+$strjs=f_t2srep_place_map_js();
+$strhelpers=substr($strjs,strpos($strjs,"var STEP"),strpos($strjs,"function setup(")-strpos($strjs,"var STEP"));
+$strprobe=$strhelpers."\nvar d=".json_encode($arrzoom).";var b=d.base,w={width:d.w,height:d.h};"
+	."function marksAt(v){var f=zoomFrame(b,w,v);var m=d.marks.map(function(m){return {n:m.n,kind:m.kind,label:m.label,typeText:m.typeText,left:Math.round((m.x-f.x)/f.width*10000)/100,top:Math.round((m.y-f.y)/f.height*10000)/100};});"
+	."return groups(v?m.filter(function(x){return x.left>=0&&x.left<=100&&x.top>=0&&x.top<=100;}):m,f).map(function(g){return g.text;});}"
+	."var s=step(b,null,1);var fz=fit([1,3,4,5].map(function(n){return [d.marks[n-1].x,d.marks[n-1].y];}),b);"
+	."var pts=d.marks.map(function(m){return [m.x,m.y];}),t=step(b,step(b,step(b,null,1,pts),1,pts),1,pts);"
+	."console.log(JSON.stringify([marksAt(null),s.zoom,zoomFrame(b,w,s).width,step(b,s,-1),marksAt(fz).sort(),fit([[d.marks[0].x,d.marks[0].y]],b).zoom,marksAt(t)]));";
+$strtempfile=tempnam(sys_get_temp_dir(),"t2szoom").".js";
+file_put_contents($strtempfile,$strprobe);
+$arrout=array();
+$lngstatus=1;
+exec("node ".escapeshellarg($strtempfile)." 2>&1",$arrout,$lngstatus);
+@unlink($strtempfile);
+if ($lngstatus===0) {
+	f_check("place zoom helpers in node: whole view, one step, back out, Paris framed, one point, three steps in go to Paris",json_decode(implode("",$arrout),true),
+		array(array("1+3","2"),2,$arrpm['frame']['width']/2,null,array("1","3","4","5"),$arrpm['frame']['width']/2,array("1+3")));
+} else {
+	echo "  SKIP  place zoom helpers in node (".implode(" ",$arrout).")\n";
+}
 $strallp="";
 foreach ($arrfix as $strkey=>$arrjson) {
 	if (strpos($strkey,"p3d-")===0) {

@@ -3259,6 +3259,156 @@ function f_t2srep_render_map($jsontext2sql, $strlang='en', $arrworld=null) {
 	return $strhtml."</tbody></table></div></div>";
 }
 
+function f_t2srep_place_map_js() {
+	//Purpose: Zoom on the map of places, as voice-agent (text2SqlPlaceZoomFrame(),
+	//			text2SqlPlaceZoomStep(), text2SqlPlaceFitView(), renderPlaceMap()): + and - buttons
+	//			(one step doubles or halves), back to the whole view, pinch, Ctrl + wheel (a trackpad
+	//			pinch), drag once zoomed, and a tap on a shared mark ("1+3") frames its places. The
+	//			world outline has no detail inside a country, so a zoom spreads the marks apart: the
+	//			groups are recomputed for each view with the rule of f_t2srep_place_groups(), the list
+	//			items take their new group key, and f_t2srep_map_js() keeps working on the new marks.
+	//			Reads data-t2splaces (f_t2srep_render_place_map()); without script the map stays at the
+	//			whole view and shows no button. Same constants as voice-agent. A plain string with no
+	//			PHP value in it.
+	return <<<'JS'
+(function(){
+var STEP=2,MINW=0.5,FITMINW=2,GROUPDIST=5.5;
+function maxZoom(b){return Math.max(1,b.width/MINW);}
+function zoomFrame(b,w,v){
+	if(!v){return b;}
+	var z=Math.min(Math.max(Number(v.zoom)||1,1),maxZoom(b));
+	if(z===1){return b;}
+	var fw=b.width/z,fh=b.height/z,r=function(x){return Math.round(x*10000)/10000;};
+	return {x:r(Math.min(Math.max(v.cx-fw/2,0),w.width-fw)),y:r(Math.min(Math.max(v.cy-fh/2,0),w.height-fh)),width:r(fw),height:r(fh)};
+}
+function step(b,v,d,pts){
+	var z=Math.min(Math.max(((v&&v.zoom)||1)*(d>0?STEP:1/STEP),1),maxZoom(b));
+	if(z<=1){return null;}
+	var n={zoom:z,cx:v?v.cx:b.x+b.width/2,cy:v?v.cy:b.y+b.height/2};
+	if(d>0&&pts&&pts.length){
+		var w=b.width/z,h=b.height/z;
+		if(!pts.some(function(p){return Math.abs(p[0]-n.cx)<=w/2&&Math.abs(p[1]-n.cy)<=h/2;})){
+			var score=function(p){return pts.filter(function(q){return Math.abs(q[0]-p[0])<=w/2&&Math.abs(q[1]-p[1])<=h/2;}).length;};
+			var dist=function(p){return Math.hypot(p[0]-n.cx,p[1]-n.cy);};
+			var near=pts.reduce(function(a,p){return score(p)>score(a)||(score(p)===score(a)&&dist(p)<dist(a))?p:a;});
+			n.cx=near[0];n.cy=near[1];
+		}
+	}
+	return n;
+}
+function fit(pts,b){
+	if(!pts.length){return null;}
+	var xs=pts.map(function(p){return p[0];}),ys=pts.map(function(p){return p[1];});
+	var ratio=b.width/b.height;
+	var w=Math.max((Math.max.apply(null,xs)-Math.min.apply(null,xs))*1.5,FITMINW);
+	var h=Math.max((Math.max.apply(null,ys)-Math.min.apply(null,ys))*1.5,FITMINW/ratio);
+	w=Math.max(w,h*ratio);
+	var z=Math.min(b.width/w,maxZoom(b));
+	if(z<=1){return null;}
+	return {zoom:z,cx:(Math.max.apply(null,xs)+Math.min.apply(null,xs))/2,cy:(Math.max.apply(null,ys)+Math.min.apply(null,ys))/2};
+}
+function groups(marks,f){
+	var ratio=f.height/f.width,out=[];
+	marks.forEach(function(m){
+		var g=null,i;
+		for(i=0;i<out.length;i++){if(out[i].kind===m.kind&&Math.hypot(m.left-out[i].left,(m.top-out[i].top)*ratio)<GROUPDIST){g=out[i];break;}}
+		if(g){g.members.push(m.n);g.labels.push(m.n+'. '+m.label);}
+		else{out.push({kind:m.kind,n:m.n,members:[m.n],left:m.left,top:m.top,labels:[m.n+'. '+m.label],tip:m.n+'. '+m.label+' · '+m.typeText});}
+	});
+	out.forEach(function(g){var extra=g.members.length-1;g.text=extra?g.n+'+'+extra:String(g.n);if(extra){g.tip=g.labels.join(', ');}});
+	return out;
+}
+function setup(frame){
+	var data;
+	try{data=JSON.parse(frame.getAttribute('data-t2splaces'));}catch(e){return;}
+	if(!data||!data.base||!data.marks){return;}
+	var root=frame.closest('.t2sMap'),svg=frame.querySelector('svg'),b=data.base,world={width:data.w,height:data.h};
+	var view=null,cur=b,dragged=false;
+	var bar=document.createElement('div');bar.className='t2sMapZoom';
+	function button(text,label,act){var el=document.createElement('button');el.type='button';el.className='t2sMapZoomButton';el.textContent=text;el.title=label;el.setAttribute('aria-label',label);
+		el.addEventListener('click',function(ev){ev.stopPropagation();act();});bar.appendChild(el);return el;}
+	var bin=button('+',data.labels['in'],function(){go(step(b,view,1,data.marks.map(function(m){return [m.x,m.y];})));});
+	var bout=button('−',data.labels.out,function(){go(step(b,view,-1));});
+	var bwhole=button('↺',data.labels.whole,function(){go(null);});
+	frame.appendChild(bar);
+	function paint(){
+		cur=zoomFrame(b,world,view);
+		svg.setAttribute('viewBox',cur.x+' '+cur.y+' '+cur.width+' '+cur.height);
+		var marks=data.marks.map(function(m){return {n:m.n,kind:m.kind,label:m.label,typeText:m.typeText,
+			left:Math.round((m.x-cur.x)/cur.width*10000)/100,top:Math.round((m.y-cur.y)/cur.height*10000)/100};});
+		var shown=view?marks.filter(function(m){return m.left>=0&&m.left<=100&&m.top>=0&&m.top<=100;}):marks;
+		var old=frame.querySelectorAll('[data-t2smap]'),i;
+		for(i=0;i<old.length;i++){old[i].parentNode.removeChild(old[i]);}
+		var key={};
+		groups(shown,cur).forEach(function(g){
+			var el=document.createElement('span');
+			el.className=(g.kind==='area'?'t2sPlaceArea':'t2sPlacePin')+(g.members.length>1?' isGroup':'');
+			el.setAttribute('role','button');el.setAttribute('tabindex','0');
+			el.style.left=g.left+'%';el.style.top=g.top+'%';
+			el.title=g.tip;el.setAttribute('aria-label',g.tip);el.setAttribute('data-t2stip',g.tip);
+			el.setAttribute('data-t2smap','g'+g.n);el.setAttribute('data-t2smembers',g.members.join(','));
+			if(g.kind==='area'){var badge=document.createElement('span');badge.className='t2sPlaceBadge';badge.textContent=g.text;el.appendChild(badge);}
+			else{el.textContent=g.text;}
+			frame.insertBefore(el,bar);
+			g.members.forEach(function(n){key[n]='g'+g.n;});
+		});
+		var items=root?root.querySelectorAll('.t2sPlaceItem'):[];
+		for(i=0;i<items.length&&i<data.marks.length;i++){items[i].setAttribute('data-t2smap',key[data.marks[i].n]||('g'+data.marks[i].n));items[i].classList.remove('isSelected');}
+		bout.disabled=!view;bwhole.disabled=!view;bin.disabled=!!view&&view.zoom>=maxZoom(b);
+		frame.classList.toggle('isZoomed',!!view);
+	}
+	function go(next){if(!next&&!view){return;}view=next;paint();}
+	function point(n){var m=data.marks[n-1];return [m.x,m.y];}
+	frame.addEventListener('click',function(ev){
+		var el=ev.target.closest?ev.target.closest('[data-t2smembers]'):null;
+		if(!el||dragged){return;}
+		var members=el.getAttribute('data-t2smembers').split(',').map(Number);
+		if(members.length>1){go(fit(members.map(point),b));}
+	});
+	var pointers={},count=0,gesture=null;
+	function centre(){return {cx:cur.x+cur.width/2,cy:cur.y+cur.height/2};}
+	function list(){return Object.keys(pointers).map(function(k){return pointers[k];});}
+	frame.addEventListener('pointerdown',function(ev){
+		if(ev.target.closest&&ev.target.closest('.t2sMapZoom')){return;}
+		if(!pointers[ev.pointerId]){count++;}
+		pointers[ev.pointerId]={x:ev.clientX,y:ev.clientY};dragged=false;
+		var c=centre(),p=list();
+		gesture=p.length===2?{kind:'pinch',d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1,zoom:view?view.zoom:1,cx:c.cx,cy:c.cy}
+			:{kind:'pan',x:ev.clientX,y:ev.clientY,upp:cur.width/Math.max(frame.clientWidth,1),cx:c.cx,cy:c.cy};
+	});
+	frame.addEventListener('pointermove',function(ev){
+		if(!pointers[ev.pointerId]||!gesture){return;}
+		pointers[ev.pointerId]={x:ev.clientX,y:ev.clientY};
+		if(gesture.kind==='pinch'&&count===2){
+			var p=list(),z=Math.min(Math.max(gesture.zoom*(Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)/gesture.d),1),maxZoom(b));
+			dragged=true;go(z>1?{zoom:z,cx:gesture.cx,cy:gesture.cy}:null);
+		}else if(gesture.kind==='pan'&&view){
+			var dx=ev.clientX-gesture.x,dy=ev.clientY-gesture.y;
+			if(!dragged&&Math.hypot(dx,dy)<4){return;}
+			if(!dragged){dragged=true;if(frame.setPointerCapture){frame.setPointerCapture(ev.pointerId);}}
+			go({zoom:view.zoom,cx:gesture.cx-dx*gesture.upp,cy:gesture.cy-dy*gesture.upp});
+		}
+	});
+	function release(ev){
+		if(pointers[ev.pointerId]){delete pointers[ev.pointerId];count--;}
+		if(!count){gesture=null;setTimeout(function(){dragged=false;},0);}
+	}
+	frame.addEventListener('pointerup',release);
+	frame.addEventListener('pointercancel',release);
+	frame.addEventListener('wheel',function(ev){
+		if(!ev.ctrlKey){return;}
+		ev.preventDefault();
+		var z=Math.min(Math.max((view?view.zoom:1)*Math.exp(-ev.deltaY/200),1),maxZoom(b)),c=centre();
+		go(z>1?{zoom:z,cx:c.cx,cy:c.cy}:null);
+	},{passive:false});
+	paint();
+}
+var frames=document.querySelectorAll('.t2sPlaceFrame[data-t2splaces]'),i;
+for(i=0;i<frames.length;i++){setup(frames[i]);}
+})();
+JS;
+}
+
 function f_t2srep_map_js() {
 	//Purpose: As voice-agent: hovering, focusing or tapping a country or a dot outlines it (with
 	//			its dot or shape) and writes its name and count, its aria-label, in the line under
@@ -3481,7 +3631,8 @@ function f_t2srep_place_map_model($jsontext2sql, $strlang='en', $arrworld=null) 
 	//Purpose: Mirrors text2SqlPlaceMapModel() (model() of the reference): the frame, the marks
 	//			numbered in row order with their place in the frame (percent, two decimals), the
 	//			places not on the map and the caption
-	//Returns: array(viewBox, frame, marks, groups, offText, caption), or null without summary_facts.places,
+	//			points (outline units, one per mark) feed the zoom of f_t2srep_place_map_js()
+	//Returns: array(viewBox, frame, points, marks, groups, offText, caption), or null without summary_facts.places,
 	//			with no place located, or without the outline or its projection
 	$arrplaces=f_t2srep_places_facts($jsontext2sql);
 	if ($arrworld===null) {
@@ -3525,6 +3676,7 @@ function f_t2srep_place_map_model($jsontext2sql, $strlang='en', $arrworld=null) 
 	return array(
 		"viewBox"=>$arrframe['x']." ".$arrframe['y']." ".$arrframe['width']." ".$arrframe['height'],
 		"frame"=>$arrframe,
+		"points"=>$arrpoints,
 		"marks"=>$arrmarks,
 		"groups"=>f_t2srep_place_groups($arrmarks, $arrframe),
 		"offText"=>$stroff,
@@ -3589,7 +3741,18 @@ function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null)
 			."<span class=\"t2sPlaceText\">".($strhref!="" ? "<a href=\"".f_t2srep_h($strhref)."\">".$strname."</a>" : "<span>".$strname."</span>")
 			." <span class=\"t2sPlaceType\">".f_t2srep_h($arrmark['typeText'])."</span></span></li>";
 	}
-	$strhtml="<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:".$arrframe['width']." / ".$arrframe['height']."\">"
+	//What the zoom needs (f_t2srep_place_map_js()): the outline's size, the default frame, every
+	//mark at its point in outline units, and the button labels
+	$arrzoommarks=array();
+	foreach ($arrmodel['marks'] as $lngi=>$arrmark) {
+		$arrzoommarks[]=array("n"=>$arrmark['n'], "kind"=>$arrmark['kind'], "label"=>$arrmark['label'], "typeText"=>$arrmark['typeText'],
+			"x"=>round($arrmodel['points'][$lngi][0], 4), "y"=>round($arrmodel['points'][$lngi][1], 4));
+	}
+	$strzoom=json_encode(array("w"=>(float)$arrworld['width'], "h"=>(float)$arrworld['height'], "base"=>$arrframe, "marks"=>$arrzoommarks,
+		"labels"=>array("in"=>$intfr ? "Zoomer" : "Zoom in", "out"=>$intfr ? "Dézoomer" : "Zoom out", "whole"=>$intfr ? "Revenir à la vue d'ensemble" : "Back to the whole view")),
+		JSON_UNESCAPED_UNICODE);
+	$strhtml="<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:".$arrframe['width']." / ".$arrframe['height']."\""
+		." data-t2splaces=\"".f_t2srep_h($strzoom)."\">"
 		."<svg class=\"t2sMapSvg\" viewBox=\"".$arrmodel['viewBox']."\" role=\"img\" aria-label=\"".($intfr ? "Carte des lieux" : "Map of the places")."\">"
 		."<path class=\"t2sMapLand\" d=\"".f_t2srep_h($strland)."\"/></svg>".$strmarks."</div>"
 		."<p class=\"t2sMapTip\" aria-live=\"polite\">".($intfr ? "Touchez ou survolez un numéro pour voir son lieu." : "Tap or hover over a number to see its place.")."</p>"

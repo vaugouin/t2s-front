@@ -2338,6 +2338,47 @@ span.t2sScatterDot {
 .t2sPlaceFrame .t2sMapSvg {
   height: 100%;
 }
+/* Zoom (f_t2srep_place_map_js(), as voice-agent): + / - / whole view in the top right corner,
+   added by the script only. A vertical swipe still scrolls the page at the whole view (pan-y); a
+   zoomed map takes every gesture so one finger pans it; two fingers always reach the map. */
+.t2sPlaceFrame[data-t2splaces] {
+  touch-action: pan-y;
+}
+.t2sPlaceFrame.isZoomed {
+  touch-action: none;
+  cursor: grab;
+}
+.t2sMapZoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.t2sMapZoomButton {
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: 600 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.t2sMapZoomButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.t2sMapZoomButton:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
 .t2sPlacePin,
 .t2sPlaceArea {
   position: absolute;

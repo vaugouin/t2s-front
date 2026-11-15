@@ -1081,6 +1081,8 @@ if ($intdbavailable) {
 							if ($strt2soption=="map") {
 								//The country under the finger or the pointer, written under the map
 								echo "<script>".f_t2srep_map_js()."</script>";
+								//The map of places zooms: + and - buttons, pinch, drag, a tap on a shared mark
+								echo "<script>".f_t2srep_place_map_js()."</script>";
 							}
 							if ($strt2soption=="timeline" && $intt2shasmore) {
 								//The rest of the rows, page after page, while the timeline is shown
