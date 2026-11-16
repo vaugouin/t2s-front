@@ -2338,6 +2338,18 @@ span.t2sScatterDot {
 .t2sPlaceFrame .t2sMapSvg {
   height: 100%;
 }
+/* Desktop (mouse-driven, >= 1024px wide): both maps drop their width cap and take the whole width
+   of the page, bounded by the window height so the map, its tip line and its legend stay on one
+   screen; a frame held back by the height is centred. --t2s-map-ratio (width / height of the
+   frame) is printed on the frame. Phones and tablets keep the caps. */
+@media (min-width: 1024px) and (pointer: fine) {
+  .t2sMapFrame,
+  .t2sPlaceFrame {
+    max-width: min(100%, calc((100vh - 150px) * var(--t2s-map-ratio, 2)));
+    max-width: min(100%, calc((100dvh - 150px) * var(--t2s-map-ratio, 2)));
+    margin-inline: auto;
+  }
+}
 /* Zoom (f_t2srep_place_map_js(), as voice-agent): + / - / whole view in the top right corner,
    added by the script only. A vertical swipe still scrolls the page at the whole view (pan-y); a
    zoomed map takes every gesture so one finger pans it; two fingers always reach the map. */

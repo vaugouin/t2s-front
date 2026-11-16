@@ -1196,7 +1196,7 @@ f_check("places: a single place offers the map",array(f_t2srep_options($arrfix['
 	array(array("card-grid","map","table"),"map"));
 f_check("places: the projection of the outline",array($arrworld['projection']['name'],$arrworld['projection']['y0']),array("equal-earth",-483));
 $strhtml=f_t2srep_render("map",$arrfix['p3d-places-lawrence-en'],"en");
-f_contains("places map: the frame cropped",$strhtml,"<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:326 / 208\" data-t2splaces=\"");
+f_contains("places map: the frame cropped",$strhtml,"<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:326 / 208;--t2s-map-ratio:1.5673\" data-t2splaces=\"");
 f_contains("places map: the frame cropped, the outline",$strhtml,"\"><svg class=\"t2sMapSvg\" viewBox=\"916 87 326 208\" role=\"img\" aria-label=\"Map of the places\"><path class=\"t2sMapLand\" d=\"M");
 f_check("places map: every country neutral, none shaded",strpos($strhtml,"t2sMapCountry"),false);
 f_contains("places map: a pin",$strhtml,"<span class=\"t2sPlacePin\" role=\"button\" tabindex=\"0\" style=\"left:25.59%;top:18.96%\" title=\"1. London \u{00B7} City\" aria-label=\"1. London \u{00B7} City\" data-t2smap=\"g1\" data-t2stip=\"1. London \u{00B7} City\">1</span>");

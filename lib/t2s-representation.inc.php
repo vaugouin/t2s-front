@@ -3238,7 +3238,7 @@ function f_t2srep_render_map($jsontext2sql, $strlang='en', $arrworld=null) {
 				." title=\"".$strlabel."\" aria-label=\"".$strlabel."\" data-t2smap=\"".f_t2srep_h($arrcountry['numeric'])."\"></span>";
 		}
 	}
-	$strhtml="<div class=\"t2sMap\"><div class=\"t2sMapFrame\">".$strsvg."</svg>".$strdots."</div>"
+	$strhtml="<div class=\"t2sMap\"><div class=\"t2sMapFrame\" style=\"--t2s-map-ratio:".round($arrmodel['width']/$arrmodel['height'],4)."\">".$strsvg."</svg>".$strdots."</div>"
 		."<p class=\"t2sMapTip\" aria-live=\"polite\">".f_t2srep_h($arrmodel['hint'])."</p>";
 	if (count($arrmodel['legend'])>0) {
 		$strhtml.="<div class=\"t2sMapLegend\"><span class=\"t2sMapLegendTitle\">".f_t2srep_h($arrmodel['legendtitle'])."</span>";
@@ -3761,7 +3761,7 @@ function f_t2srep_render_place_map($jsontext2sql, $strlang='en', $arrworld=null)
 	$strzoom=json_encode(array("w"=>(float)$arrworld['width'], "h"=>(float)$arrworld['height'], "base"=>$arrframe, "marks"=>$arrzoommarks,
 		"labels"=>array("in"=>$intfr ? "Zoomer" : "Zoom in", "out"=>$intfr ? "Dézoomer" : "Zoom out", "whole"=>$intfr ? "Revenir à la vue d'ensemble" : "Back to the whole view")),
 		JSON_UNESCAPED_UNICODE);
-	$strhtml="<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:".$arrframe['width']." / ".$arrframe['height']."\""
+	$strhtml="<div class=\"t2sMap t2sPlaceMap\"><div class=\"t2sMapFrame t2sPlaceFrame\" style=\"aspect-ratio:".$arrframe['width']." / ".$arrframe['height'].";--t2s-map-ratio:".round($arrframe['width']/$arrframe['height'],4)."\""
 		." data-t2splaces=\"".f_t2srep_h($strzoom)."\">"
 		."<svg class=\"t2sMapSvg\" viewBox=\"".$arrmodel['viewBox']."\" role=\"img\" aria-label=\"".($intfr ? "Carte des lieux" : "Map of the places")."\">"
 		."<path class=\"t2sMapLand\" d=\"".f_t2srep_h($strland)."\"/></svg>".$strmarks."</div>"
