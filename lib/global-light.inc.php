@@ -86,8 +86,8 @@ $strtext2sqlapigreenresultentityllm="gpt-6-luna";
 //2026-10-15: the single-value answer task is removed from the API, so
 //nothing is sent for it any more and its settings radio group is gone.
 
-//The whole GPT-6 family is selectable for every task: sol (the strong one), astra (the API's
-//vision default, a reasoning model) and luna (the cheap one). The API passes any model name
+//The whole GPT-6 family is selectable for every task: sol (the strong one), astra (a reasoning
+//model, the API's vision default until 2026-11-23, gpt-6.2-sol since) and luna (the cheap one). The API passes any model name
 //through, so these two lists are the only gate.
 //2026-10-17: gpt-4o, gpt-4.1 and gpt-4.1-mini leave both lists, OpenAI retires them
 //on 2027-01-14. A saved cookie naming one of them no longer validates and falls back to the default.
