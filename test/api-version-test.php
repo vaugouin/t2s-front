@@ -45,6 +45,18 @@ f_check("not JSON (an HTML error page from the proxy)",f_apiversionfromresponse(
 f_check("failed call",f_apiversionfromresponse(false),"");
 f_check("empty body",f_apiversionfromresponse(""),"");
 
+echo "\nInstance behind a slot\n";
+f_check("instance read",f_apiinstancefromresponse('{"api_version":"1.1.20","instance":"violet"}'),"violet");
+f_check("instance lowercased",f_apiinstancefromresponse('{"instance":"Brown"}'),"brown");
+f_check("no instance (an API that predates the field)",f_apiinstancefromresponse('{"api_version":"1.1.19"}'),"");
+f_check("invalid instance",f_apiinstancefromresponse('{"instance":"<b>x</b>"}'),"");
+f_check("not JSON",f_apiinstancefromresponse("<html>502</html>"),"");
+f_check("blue dot",f_apiinstancechip("blue"),"🔵");
+f_check("green dot",f_apiinstancechip("green"),"🟢");
+f_check("violet dot",f_apiinstancechip("violet"),"🟣");
+f_check("brown dot",f_apiinstancechip("brown"),"🟤");
+f_check("unknown instance: white dot",f_apiinstancechip(""),"⚪");
+
 echo "\nCache\n";
 $strdir=sys_get_temp_dir().DIRECTORY_SEPARATOR."t2s-front-api-version-test-".getmypid();
 @mkdir($strdir);

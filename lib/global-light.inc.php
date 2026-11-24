@@ -4032,6 +4032,54 @@ function f_text2sqlapiversion($strcolor) {
 	return $strversion;
 }
 
+function f_text2sqlapiinstance($strcolor) {
+	//Purpose: Name of the API instance behind one URL slot ("Blue" or "Green"), read from GET /
+	//Returns: "blue", "green", "violet", "brown"..., from this request's memo, else the five-minute
+	//			file cache, else the API itself; "" when the API is unreachable or predates the field
+	global $strtext2sqlapibluedomainurl;
+	global $strtext2sqlapigreendomainurl;
+	global $strtext2sqlapikeyname;
+	global $strtext2sqlapikeyvalue;
+	static $arrmemo=array();
+
+	$strcolor=($strcolor=="Blue" ? "Blue" : "Green");
+	if (isset($arrmemo[$strcolor])) {
+		return $arrmemo[$strcolor];
+	}
+	$strbaseurl=($strcolor=="Blue" ? $strtext2sqlapibluedomainurl : $strtext2sqlapigreendomainurl);
+	//Keyed on the URL like the version, so a switch shows the new instance within five minutes
+	$strcachefile=f_apiversioncachefile("instance-".$strcolor, $strbaseurl);
+	$strinstance=f_apiinstancecacheread($strcachefile, time());
+	if ($strinstance=="" && $strbaseurl!="" && function_exists('curl_init')) {
+		$curl=curl_init();
+		curl_setopt_array($curl, array(
+			CURLOPT_URL => rtrim($strbaseurl,"/")."/",
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_ENCODING => '',
+			CURLOPT_MAXREDIRS => 10,
+			//Same short timeouts as f_text2sqlapiversion(): a slot that is down costs the page
+			//a second or two, and the chip turns white.
+			CURLOPT_CONNECTTIMEOUT => 2,
+			CURLOPT_TIMEOUT => 4,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+			CURLOPT_HTTPGET => true,
+			CURLOPT_HTTPHEADER => array($strtext2sqlapikeyname.": ".$strtext2sqlapikeyvalue),
+		));
+		$response=curl_exec($curl);
+		$inthttpcode=f_stringtolong(curl_getinfo($curl,CURLINFO_HTTP_CODE));
+		curl_close($curl);
+		if ($inthttpcode==200) {
+			$strinstance=f_apiinstancefromresponse($response);
+			if ($strinstance!="") {
+				@file_put_contents($strcachefile, $strinstance, LOCK_EX);
+			}
+		}
+	}
+	$arrmemo[$strcolor]=$strinstance;
+	return $strinstance;
+}
+
 function f_text2sqlsamples($strcolor,$strlang="en", $strset="showcase", &$inthttpcode=0, &$strerror="") {
 	//Purpose: Reads GET /samples on one colour of the Text2SQL API, as the voice-agent showcase does
 	//Params:	$strcolor: "Blue" or "Green"

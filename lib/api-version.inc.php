@@ -39,6 +39,45 @@ function f_apiversionfromresponse($strresponse) {
 	return f_apiversionisvalid($strversion) ? $strversion : "";
 }
 
+function f_apiinstancefromresponse($strresponse) {
+	//Purpose: Extracts the instance name from the body of GET / ("blue", "violet", ...)
+	//Why: "Blue" and "Green" in this front are two URL slots, not instances. The API runs as four
+	//			instances (blue, green, violet, brown) and either slot may point at any of them, so the
+	//			colour chip must show the instance that answers, not the slot's name. On 2026-11-24 the
+	//			Blue slot pointed at violet and the chip still showed blue.
+	//Returns: The lowercase name, or "" when the body is not JSON or carries no valid name
+	if (!is_string($strresponse) || $strresponse=="") {
+		return "";
+	}
+	$arrresponse=json_decode($strresponse,true);
+	if (!is_array($arrresponse) || !isset($arrresponse["instance"])) {
+		return "";
+	}
+	$strinstance=strtolower(trim((string)$arrresponse["instance"]));
+	return preg_match('/^[a-z][a-z0-9-]{0,30}$/', $strinstance)===1 ? $strinstance : "";
+}
+
+function f_apiinstancechip($strinstance) {
+	//Purpose: The coloured dot of an API instance
+	//Returns: One emoji; a white dot for an unknown or unreadable instance, so a new colour
+	//			shows up as "unknown" instead of borrowing another one's dot
+	$arrchips=array("blue"=>"🔵","green"=>"🟢","violet"=>"🟣","brown"=>"🟤");
+	return isset($arrchips[$strinstance]) ? $arrchips[$strinstance] : "⚪";
+}
+
+function f_apiinstancecacheread($strfile, $lngnow, $lngttl=TEXT2SQL_API_VERSION_CACHE_TTL) {
+	//Purpose: Reads a cached instance name if it is still fresh (same rules as the version)
+	if (!is_file($strfile)) {
+		return "";
+	}
+	$lngmtime=@filemtime($strfile);
+	if ($lngmtime===false || $lngnow-$lngmtime>=$lngttl) {
+		return "";
+	}
+	$strinstance=trim((string)@file_get_contents($strfile));
+	return preg_match('/^[a-z][a-z0-9-]{0,30}$/', $strinstance)===1 ? $strinstance : "";
+}
+
 function f_apiversioncachefile($strcolor, $strbaseurl, $strdir="") {
 	//Purpose: Path of the cache file of one colour
 	//Params:	$strbaseurl: Part of the key, so that a changed API URL never reads the old answer

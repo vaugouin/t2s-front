@@ -334,15 +334,15 @@ if ($intdbavailable) {
 	if (!$intloadmore) {
 		$strh1extra="<a href=\"text2sql-settings.php\" alt=\"".get_movie_string('lib_text2sql_settings')."\" title=\"".get_movie_string('lib_text2sql_settings')."\" class=\"no-hover\">⚙️</a>";
 		//No colour switch in the demo mode: the colour is the one set in global-light.inc.php
-		switch (empty($intbyok) ? $strapicolor : "") {
-		case "Blue":
-			$strcoloralturl="index.php?search=".urlencode($strsearch)."&amp;apicolor=Green";
-			$strh1extra.=" <a href=\"".$strcoloralturl."\" alt=\"".get_movie_string('lib_t2s_api_blue_to_green')."\" title=\"".get_movie_string('lib_t2s_api_blue_to_green')."\" class=\"no-hover\">🔵</a>";
-			break;
-		case "Green":
-			$strcoloralturl="index.php?search=".urlencode($strsearch)."&amp;apicolor=Blue";
-			$strh1extra.=" <a href=\"".$strcoloralturl."\" alt=\"".get_movie_string('lib_t2s_api_green_to_blue')."\" title=\"".get_movie_string('lib_t2s_api_green_to_blue')."\" class=\"no-hover\">🟢</a>";
-			break;
+		//The dot is the colour of the instance that answers on the slot (blue, green, violet or
+		//brown, read from GET / of the API), not the slot's own name: either slot may point at any
+		//of the four instances. The link still flips the slot.
+		if (empty($intbyok) && ($strapicolor=="Blue" || $strapicolor=="Green")) {
+			$strslotalt=($strapicolor=="Blue" ? "Green" : "Blue");
+			$strcoloralturl="index.php?search=".urlencode($strsearch)."&amp;apicolor=".$strslotalt;
+			$strinstance=f_text2sqlapiinstance($strapicolor);
+			$strcolortitle=get_movie_string($strapicolor=="Blue" ? 'lib_t2s_api_blue_to_green' : 'lib_t2s_api_green_to_blue')." (".($strinstance!="" ? $strinstance : "?").")";
+			$strh1extra.=" <a href=\"".$strcoloralturl."\" alt=\"".f_htmlattr($strcolortitle)."\" title=\"".f_htmlattr($strcolortitle)."\" class=\"no-hover\">".f_apiinstancechip($strinstance)."</a>";
 		}
 		f_headerdisplay($strsearch." ".get_movie_string('lib_text2sql_search'),$strh1extra);
 		echo "<form method=\"GET\" name=\"frmmain\" id=\"frmmain\">";

@@ -199,7 +199,9 @@ if ($intdbavailable) {
 		$intchecked=($strapicolor===$strcolor);
 		echo "<label style=\"display:block; margin:4px 0;\">";
 		echo "<input type=\"radio\" name=\"apicolor\" value=\"".htmlspecialchars($strcolor,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";
-		echo ($strcolor==="Blue"?"🔵 ":"🟢 ").htmlspecialchars($strcolor,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+		//The slot's name, and the instance that answers on it with its own dot
+		$strinstance=f_text2sqlapiinstance($strcolor);
+		echo f_apiinstancechip($strinstance)." ".htmlspecialchars($strcolor,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($strinstance!="" ? " (".htmlspecialchars($strinstance,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').")" : "");
 		echo "</label>";
 	}
 
