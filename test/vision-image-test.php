@@ -390,6 +390,14 @@ foreach ($arrdroplabelkeys as $strdropkey => $strdropstring) {
 	f_check("'".$strdropkey."' is passed to f_visionsearchjs()",true,strpos($strsearchsourcetext,"\"".$strdropkey."\" => (string)get_movie_string('".$strdropstring."')")!==false);
 }
 
+echo "\nVision samples\n";
+f_check("fixture path gives the file name","20260920-191233_vision_1.1.19_4ed5e16e4cda66bd1be1b130b9e34624.jpg",f_visionsamplefile("vision/20260920-191233_vision_1.1.19_4ed5e16e4cda66bd1be1b130b9e34624.jpg"));
+f_check("a path that is not a generated name is refused","",f_visionsamplefile("vision/../../etc/passwd"));
+f_check("an empty path is refused","",f_visionsamplefile(""));
+$strsamplesjs=f_visionsamplesjs("upload-vision.php?apicolor=Blue","index.php",array("sending"=>"Sending \"it\"\n</script>","errorupload"=>"L'envoi a échoué"));
+f_check("no raw closing script tag in the samples script",false,stripos($strsamplesjs,"</script")!==false);
+f_nodecheck("the vision samples script",$strsamplesjs);
+
 // ---------------------------------------------------------------------------
 echo "\n".$lngchecks." checks, ".$lngfailures." failure(s).\n";
 exit($lngfailures>0 ? 1 : 0);

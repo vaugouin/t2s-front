@@ -447,8 +447,6 @@ if ($intdbavailable) {
 		echo "</script>";
 		//echo "<br />";
 		//echo "<input type=\"submit\" name=\"val\" value=\"".get_movie_string('lib_search_button')."\" >";
-		echo " ";
-		echo "<a href=\"".$strrenderalturl."\">".$strlibswitchrender."</a>";
 		echo "</form>";
 	}
 	//The third term is the whole point of the ticket: without it a form carrying

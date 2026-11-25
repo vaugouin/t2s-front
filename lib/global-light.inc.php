@@ -4050,8 +4050,24 @@ function f_text2sqlapiinstance($strcolor) {
 		return $arrmemo[$strcolor];
 	}
 	$strbaseurl=($strcolor=="Blue" ? $strtext2sqlapibluedomainurl : $strtext2sqlapigreendomainurl);
+	$arrmemo[$strcolor]=f_text2sqlapiinstanceaturl($strbaseurl,"instance-".$strcolor);
+	return $arrmemo[$strcolor];
+}
+
+function f_text2sqlapiinstanceaturl($strbaseurl, $strcachekey="") {
+	//Purpose: Name of the API instance that answers GET / on one base URL
+	//Params:	$strbaseurl: Base URL of a slot or of one instance
+	//			$strcachekey: Part of the cache file name ("instance-Blue"), the URL is the other part
+	//Returns: "blue", "green", "violet", "brown"..., from the five-minute file cache, else the API
+	//			itself; "" when the API is unreachable, down or predates the field
+	global $strtext2sqlapikeyname;
+	global $strtext2sqlapikeyvalue;
+
+	if ($strcachekey=="") {
+		$strcachekey="instance-url";
+	}
 	//Keyed on the URL like the version, so a switch shows the new instance within five minutes
-	$strcachefile=f_apiversioncachefile("instance-".$strcolor, $strbaseurl);
+	$strcachefile=f_apiversioncachefile($strcachekey, $strbaseurl);
 	$strinstance=f_apiinstancecacheread($strcachefile, time());
 	if ($strinstance=="" && $strbaseurl!="" && function_exists('curl_init')) {
 		$curl=curl_init();
@@ -4079,7 +4095,6 @@ function f_text2sqlapiinstance($strcolor) {
 			}
 		}
 	}
-	$arrmemo[$strcolor]=$strinstance;
 	return $strinstance;
 }
 
@@ -4443,6 +4458,43 @@ if ($intbyok) {
 	$arrallowedmodels=f_byokopenaimodels($arrallowedmodels);
 	$arrallowedcomplexmodels=f_byokopenaimodels($arrallowedcomplexmodels);
 	$arrallowedresultentitymodels=f_byokopenaimodels($arrallowedresultentitymodels);
+}
+
+//Private mode can also call one of the API instances by name (blue, green, violet, brown), not only
+//the two slots: a way to try the reserve instance before the clients are switched to it. The
+//choice travels as apicolor=instance-<name> (request or cookie, lib/api-version.inc.php). It is
+//applied here, once, by pointing the Green slot at that instance and rewriting the value to
+//"Green", so every page that knows only the two slots (search, samples, feedback, picture upload)
+//calls the chosen instance without knowing about it. $strtext2sqlapiinstancechosen keeps the name
+//for the settings page. Outside private mode, and in demo mode, the value is ignored like any
+//unknown colour.
+$arrtext2sqlapiinstances=f_apiinstanceurls(env('TEXT2SQL_API_INSTANCES',''),$strtext2sqlapibluedomainurl);
+$strtext2sqlapiinstancechosen="";
+if ($intprivate && empty($intbyok)) {
+	$strapicolorraw="";
+	if (isset($_GET['apicolor'])) {
+		$strapicolorraw=(string)$_GET['apicolor'];
+	} elseif (isset($_POST['apicolor'])) {
+		$strapicolorraw=(string)$_POST['apicolor'];
+	} elseif (isset($_COOKIE['apicolor'])) {
+		$strapicolorraw=(string)$_COOKIE['apicolor'];
+	}
+	$strtext2sqlapiinstancechosen=f_apiinstancechoice($strapicolorraw,$arrtext2sqlapiinstances);
+	if ($strtext2sqlapiinstancechosen!="") {
+		$strtext2sqlapigreendomainurl=$arrtext2sqlapiinstances[$strtext2sqlapiinstancechosen];
+		if (isset($_GET['apicolor'])) {
+			$_GET['apicolor']="Green";
+		}
+		if (isset($_POST['apicolor'])) {
+			$_POST['apicolor']="Green";
+		}
+		if (isset($_REQUEST['apicolor'])) {
+			$_REQUEST['apicolor']="Green";
+		}
+		if (isset($_COOKIE['apicolor'])) {
+			$_COOKIE['apicolor']="Green";
+		}
+	}
 }
 
 function f_searchlink($strexpr) {

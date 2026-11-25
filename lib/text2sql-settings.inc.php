@@ -97,8 +97,11 @@ if ($strresultentitymodel=="") {
 }
 
 if ($intapicolorset) {
-	setcookie("apicolor",$strapicolor,$lngcookieexpires,"/");
-	$_COOKIE['apicolor']=$strapicolor;
+	//An instance picked by name (private mode) reached this page rewritten to the Green slot by
+	//global-light.inc.php; the cookie keeps the name, or the next page would call the Green slot.
+	$strapicolorcookie=($strtext2sqlapiinstancechosen!="" ? "instance-".$strtext2sqlapiinstancechosen : $strapicolor);
+	setcookie("apicolor",$strapicolorcookie,$lngcookieexpires,"/");
+	$_COOKIE['apicolor']=$strapicolorcookie;
 }
 if ($inteemodelset) {
 	setcookie("eemodel",$streemodel,$lngcookieexpires,"/");
@@ -197,8 +200,39 @@ if ($intdbavailable) {
 	}
 	echo "</select>";
 
-	//Demo mode: no colour choice (global-light.inc.php ignores it)
-	$arrcolors=(empty($intbyok) ? array("Blue","Green") : array());
+	//Private mode: every API instance, by name, with its state and the one the front end uses
+	//(the instance behind the default slot, $strtext2sqlapicolor). Picking that one stores the slot
+	//itself, so the choice follows the next switch of the clients instead of staying on a name.
+	if ($intprivate && empty($intbyok) && count($arrtext2sqlapiinstances)>0) {
+		$strliveinstance=f_text2sqlapiinstance($strtext2sqlapicolor);
+		$strcurrentinstance=($strtext2sqlapiinstancechosen!="" ? $strtext2sqlapiinstancechosen : f_text2sqlapiinstance($strapicolor));
+		echo "<div style=\"margin-top:8px;\"><strong>API instance</strong></div>";
+		foreach ($arrtext2sqlapiinstances as $strname=>$strurl) {
+			$stranswering=f_text2sqlapiinstanceaturl($strurl);
+			$intlive=($strliveinstance!="" && $strname===$strliveinstance);
+			$strvalue=($intlive ? $strtext2sqlapicolor : "instance-".$strname);
+			$intchecked=($strcurrentinstance!="" && $strname===$strcurrentinstance);
+			$strport=(string)parse_url($strurl,PHP_URL_PORT);
+			$strstate="";
+			if ($stranswering=="") {
+				$strstate=" <em style=\"opacity:0.7;\">(not answering)</em>";
+			} elseif ($stranswering!==$strname) {
+				$strstate=" <em style=\"opacity:0.7;\">(answers as ".htmlspecialchars($stranswering,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').")</em>";
+			}
+			echo "<label style=\"display:block; margin:4px 0;\">";
+			echo "<input type=\"radio\" name=\"apicolor\" value=\"".htmlspecialchars($strvalue,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";
+			echo f_apiinstancechip($strname)." ".htmlspecialchars(ucfirst($strname),ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($strport!="" ? " (:".htmlspecialchars($strport,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').")" : "");
+			echo $strstate;
+			if ($intlive) {
+				echo " <strong>used by the front end</strong>".$strdefaulttag;
+			}
+			echo "</label>";
+		}
+	}
+
+	//Demo mode: no colour choice (global-light.inc.php ignores it). Private mode lists the
+	//instances above instead of the two slots.
+	$arrcolors=(empty($intbyok) && !($intprivate && count($arrtext2sqlapiinstances)>0) ? array("Blue","Green") : array());
 	if (count($arrcolors)>0) {
 		echo "<div style=\"margin-top:8px;\"><strong>API color</strong></div>";
 	}

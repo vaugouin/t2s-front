@@ -12,7 +12,8 @@ Current version: see [VERSION](VERSION).
 - **Detail pages** for movies, series, seasons, episodes and persons, with collapsible sections (cast, crew, images, videos, external identifiers, Wikidata properties, Wikipedia sections, watch providers, release dates).
 - **Entity pages**: collections, companies, networks, genres, keywords, lists, awards, nominations, locations, movements, groups, source works, technical properties, topics, characters, jobs, languages, with the same collapsible sections and anchor bar as the detail pages.
 - **Image galleries** (`images.php`, `season-images.php`, `episode-images.php`).
-- **Settings** (`text2sql-settings.php`): model selectors per LLM task, kept in cookies.
+- **Samples** (under the search box): the sample questions of the evaluation bank, by category, each one a link that runs it. The image evaluations show as picture thumbnails, read from the folder published at `T2S_VISION_SAMPLES_URL` (default `/vision-samples`); one click deposits the picture again through `upload-vision.php` (the API keeps a deposit 30 days only, so a fixed image reference would expire) and opens the search on it. A text sample is shown once it has a passing run on the running API version with the default models, an image sample once a run on that version identified the picture.
+- **Settings** (`text2sql-settings.php`): model selectors per LLM task and speed tiers, kept in cookies, the default option of each marked "(default)". In private mode the API choice lists every instance by name (`TEXT2SQL_API_INSTANCES`, default `blue=8186,green=8187,violet=8188,brown=8189`), with its state and the one the front end uses; picking another sends `apicolor=instance-<name>`, which `lib/global-light.inc.php` applies by pointing the Green slot at that instance for the request.
 - **Plugins**: optional folders that add pages, menu entries and blocks to the pages above, in private mode only (see *Plugins*). The repository ships none.
 
 ## Layout

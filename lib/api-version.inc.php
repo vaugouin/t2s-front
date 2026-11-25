@@ -112,4 +112,65 @@ function f_apiversioncachewrite($strfile, $strversion) {
 	}
 	return @file_put_contents($strfile, $strversion, LOCK_EX)!==false;
 }
+
+//The four API instances and their ports, used when TEXT2SQL_API_INSTANCES is not set in .env.
+//Each runs from its own clone and answers GET / with its name; the two URL slots (Blue, Green)
+//point at whichever of them is in service.
+define('TEXT2SQL_API_INSTANCES_DEFAULT', "blue=8186,green=8187,violet=8188,brown=8189");
+
+function f_apiinstanceurls($strconfig, $strbaseurl) {
+	//Purpose: Base URL of every API instance, so private mode can call one by name
+	//Params:	$strconfig: "name=port" or "name=URL" pairs separated by commas
+	//			(TEXT2SQL_API_INSTANCES), TEXT2SQL_API_INSTANCES_DEFAULT when empty
+	//			$strbaseurl: A slot URL (the Blue one); a pair that gives a port only takes its
+	//			scheme and host, so the instances need no host name of their own in .env
+	//Returns: array(name=>base URL without trailing slash), in the configured order; a pair
+	//			with an invalid name or value is skipped, and a port-only pair is skipped when
+	//			the slot URL has no host
+	$arrresult=array();
+	$strconfig=trim((string)$strconfig);
+	if ($strconfig=="") {
+		$strconfig=TEXT2SQL_API_INSTANCES_DEFAULT;
+	}
+	$arrbase=parse_url((string)$strbaseurl);
+	$strprefix="";
+	if (is_array($arrbase) && isset($arrbase["host"]) && $arrbase["host"]!="") {
+		$strprefix=(isset($arrbase["scheme"]) ? $arrbase["scheme"] : "http")."://".$arrbase["host"];
+	}
+	foreach (explode(",",$strconfig) as $strpair) {
+		$arrpair=explode("=",$strpair,2);
+		if (count($arrpair)!=2) {
+			continue;
+		}
+		$strname=strtolower(trim($arrpair[0]));
+		$strvalue=trim($arrpair[1]);
+		if (preg_match('/^[a-z][a-z0-9-]{0,30}$/',$strname)!==1) {
+			continue;
+		}
+		if (preg_match('/^\d{1,5}$/',$strvalue)===1) {
+			if ($strprefix=="") {
+				continue;
+			}
+			$arrresult[$strname]=$strprefix.":".$strvalue;
+		} elseif (preg_match('#^https?://[^\s"\'<>]+$#i',$strvalue)===1) {
+			$arrresult[$strname]=rtrim($strvalue,"/");
+		}
+	}
+	return $arrresult;
+}
+
+function f_apiinstancechoice($strvalue, $arrinstances) {
+	//Purpose: Reads an apicolor value that names an instance rather than a slot
+	//Why: "Blue" and "Green" already name the two slots, and the instances are called blue and
+	//			green too, so an instance travels as "instance-<name>" to keep the two apart
+	//Params:	$strvalue: Raw apicolor value (request or cookie)
+	//			$arrinstances: Output of f_apiinstanceurls()
+	//Returns: The instance name when the value is "instance-<name>" and the name is known, else ""
+	$strvalue=strtolower(trim((string)$strvalue));
+	if (substr($strvalue,0,9)!=="instance-") {
+		return "";
+	}
+	$strname=substr($strvalue,9);
+	return (is_array($arrinstances) && isset($arrinstances[$strname])) ? $strname : "";
+}
 ?>

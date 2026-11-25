@@ -359,4 +359,49 @@ if (!function_exists('f_visionsearchjs')) {
 		return implode("\n",$arrlines)."\n";
 	}
 }
+
+if (!function_exists('f_visionsamplefile')) {
+	function f_visionsamplefile($strinputpath) {
+		//Purpose: File name of the picture of an image evaluation, for the vision samples
+		//Params:	$strinputpath: INPUT_IMAGE_PATH of the evaluation ("vision/<file>", relative to
+		//			the evaluator's fixtures folder, which the web server publishes read-only)
+		//Returns: The bare file name when it is one the API upload generator could have produced
+		//			(the fixtures keep those names), else "": a URL is built from it, so the same
+		//			whitelist as an image reference applies
+		$strfile=basename(str_replace("\\","/",trim((string)$strinputpath)));
+		return f_visionimagerefisvalid($strfile) ? $strfile : "";
+	}
+}
+
+if (!function_exists('f_visionsamplesjs')) {
+	function f_visionsamplesjs($strendpointurl,$strsearchurl,$arrlabels) {
+		//Purpose: Script of the vision samples: one click on a picture runs the search on it
+		//Why: the API keeps a deposited picture 30 days only, so a sample cannot carry a fixed
+		//			image reference: the old one is purged. The click fetches the picture from the
+		//			published fixtures, deposits it again through the same shim as the "+" button
+		//			(the API key stays on the server), then opens the search with the fresh reference.
+		//			The upload is content-addressed by the API, so a second click on the same
+		//			picture on the same second reuses the same file.
+		//Params:	$strendpointurl: The upload shim, with its apicolor parameter
+		//			$strsearchurl: The search page the result opens on
+		//			$arrlabels: "sending" and "errorupload" texts
+		//Returns: JavaScript, without the <script> tags; every PHP value goes through json_encode.
+		//			test/vision-image-test.php runs node --check on it.
+		$intflags=JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP;
+		$arrlines=array();
+		$arrlines[]="(function(){";
+		$arrlines[]="var strendpoint=".json_encode((string)$strendpointurl,$intflags).";";
+		$arrlines[]="var strsearch=".json_encode((string)$strsearchurl,$intflags).";";
+		$arrlines[]="var strlabelsending=".json_encode((string)($arrlabels["sending"] ?? ""),$intflags).";";
+		$arrlines[]="var strerrorupload=".json_encode((string)($arrlabels["errorupload"] ?? ""),$intflags).";";
+		$arrlines[]="if(typeof window.fetch!=='function'){return;}";
+		$arrlines[]="var intbusy=false;";
+		$arrlines[]="function f_samplestatus(strtext,intiserror){var objstatus=document.getElementById('visionSampleStatus');if(!objstatus){return;}objstatus.textContent=strtext;objstatus.style.color=intiserror?'#ff6b6b':'';objstatus.style.display=strtext?'block':'none';}";
+		$arrlines[]="function f_samplefail(objbutton,strerror){intbusy=false;objbutton.style.opacity='';f_samplestatus(strerror||strerrorupload,true);}";
+		$arrlines[]="function f_samplerun(objbutton){var strsrc=objbutton.getAttribute('data-src');if(!strsrc||intbusy){return;}intbusy=true;objbutton.style.opacity='0.5';f_samplestatus(strlabelsending,false);fetch(strsrc,{credentials:'same-origin'}).then(function(objresponse){if(!objresponse.ok){throw new Error('fetch');}return objresponse.blob();}).then(function(objblob){var strtype=(objblob.type==='image/png'?'image/png':'image/jpeg');return fetch(strendpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':strtype},body:objblob});}).then(function(objresponse){return objresponse.json().then(function(objjson){return {ok:objresponse.ok,body:objjson};},function(){return {ok:false,body:{}};});}).then(function(objresult){if(!objresult.ok||!objresult.body||!objresult.body.image_ref){f_samplefail(objbutton,(objresult.body&&objresult.body.error)?objresult.body.error:'');return;}window.location.href=strsearch+(strsearch.indexOf('?')<0?'?':'&')+'imageref='+encodeURIComponent(objresult.body.image_ref);}).catch(function(){f_samplefail(objbutton);});}";
+		$arrlines[]="document.addEventListener('click',function(objevent){var objtarget=objevent.target;while(objtarget&&objtarget!==document){if(objtarget.classList&&objtarget.classList.contains('t2s-vision-sample')){objevent.preventDefault();f_samplerun(objtarget);return;}objtarget=objtarget.parentNode;}});";
+		$arrlines[]="})();";
+		return implode("\n",$arrlines);
+	}
+}
 ?>

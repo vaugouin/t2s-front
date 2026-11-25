@@ -57,6 +57,18 @@ f_check("violet dot",f_apiinstancechip("violet"),"🟣");
 f_check("brown dot",f_apiinstancechip("brown"),"🟤");
 f_check("unknown instance: white dot",f_apiinstancechip(""),"⚪");
 
+echo "\nInstances by name\n";
+$arrinst=f_apiinstanceurls("","http://api.example.test:8186");
+f_check("default: four instances",implode(",",array_keys($arrinst)),"blue,green,violet,brown");
+f_check("port pair takes the slot host",$arrinst["violet"],"http://api.example.test:8188");
+f_check("https slot kept",f_apiinstanceurls("brown=8189","https://api.example.test:8010/")["brown"],"https://api.example.test:8189");
+f_check("full URL pair",f_apiinstanceurls("red=http://other.test:9000/","")["red"],"http://other.test:9000");
+f_check("port pair without a slot host skipped",count(f_apiinstanceurls("blue=8186","")),0);
+f_check("invalid pairs skipped",implode(",",array_keys(f_apiinstanceurls("Bad Name=1,x=javascript:1,ok=8000,nope","http://h.test"))),"ok");
+f_check("instance choice read",f_apiinstancechoice("instance-Violet",$arrinst),"violet");
+f_check("slot value is not an instance",f_apiinstancechoice("Blue",$arrinst),"");
+f_check("unknown instance refused",f_apiinstancechoice("instance-red",$arrinst),"");
+
 echo "\nCache\n";
 $strdir=sys_get_temp_dir().DIRECTORY_SEPARATOR."t2s-front-api-version-test-".getmypid();
 @mkdir($strdir);
