@@ -287,7 +287,7 @@ if ($intdbavailable) {
 	}
 
 	//Speed per task: three states, so radio buttons. Ultrafast wins over Fast in the API, and it
-	//exists only for GPT-6 Astra and GPT-6.1 Sol (Fast on the other models).
+	//exists only for GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra and GPT-6.2 Sol (Fast on the other models).
 	$arrfastlabels=array(
 		"entity_extraction"=>"Entity extraction",
 		"text2sql"=>"Text-to-SQL",
@@ -298,7 +298,7 @@ if ($intdbavailable) {
 	$arrspeedlabels=array(
 		"normal"=>"Normal",
 		"fast"=>"⚡ Fast (about twice the price)",
-		"ultrafast"=>"🚀 Ultrafast (about six times the price, GPT-6 Astra and GPT-6.1 Sol only)"
+		"ultrafast"=>"🚀 Ultrafast (about six times the price, GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra and Sol only)"
 	);
 	echo "<div style=\"margin-top:10px;\"><strong>Speed per task (OpenAI service tier)</strong></div>";
 	echo "<input type=\"hidden\" name=\"speedset\" value=\"1\">";
