@@ -73,8 +73,11 @@ $strtext2sqlapigreent2sllm="gpt-6-sol";
 //2026-10-17: the complex question moves to gpt-6.1-sol, like the API default. On the
 //escalated subset it beat gpt-4o (28 against 24 EN, 38 against 31 FR) and gpt-6-sol, about 2 s
 //slower on that step. A visitor who saved a model in the settings keeps it (complexmodel cookie).
-$strtext2sqlapibluecomplexllm="gpt-6.1-sol";
-$strtext2sqlapigreencomplexllm="gpt-6.1-sol";
+//2026-11-25: gpt-6.2-sol, like the API default. On the escalated subset (API 1.1.20) it fixed 7
+//questions gpt-6.1-sol missed and lost 1, about 3 s on that step. gpt-6.2-astra did barely better
+//(+9/-1) at about 3.6 times the cost, so it stays a choice, not the default.
+$strtext2sqlapibluecomplexllm="gpt-6.2-sol";
+$strtext2sqlapigreencomplexllm="gpt-6.2-sol";
 //The API exposes five LLM tasks, not three. The answer-entity
 //classifier fires on 99.9% of requests and had no selector at all until then; the
 //single-value answerer used to borrow the complex-question one.
