@@ -76,6 +76,13 @@ if (!in_array($strcomplexmodel,$arrallowedcomplexmodels,true)) {
 if (!in_array($strresultentitymodel,$arrallowedresultentitymodels,true)) {
 	$strresultentitymodel="";
 }
+//The model each task uses when nothing is chosen: the one the API colour's .env names. The page
+//marks it "(default)" so a visitor can see what a reset would give back.
+$strdefaulteemodel=($strapicolor=="Blue"?$strtext2sqlapiblueeellm:$strtext2sqlapigreeneellm);
+$strdefaultt2smodel=($strapicolor=="Blue"?$strtext2sqlapibluet2sllm:$strtext2sqlapigreent2sllm);
+$strdefaultcomplexmodel=($strapicolor=="Blue"?$strtext2sqlapibluecomplexllm:$strtext2sqlapigreencomplexllm);
+$strdefaultresultentitymodel=($strapicolor=="Blue"?$strtext2sqlapiblueresultentityllm:$strtext2sqlapigreenresultentityllm);
+$strdefaulttag=" <em style=\"opacity:0.7;\">(default)</em>";
 if ($streemodel=="") {
 	$streemodel=($strapicolor=="Blue"?$strtext2sqlapiblueeellm:$strtext2sqlapigreeneellm);
 }
@@ -201,43 +208,47 @@ if ($intdbavailable) {
 		echo "<input type=\"radio\" name=\"apicolor\" value=\"".htmlspecialchars($strcolor,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";
 		//The slot's name, and the instance that answers on it with its own dot
 		$strinstance=f_text2sqlapiinstance($strcolor);
-		echo f_apiinstancechip($strinstance)." ".htmlspecialchars($strcolor,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($strinstance!="" ? " (".htmlspecialchars($strinstance,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').")" : "");
+		echo f_apiinstancechip($strinstance)." ".htmlspecialchars($strcolor,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($strinstance!="" ? " (".htmlspecialchars($strinstance,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').")" : "").($strcolor===$strtext2sqlapicolor?$strdefaulttag:"");
 		echo "</label>";
 	}
 
 	echo "<div style=\"margin-top:10px;\"><strong>Entity extraction model</strong></div>";
 	foreach ($arrallowedmodels as $strmodel) {
 		$intchecked=($streemodel===$strmodel);
+		$intdefault=($strdefaulteemodel===$strmodel);
 		echo "<label style=\"display:block; margin:4px 0;\">";
 		echo "<input type=\"radio\" name=\"eemodel\" value=\"".htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";
-		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($intdefault?$strdefaulttag:"");
 		echo "</label>";
 	}
 
 	echo "<div style=\"margin-top:10px;\"><strong>Text-to-SQL model</strong></div>";
 	foreach ($arrallowedmodels as $strmodel) {
 		$intchecked=($strt2smodel===$strmodel);
+		$intdefault=($strdefaultt2smodel===$strmodel);
 		echo "<label style=\"display:block; margin:4px 0;\">";
 		echo "<input type=\"radio\" name=\"t2smodel\" value=\"".htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";
-		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($intdefault?$strdefaulttag:"");
 		echo "</label>";
 	}
 
 	echo "<div style=\"margin-top:10px;\"><strong>Complex questions model</strong></div>";
 	foreach ($arrallowedcomplexmodels as $strmodel) {
 		$intchecked=($strcomplexmodel===$strmodel);
+		$intdefault=($strdefaultcomplexmodel===$strmodel);
 		echo "<label style=\"display:block; margin:4px 0;\">";
 		echo "<input type=\"radio\" name=\"complexmodel\" value=\"".htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";
-		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($intdefault?$strdefaulttag:"");
 		echo "</label>";
 	}
 
 	echo "<div style=\"margin-top:10px;\"><strong>Answer-entity classifier model</strong></div>";
 	foreach ($arrallowedresultentitymodels as $strmodel) {
 		$intchecked=($strresultentitymodel===$strmodel);
+		$intdefault=($strdefaultresultentitymodel===$strmodel);
 		echo "<label style=\"display:block; margin:4px 0;\">";
 		echo "<input type=\"radio\" name=\"resultentitymodel\" value=\"".htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\"".($intchecked?" checked":"")."> ";
-		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+		echo (isset($arrmodelemojis[$strmodel])?$arrmodelemojis[$strmodel]." ":"").htmlspecialchars($strmodel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($intdefault?$strdefaulttag:"");
 		echo "</label>";
 	}
 
@@ -269,7 +280,7 @@ if ($intdbavailable) {
 		foreach ($arrspeedlabels as $strspeed=>$strspeedlabel) {
 			echo "<label style=\"display:block; margin:2px 0;\">";
 			echo "<input type=\"radio\" name=\"speed_".htmlspecialchars($strtask,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')."\" value=\"".$strspeed."\"".($strcurrent===$strspeed?" checked":"")."> ";
-			echo htmlspecialchars($strspeedlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+			echo htmlspecialchars($strspeedlabel,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').($strspeed==="normal"?$strdefaulttag:"");
 			echo "</label>";
 		}
 		echo "</fieldset>";
