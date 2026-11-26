@@ -103,20 +103,21 @@ $strtext2sqlapigreenresultentityllm="gpt-6-luna";
 //(1.1.19, EN and FR, entity extraction and text-to-SQL): it stays selectable for those two tasks,
 //and this list also feeds the eval graph's filters (t2sevalexecgraph.inc.php).
 //2026-11-17: gpt-6.2-sol and gpt-6.2-astra join every list, for the comparison with the 6.1 line.
-$arrallowedmodels=array("gpt-6-sol","gpt-6.1-sol","gpt-6.2-sol","gpt-6.1-terra","gpt-6-astra","gpt-6.2-astra","gpt-6-luna","claude-opus-5-5");
+//2026-11-26: gpt-6.1-sol and gpt-6-astra leave every list, each replaced by its 6.2 successor
+//(gpt-6.2-sol fixed 7 escalated questions gpt-6.1-sol missed and lost 1). A saved cookie naming
+//one of them no longer validates and falls back to the default.
+$arrallowedmodels=array("gpt-6-sol","gpt-6.2-sol","gpt-6.1-terra","gpt-6.2-astra","gpt-6-luna","claude-opus-5-5");
 //2026-10-28: the answer-entity classifier can also pick OpenAI's Decisions
 //API (gpt-6-luna in closed-choice mode, POST /v1/decisions). An API that predates this name
 //returns nothing from the classifier and keeps the text-to-SQL step's own result_entity.
 //2026-10-28: the classifier and the complex question offer OpenAI models only; the
 //Claude, Gemini, Gemma, o1 and o3 entries leave these two lists. A saved cookie naming one of
 //them no longer validates and falls back to the default.
-$arrallowedresultentitymodels=array("gpt-6-sol","gpt-6.1-sol","gpt-6.2-sol","gpt-6.1-terra","gpt-6-astra","gpt-6.2-astra","gpt-6-luna","gpt-6-luna-decisions");
+$arrallowedresultentitymodels=array("gpt-6-sol","gpt-6.2-sol","gpt-6.1-terra","gpt-6.2-astra","gpt-6-luna","gpt-6-luna-decisions");
 $arrallowedcomplexmodels=array(
 	"gpt-6-sol",
-	"gpt-6.1-sol",
 	"gpt-6.2-sol",
 	"gpt-6.1-terra",
-	"gpt-6-astra",
 	"gpt-6.2-astra",
 	"gpt-6-luna"
 );
@@ -133,7 +134,7 @@ $arrfasttasks=array(
 );
 
 //OpenAI Ultrafast mode per task, the tier above Fast: about six times the standard price, and only
-//four models have it (gpt-6-astra, gpt-6.1-sol, gpt-6.2-astra, gpt-6.2-sol; the API falls back to Fast on the others). Kept in
+//two of the listed models have it (gpt-6.2-astra, gpt-6.2-sol; the API falls back to Fast on the others). Kept in
 //the `ultrafasttasks` cookie, sent only when ticked, like Fast.
 $arrultrafasttasks=array(
 	"entity_extraction"=>"llm_ultrafast_entity_extraction",
