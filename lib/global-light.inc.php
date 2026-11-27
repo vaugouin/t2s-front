@@ -5785,6 +5785,8 @@ function f_wikipediaidline($struilang,$stritemidwikidata) {
 	$strurl="";
 	$strsql="SELECT WIKIPEDIA_PAGE_TITLE, WIKIPEDIA_PAGE_URL FROM T_WC_WIKIPEDIA_PAGE_LANG ";
 	$strsql.="WHERE ID_WIKIDATA = ".f_stringtosql($stritemidwikidata)." AND LANG = ".f_stringtosql($struilang)." ";
+	// PAGE_EXISTS = 0 : article supprime de Wikipedia ou delie de son element Wikidata ; le lien serait mort.
+	$strsql.="AND PAGE_EXISTS = 1 ";
 	$result=f_sqlselect($strsql);
 	if ($result) {
 		if ($rstemp=f_sqlresultfetcharray($result)) {
@@ -5808,6 +5810,8 @@ function f_wikipediaattribution($struilang,$stritemidwikidata) {
 	$strurl="";
 	$strsql="SELECT WIKIPEDIA_PAGE_TITLE, WIKIPEDIA_PAGE_URL FROM T_WC_WIKIPEDIA_PAGE_LANG ";
 	$strsql.="WHERE ID_WIKIDATA = ".f_stringtosql($stritemidwikidata)." AND LANG = ".f_stringtosql($struilang)." ";
+	// PAGE_EXISTS = 0 : article supprime de Wikipedia ou delie de son element Wikidata ; le lien serait mort.
+	$strsql.="AND PAGE_EXISTS = 1 ";
 	$result=f_sqlselect($strsql);
 	if ($result) {
 		if ($rstemp=f_sqlresultfetcharray($result)) {
