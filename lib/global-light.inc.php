@@ -3312,7 +3312,7 @@ function f_receptiondisplay($lngmovieid) {
 	}
 	include_once(__DIR__."/reception-format.inc.php");
 	$arrrows=array();
-	$strsql="SELECT d.LABEL_CODE, d.LABEL_NAME, d.LABEL_NAME_FR, l.DETAIL, l.EVIDENCE ";
+	$strsql="SELECT d.ID_RECEPTION_LABEL, d.LABEL_CODE, d.LABEL_NAME, d.LABEL_NAME_FR, l.DETAIL, l.EVIDENCE ";
 	$strsql.="FROM T_WC_T2S_MOVIE_RECEPTION_LABEL l ";
 	$strsql.="INNER JOIN T_WC_T2S_RECEPTION_LABEL d ON d.ID_RECEPTION_LABEL = l.ID_RECEPTION_LABEL ";
 	$strsql.="WHERE l.ID_MOVIE = ".f_longtosql($lngmovieid)." AND l.DELETED = 0 AND d.DELETED = 0 ";
@@ -3327,6 +3327,7 @@ function f_receptiondisplay($lngmovieid) {
 	$strlabels=f_receptionlabelshtml($arrrows, $struilang);
 	if ($strlabels!="") {
 		echo "<p><strong>".get_movie_string('lib_movie_reception').":</strong> ".$strlabels." <small>(".get_movie_string('lib_movie_reception_source').")</small></p>";
+		echo f_receptionsentenceshtml($arrrows, $struilang, get_movie_string('lib_movie_reception_sentences'));
 	}
 	$strgrade=f_receptioncinemascore(f_fieldfromquery("SELECT CINEMASCORE FROM T_WC_T2S_MOVIE_RECEPTION WHERE ID_MOVIE = ".f_longtosql($lngmovieid)." AND DELETED = 0 ORDER BY ID_ROW LIMIT 1"));
 	if ($strgrade!="") {

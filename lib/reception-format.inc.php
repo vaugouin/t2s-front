@@ -49,10 +49,16 @@ if (!function_exists('f_receptionlabelhtml')) {
 			return "";
 		}
 		$strevidence=trim((string)($arrrow["EVIDENCE"] ?? ""));
+		$lnglabelid=(int)($arrrow["ID_RECEPTION_LABEL"] ?? 0);
+		// The sentence is quoted word for word from the article: curly quotes mark it as a quotation.
+		// The title is a desktop hover only: touch screens have no hover, so the movie page also
+		// lists the sentences in a block that opens on tap (f_receptionsentenceshtml).
+		$strtitle=($strevidence!="") ? " title=\"".f_receptionescape("“".$strevidence."”")."\"" : "";
 		$strhtml=f_receptionescape($strname);
-		if ($strevidence!="") {
-			// The sentence is quoted word for word from the article: curly quotes mark it as a quotation.
-			$strhtml="<span class=\"receptionLabel\" title=\"".f_receptionescape("“".$strevidence."”")."\">".$strhtml."</span>";
+		if ($lnglabelid>0) {
+			$strhtml="<a class=\"receptionLabel\" href=\"reception.php?receptionid=".$lnglabelid."\"".$strtitle.">".$strhtml."</a>";
+		} elseif ($strtitle!="") {
+			$strhtml="<span class=\"receptionLabel\"".$strtitle.">".$strhtml."</span>";
 		}
 		$strdetail=f_receptiondetail((string)($arrrow["LABEL_CODE"] ?? ""), $arrrow["DETAIL"] ?? "");
 		if ($strdetail!="") {
@@ -82,6 +88,38 @@ if (!function_exists('f_receptionlabelshtml')) {
 			$arrparts[]=$strpart;
 		}
 		return implode(", ", $arrparts);
+	}
+}
+
+if (!function_exists('f_receptionsentenceshtml')) {
+	//Purpose: render the quoted sentences of the labels in a block that opens on click or tap
+	//Params: $arrrows the label rows, $struilang the interface language, $strsummary the text of the closed block
+	//Returns: the HTML of the block, "" when no label carries a sentence
+	function f_receptionsentenceshtml($arrrows, $struilang, $strsummary) {
+		$arritems=array();
+		$arrseen=array();
+		foreach ($arrrows as $arrrow) {
+			$strcode=(string)($arrrow["LABEL_CODE"] ?? "");
+			$strevidence=trim((string)($arrrow["EVIDENCE"] ?? ""));
+			if ($strevidence=="" || ($strcode!="" && isset($arrseen[$strcode]))) {
+				continue;
+			}
+			$strname=trim((string)($arrrow["LABEL_NAME"] ?? ""));
+			$strnamefr=trim((string)($arrrow["LABEL_NAME_FR"] ?? ""));
+			if ($struilang!="en" && $strnamefr!="") {
+				$strname=$strnamefr;
+			}
+			if ($strname=="") {
+				continue;
+			}
+			$arrseen[$strcode]=true;
+			$arritems[]="<li><strong>".f_receptionescape($strname)."</strong>: “".f_receptionescape($strevidence)."”</li>";
+		}
+		if (count($arritems)==0) {
+			return "";
+		}
+		// <details> opens on tap without any script, which a hover title cannot do on a phone.
+		return "<details class=\"receptionSentences\"><summary>".f_receptionescape($strsummary)."</summary><ul>".implode("", $arritems)."</ul></details>";
 	}
 }
 

@@ -38,6 +38,19 @@ f_rccheck("detail in parentheses, escaped", "Banned (Ireland, Spain &amp; Portug
 	f_receptionlabelhtml(f_rcrow("banned", "Banned", "Interdit", "Ireland, Spain & Portugal"), "en"));
 f_rccheck("detail 'other' says nothing", "Controversial", f_receptionlabelhtml(f_rcrow("controversial", "Controversial", "", "other"), "en"));
 
+f_rccheck("label with an id links to its page, sentence kept as title",
+	"<a class=\"receptionLabel\" href=\"reception.php?receptionid=10\" title=\"“It has a cult following.”\">Cult film</a>",
+	f_receptionlabelhtml(array_merge(f_rcrow("cult", "Cult film", "", "", "It has a cult following."), array("ID_RECEPTION_LABEL"=>"10")), "en"));
+f_rccheck("label with an id and no sentence: a plain link",
+	"<a class=\"receptionLabel\" href=\"reception.php?receptionid=14\">Banned (Ireland)</a>",
+	f_receptionlabelhtml(array_merge(f_rcrow("banned", "Banned (Ireland)", ""), array("ID_RECEPTION_LABEL"=>14)), "en"));
+
+// The block of sentences, readable on a touch screen.
+f_rccheck("no sentence, no block", "", f_receptionsentenceshtml(array(f_rcrow("cult", "Cult film", "")), "en", "Sentences"));
+f_rccheck("one item per label with a sentence, escaped, French name",
+	"<details class=\"receptionSentences\"><summary>Phrases</summary><ul><li><strong>Film culte</strong>: “A &lt;cult&gt; film.”</li></ul></details>",
+	f_receptionsentenceshtml(array(f_rcrow("cult", "Cult film", "Film culte", "", "A <cult> film."), f_rcrow("cult", "Cult film", "Film culte", "", "Again."), f_rcrow("banned", "Banned", "Interdit")), "fr", "Phrases"));
+
 // The line of a movie.
 f_rccheck("no label, empty line", "", f_receptionlabelshtml(array(), "en"));
 f_rccheck("labels in row order, a repeated code shown once", "Mixed reviews, Box office bomb",
