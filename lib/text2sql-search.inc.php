@@ -880,6 +880,13 @@ if ($intdbavailable) {
 										$strcellurl="technical.php?technicalid=".$strvalue;
 									}
 									break;
+								case "ID_RECEPTION_LABEL":
+									if ($strrowurl=="") {
+										$strrowurl="reception.php?receptionid=".$strvalue;
+									} else {
+										$strcellurl="reception.php?receptionid=".$strvalue;
+									}
+									break;
 								case "ID_GENRE":
 									if ($strrowurl=="") {
 										$strrowurl="genre.php?genreid=".$strvalue;
@@ -1307,6 +1314,15 @@ if ($intdbavailable) {
 									case "ID_TECHNICAL":
 										if ($lngcol==0) {
 											$strlabel=get_movie_string('lib_t2s_label_technical');
+											$intisvisible=true;
+											$strresultkeycolumn=$strkey;
+										} else {
+											$intisvisible=false;
+										}
+										break;
+									case "ID_RECEPTION_LABEL":
+										if ($lngcol==0) {
+											$strlabel=get_movie_string('lib_reception_label');
 											$intisvisible=true;
 											$strresultkeycolumn=$strkey;
 										} else {
@@ -2208,6 +2224,39 @@ if ($intdbavailable) {
 										$strtechrating=isset($rstemprecord["IMDB_RATING"]) ? $rstemprecord["IMDB_RATING"] : (isset($rstemprecord["IMDB_RATING_WEIGHTED"]) ? $rstemprecord["IMDB_RATING_WEIGHTED"] : "");
 										$strtechoverview=isset($rstemprecord["OVERVIEW"]) ? $rstemprecord["OVERVIEW"] : "";
 										$strcardreveal=f_buildcardreveal($strtechnicalname, $arrmeta, $strtechrating, $strtechoverview);
+										$strcell=$strcardmedia.$strcardtext.$strcardreveal;
+										break;
+									case "ID_RECEPTION_LABEL":
+										//A critical reception label (cult film, box office bomb...): name in the page
+										//language, the Wikipedia image of its concept when it has one, its film count.
+										$arrresultkeyvalues[]=$strvalue;
+										if ($strrowurl=="") {
+											$strrowurl="reception.php?receptionid=".$strvalue;
+										} else {
+											$strcellurl="reception.php?receptionid=".$strvalue;
+										}
+										$strreceptionname=isset($rstemprecord["LABEL_NAME"]) ? trim((string)$rstemprecord["LABEL_NAME"]) : "";
+										if ($strreceptionname=="") {
+											$strreceptionname=(string)f_descfromcode("T_WC_T2S_RECEPTION_LABEL","ID_RECEPTION_LABEL","LABEL_NAME",$strvalue);
+										}
+										if ($struilang!="en") {
+											$strreceptionnamefr=isset($rstemprecord["LABEL_NAME_FR"]) ? trim((string)$rstemprecord["LABEL_NAME_FR"]) : trim((string)f_descfromcode("T_WC_T2S_RECEPTION_LABEL","ID_RECEPTION_LABEL","LABEL_NAME_FR",$strvalue));
+											if ($strreceptionnamefr!="") {
+												$strreceptionname=$strreceptionnamefr;
+											}
+										}
+										if (isset($rstemprecord["WIKIPEDIA_IMAGE_PATH"]) && trim($rstemprecord["WIKIPEDIA_IMAGE_PATH"])!="") {
+											$strimagepath=$rstemprecord["WIKIPEDIA_IMAGE_PATH"];
+										} else {
+											$strimagepath="/images/No_Image_Available.jpg";
+										}
+										$strcardmedia="<div class=\"search-poster-card-media\"><img src=\"".f_htmlattr($strimagepath)."\" alt=\"".f_htmlattr($strreceptionname)."\" title=\"".f_htmlattr($strreceptionname)."\" /></div>";
+										$strcardtext="<div class=\"search-poster-card-text\"><div class=\"search-poster-card-title\">".f_htmlspecialchars($strreceptionname)."</div></div>";
+										$arrmeta=array();
+										$lngreceptionmoviecount=isset($rstemprecord["MOVIE_COUNT"]) ? (int)$rstemprecord["MOVIE_COUNT"] : 0;
+										if ($lngreceptionmoviecount>0) { $arrmeta[]=$lngreceptionmoviecount.($lngreceptionmoviecount>1?" movies":" movie"); }
+										$strreceptionoverview=isset($rstemprecord["DESCRIPTION"]) ? $rstemprecord["DESCRIPTION"] : "";
+										$strcardreveal=f_buildcardreveal($strreceptionname, $arrmeta, "", $strreceptionoverview);
 										$strcell=$strcardmedia.$strcardtext.$strcardreveal;
 										break;
 									case "ID_LOCATION":

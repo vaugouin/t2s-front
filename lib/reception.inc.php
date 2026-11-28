@@ -3,7 +3,9 @@
  * Page of one critical reception label (for instance "Cult film" or "Box office bomb"):
  * what the label means, then the movies whose English Wikipedia article states it in words.
  * Each movie shows the detail of the label (scope of a record, countries of a ban) and the
- * sentence of the article that states it.
+ * sentence of the article that states it. A label linked to a Wikidata concept (cult film,
+ * box-office bomb, film censorship...) also shows that concept's image, Wikidata properties and
+ * Wikipedia article, as technical.php does; the critics verdicts have no such concept.
  */
 ini_set('memory_limit', -1);
 ini_set('max_execution_time', -1);
@@ -33,15 +35,31 @@ if ($intdbavailable) {
 				}
 				$strreceptiongroup=trim((string)$rstemp['LABEL_GROUP']);
 				$strreceptiondescription=trim((string)$rstemp['DESCRIPTION']);
+				// Read with ?? so the page still works on a database where the Wikidata columns do not exist yet.
+				$strreceptionwikidataid=trim((string)($rstemp['ID_WIKIDATA'] ?? ''));
+				$strreceptionwikipediapath=trim((string)($rstemp['WIKIPEDIA_IMAGE_PATH'] ?? ''));
 			}
 			f_sqlfreeresult($result);
 		}
 
 		if ($intfound) {
-			f_headerdisplay($strreceptionname,"",f_socialwikidataentity($strreceptionname,$strreceptiondescription,""));
+			f_headerdisplay($strreceptionname,"",f_socialwikidataentity($strreceptionname,$strreceptiondescription,$strreceptionwikipediapath));
 			echo "<h1>".f_htmlspecialchars($strreceptionname)."</h1>";
 
-			f_moviesectionreset(array("info","movies"));
+			// The lead image of the article in the language of the page first: the crawler fills
+			// WIKIPEDIA_IMAGE_PATH only when it fetched the article under this family, while
+			// MAIN_IMAGE_URL is kept per language whichever family fetched it.
+			if ($strreceptionwikidataid!="") {
+				$strpageimage=trim((string)f_fieldfromquery("SELECT MAIN_IMAGE_URL FROM T_WC_WIKIPEDIA_PAGE_LANG WHERE ID_WIKIDATA = ".f_stringtosql($strreceptionwikidataid)." AND LANG = ".f_stringtosql($struilang=="fr" ? "fr" : "en")." AND PAGE_EXISTS = 1 LIMIT 1"));
+				if ($strpageimage!="") {
+					$strreceptionwikipediapath=$strpageimage;
+				}
+			}
+			if ($strreceptionwikipediapath!="") {
+				echo "<p><img src=\"".f_htmlattr($strreceptionwikipediapath)."\" alt=\"".f_htmlattr($strreceptionname)."\" title=\"".f_htmlattr($strreceptionname)."\" style=\"background-color: white; max-width: 100%; height: auto;\" /></p>";
+			}
+
+			f_moviesectionreset(array("info","movies","wikidata","wikipedia"));
 			ob_start();
 			echo f_moviesectionopen("info","🪪",get_movie_string('lib_reception_label'),1);
 			if ($strreceptiondescription!="") {
@@ -50,6 +68,9 @@ if ($intdbavailable) {
 			}
 			if ($strreceptiongroup!="") {
 				echo "<p><strong>".get_movie_string('lib_reception_group').":</strong> ".f_htmlspecialchars(get_movie_string('lib_reception_group_'.$strreceptiongroup))."</p>";
+			}
+			if ($strreceptionwikidataid!="") {
+				echo "<p><strong>".get_movie_string('lib_movie_id_wikidata').":</strong> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strreceptionwikidataid)."\" target=\"_blank\" rel=\"noreferrer\">".f_htmlspecialchars($strreceptionwikidataid)."</a> <a href=\"".f_htmlattr("https://www.wikidata.org/wiki/".$strreceptionwikidataid)."\" target=\"_blank\" rel=\"noreferrer\"><img src=\"/images/Wikidata-logo.svg.png\" width=\"28\" height=\"16\" alt=\"Wikidata\" title=\"Wikidata\"></a></p>";
 			}
 			echo "<p><small>".f_htmlspecialchars(ucfirst(get_movie_string('lib_movie_reception_source'))).".</small></p>";
 			// The other labels, as links, so the visitor can move from one to the next.
@@ -100,6 +121,19 @@ if ($intdbavailable) {
 				f_sqlfreeresult($resultmovies);
 			}
 			echo "</table>";
+
+			if ($strreceptionwikidataid!="") {
+				// Same blocks as technical.php: the class of the item, all its V2 properties, then the
+				// sections of its Wikipedia article in the language of the page.
+				$strwditeminstanceofid=f_wikidataiteminstanceof_v2($strreceptionwikidataid);
+				$strwditeminstanceoflabel=f_getwikidatalabel($strwditeminstanceofid,$struilang,$arrwdsourcelabel);
+				echo f_moviesectionopen("wikidata","🧬",get_movie_string('lib_wikidata_section'));
+				echo "<p><strong><a href=\"property.php?propertyid=P31\">".get_movie_string('lib_wikidata_type')."</a>:</strong> ".$strwditeminstanceoflabel."</p>";
+				echo f_wikidataallpropertiesv2($struilang,$strreceptionwikidataid,", ");
+
+				echo f_moviesectionopen("wikipedia","📖",get_movie_string('lib_wikipedia_section'));
+				echo f_wikipediallsections($struilang,$strreceptionwikidataid,", ");
+			}
 			echo f_moviesectionclose();
 
 			//Hook page.beforefooter: blocks of the plugins at the end of the page
