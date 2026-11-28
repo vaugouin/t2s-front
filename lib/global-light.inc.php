@@ -3292,6 +3292,48 @@ function f_omdbdisplay($strimdbid) {
 //T_WC_T2S_WORK_FINANCE (process 75), one line per statement: the place (a link to its
 //location sheet, "worldwide" for Q13780930), the amount in its own currency, its date.
 //Nothing when the table is absent or the work has no statement.
+//Purpose: print the critical reception of a movie: the labels its Wikipedia article states in words
+//	(reviews at release, box office, later reputation, controversies and bans) and the audience grade.
+//	Each label carries, as a tooltip, the sentence of the article that states it. The review
+//	aggregator scores are not repeated here: f_omdbdisplay already prints them.
+//Params: $lngmovieid the movie
+//Returns: nothing; prints nothing when the movie has no label and no grade, or when the tables are not there yet
+function f_receptiondisplay($lngmovieid) {
+	global $struilang;
+	static $blntableexists=null;
+	if ($lngmovieid<=0) {
+		return;
+	}
+	if ($blntableexists===null) {
+		$blntableexists=f_stringtolong(f_fieldfromquery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('T_WC_T2S_RECEPTION_LABEL','T_WC_T2S_MOVIE_RECEPTION_LABEL','T_WC_T2S_MOVIE_RECEPTION')"))>=3;
+	}
+	if (!$blntableexists) {
+		return;
+	}
+	include_once(__DIR__."/reception-format.inc.php");
+	$arrrows=array();
+	$strsql="SELECT d.LABEL_CODE, d.LABEL_NAME, d.LABEL_NAME_FR, l.DETAIL, l.EVIDENCE ";
+	$strsql.="FROM T_WC_T2S_MOVIE_RECEPTION_LABEL l ";
+	$strsql.="INNER JOIN T_WC_T2S_RECEPTION_LABEL d ON d.ID_RECEPTION_LABEL = l.ID_RECEPTION_LABEL ";
+	$strsql.="WHERE l.ID_MOVIE = ".f_longtosql($lngmovieid)." AND l.DELETED = 0 AND d.DELETED = 0 ";
+	$strsql.="ORDER BY d.DISPLAY_ORDER, d.ID_RECEPTION_LABEL ";
+	$result=f_sqlselect($strsql);
+	if ($result) {
+		while ($rstemp=f_sqlresultfetcharray($result)) {
+			$arrrows[]=$rstemp;
+		}
+		f_sqlfreeresult($result);
+	}
+	$strlabels=f_receptionlabelshtml($arrrows, $struilang);
+	if ($strlabels!="") {
+		echo "<p><strong>".get_movie_string('lib_movie_reception').":</strong> ".$strlabels." <small>(".get_movie_string('lib_movie_reception_source').")</small></p>";
+	}
+	$strgrade=f_receptioncinemascore(f_fieldfromquery("SELECT CINEMASCORE FROM T_WC_T2S_MOVIE_RECEPTION WHERE ID_MOVIE = ".f_longtosql($lngmovieid)." AND DELETED = 0 ORDER BY ID_ROW LIMIT 1"));
+	if ($strgrade!="") {
+		echo "<p><strong>".get_movie_string('lib_movie_cinemascore').":</strong> ".$strgrade."</p>";
+	}
+}
+
 function f_workfinancedisplay($lngitemid,$stritemtype) {
 	global $struilang;
 	static $blntableexists=null;

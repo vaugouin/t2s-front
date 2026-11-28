@@ -667,6 +667,7 @@ if ($intdbavailable) {
 			if ($strt2snominations!="") {
 				echo "<p><strong>".get_movie_string('lib_movie_nominations').":</strong> ".$strt2snominations."</p>";
 			}
+			f_receptiondisplay($lngmovieid);
 			// Le lien inverse vers les lieux. LOCATION_ROLE est porte par la
 			// jointure et non par le lieu : Paris reste le meme Paris qu on y ait tourne ou que
 			// l action s y deroule. Les deux listes restent donc separees, les fusionner ferait
